@@ -1,0 +1,9 @@
+[
+  {"code": "undeclared_attachment", "name_uk": "Незаявлений додаток", "default_severity": "falsification_risk"},
+  {"code": "missing_attachment", "name_uk": "Відсутній заявлений додаток", "default_severity": "warning"},
+  {"code": "count_mismatch", "name_uk": "Розбіжність кількості аркушів/файлів", "default_severity": "warning"},
+  {"code": "late_addition", "name_uk": "Додано пізніше", "default_severity": "falsification_risk"},
+  {"code": "retroactive_registration", "name_uk": "Заднє число реєстрації", "default_severity": "falsification_risk"},
+  {"code": "type_mismatch", "name_uk": "Невідповідність типу", "default_severity": "critical"},
+  {"code": "unlisted_in_registry_snapshot", "name_uk": "Відсутній у зліпку реєстрації", "default_severity": "falsification_risk"}
+]

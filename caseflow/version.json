@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "product": "VARTA",
+  "version": "0.1.0",
+  "channel": "development",
+  "data_schema": 1,
+  "minimum_upgrade_version": "1.0.0",
+  "preserved_paths": [
+    "00_INBOX",
+    "01_ОПРАЦЬОВАНО",
+    "02_РОЗПАКОВАНО",
+    "03_РЕЄСТР",
+    "99_ПОТРЕБУЄ_ПЕРЕВІРКИ",
+    ".caseflow/config.json",
+    ".caseflow/secrets",
+    ".caseflow/anomaly_status.json",
+    ".caseflow/index.json",
+    ".caseflow/drive_index.json"
+  ]
+}

@@ -1,0 +1,46 @@
+{
+  "metadata": {
+    "document": "external-integrations-schema",
+    "status": "DRAFT",
+    "version": "v0.1",
+    "date": "2026-07-24"
+  },
+  "architecture_policy": {
+    "core_is_local_first": true,
+    "integrations_are_optional": true,
+    "core_must_work_without_integrations": true,
+    "airtable": {
+      "used_in_core": false,
+      "enabled": false,
+      "note": "Airtable не використовується в core CSMD і не визначає модель даних."
+    }
+  },
+  "integration_definition_schema": {
+    "id": "string",
+    "adapter_type": "string",
+    "enabled": "boolean",
+    "direction": "import|export|bidirectional",
+    "configuration_reference": "string|null",
+    "credential_reference": "string|null",
+    "data_classification": "string|null",
+    "timeout_seconds": "integer|null",
+    "retry_policy_reference": "string|null",
+    "mapping_reference": "string|null"
+  },
+  "security_rules": [
+    "Do not store secrets directly in this document.",
+    "Do not send private keys or key passwords to external services.",
+    "Require explicit enablement for each adapter.",
+    "Log outbound operations without exposing sensitive payloads."
+  ],
+  "integrations": [],
+  "assumptions": [
+    "Конкретні інтеграції ще не затверджені.",
+    "Секрети зберігатимуться через окремий механізм конфігурації."
+  ],
+  "open_questions": [
+    "Які зовнішні системи потрібні першими?",
+    "Чи дозволений будь-який зовнішній обмін матеріалами справ?",
+    "Які політики повторних спроб і журналювання потрібні?"
+  ]
+}

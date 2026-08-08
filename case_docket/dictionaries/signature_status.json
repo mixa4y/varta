@@ -1,0 +1,9 @@
+[
+  {"code": "valid", "name_uk": "Дійсний"},
+  {"code": "invalid", "name_uk": "Недійсний"},
+  {"code": "expired", "name_uk": "Сертифікат прострочений"},
+  {"code": "revoked", "name_uk": "Сертифікат відкликано"},
+  {"code": "not_signed", "name_uk": "Підпис відсутній"},
+  {"code": "not_checked", "name_uk": "Не перевірено"},
+  {"code": "check_error", "name_uk": "Помилка перевірки"}
+]

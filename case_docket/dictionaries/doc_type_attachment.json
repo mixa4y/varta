@@ -1,0 +1,11 @@
+[
+  {"code": "power_of_attorney", "name_uk": "Довіреність"},
+  {"code": "calculation", "name_uk": "Розрахунок (суми позову, збору тощо)"},
+  {"code": "receipt", "name_uk": "Квитанція про сплату судового збору"},
+  {"code": "contract_copy", "name_uk": "Копія договору"},
+  {"code": "evidence_copy", "name_uk": "Копія доказу"},
+  {"code": "correspondence_copy", "name_uk": "Копія листування"},
+  {"code": "certificate", "name_uk": "Довідка"},
+  {"code": "extract", "name_uk": "Витяг (з реєстру тощо)"},
+  {"code": "other_attachment", "name_uk": "Інший додаток"}
+]

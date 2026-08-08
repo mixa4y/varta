@@ -1,0 +1,85 @@
+metadata:
+  document: status-codes
+  status: DRAFT
+  version: v0.1
+  date: 2026-07-24
+
+document_lifecycle:
+  - draft
+  - approved
+  - superseded
+  - archived
+
+processing_status:
+  - pending
+  - in_progress
+  - completed
+  - completed_with_warnings
+  - failed
+  - skipped
+  - cancelled
+
+review_status:
+  - not_reviewed
+  - manual_review_required
+  - confirmed
+  - rejected
+  - inconclusive
+
+integrity_status:
+  - not_checked
+  - verified
+  - mismatch
+  - reference_unavailable
+  - error
+
+match_result:
+  - exact_match
+  - same_content_different_container
+  - formatting_difference
+  - metadata_difference
+  - content_difference
+  - missing_pages
+  - additional_pages
+  - signature_difference
+  - possible_version
+  - unrelated
+  - manual_review_required
+
+attachment_status:
+  - declared_and_present
+  - declared_but_missing
+  - present_but_undeclared
+  - possible_duplicate
+  - possible_version
+  - name_mismatch
+  - content_mismatch
+  - page_count_mismatch
+  - manual_review_required
+
+signature_status:
+  - not_checked
+  - valid
+  - invalid
+  - indeterminate
+  - certificate_expired_at_verification
+  - certificate_revoked
+  - certificate_status_unknown
+  - signer_mismatch
+  - content_unavailable
+  - unsupported_format
+  - error
+
+finding_severity:
+  - info
+  - warning
+  - significant
+  - critical
+
+rules:
+  - Статус описує технічний результат, а не автоматичну юридичну кваліфікацію.
+  - Новий статус додається через контрольовану зміну документа й міграцію за потреби.
+
+open_questions:
+  - Чи потрібні окремі статуси справи та провадження?
+  - Які severity допускаються в користувацьких звітах?

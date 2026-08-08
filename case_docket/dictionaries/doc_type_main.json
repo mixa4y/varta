@@ -1,0 +1,19 @@
+[
+  {"code": "claim", "name_uk": "Позовна заява"},
+  {"code": "counterclaim", "name_uk": "Зустрічний позов"},
+  {"code": "response", "name_uk": "Відзив"},
+  {"code": "reply", "name_uk": "Відповідь на відзив"},
+  {"code": "rejoinder", "name_uk": "Заперечення"},
+  {"code": "motion", "name_uk": "Клопотання"},
+  {"code": "application", "name_uk": "Заява"},
+  {"code": "appeal", "name_uk": "Апеляційна скарга"},
+  {"code": "cassation", "name_uk": "Касаційна скарга"},
+  {"code": "ruling", "name_uk": "Ухвала"},
+  {"code": "decision", "name_uk": "Рішення"},
+  {"code": "resolution", "name_uk": "Постанова"},
+  {"code": "order", "name_uk": "Наказ"},
+  {"code": "summons", "name_uk": "Повістка"},
+  {"code": "protocol_hearing", "name_uk": "Протокол судового засідання"},
+  {"code": "expert_opinion", "name_uk": "Висновок експерта"},
+  {"code": "witness_statement", "name_uk": "Показання свідка"}
+]

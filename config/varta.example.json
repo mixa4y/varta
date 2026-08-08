@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "1.0.0",
+  "product": "VARTA",
+  "workspace": {
+    "casesRoot": "cases",
+    "runtimeState": ".varta",
+    "reports": "reports",
+    "exports": "exports",
+    "temp": "temp"
+  },
+  "server": {
+    "host": "127.0.0.1",
+    "port": 8768,
+    "openBrowser": true
+  },
+  "naming": {
+    "transliteration": "kmu_55",
+    "dateFormat": "%Y%m%d",
+    "separator": "_",
+    "attachmentRole": "dodatok",
+    "sequenceWidth": 3
+  },
+  "caseProfile": null
+}

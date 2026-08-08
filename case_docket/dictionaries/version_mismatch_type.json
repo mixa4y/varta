@@ -1,0 +1,14 @@
+[
+  {"code": "identical", "name_uk": "Ідентичний"},
+  {"code": "stamp_only_diff", "name_uk": "Відмінність лише в службовій обгортці (штамп/ЕЦП)"},
+  {"code": "content_diff", "name_uk": "Відмінність у змісті"},
+  {"code": "substituted", "name_uk": "Ознаки підміни"},
+  {"code": "paragraph_added", "name_uk": "Додано абзац"},
+  {"code": "paragraph_removed", "name_uk": "Видалено абзац"},
+  {"code": "page_added", "name_uk": "Додано сторінку"},
+  {"code": "page_removed", "name_uk": "Видалено сторінку"},
+  {"code": "page_reordered", "name_uk": "Змінено порядок сторінок"},
+  {"code": "metadata_difference", "name_uk": "Відмінність метаданих файлу"},
+  {"code": "signature_difference", "name_uk": "Відмінність підпису/сертифіката"},
+  {"code": "ocr_difference", "name_uk": "Відмінність лише в розпізнаному тексті (можлива похибка OCR)"}
+]

@@ -1,0 +1,3 @@
+# Патч 11 — операційні параметри workflow.
+# Сам словник стадій -> dictionaries/workflow_status.json, не тут.
+default_status_on_intake: submitted

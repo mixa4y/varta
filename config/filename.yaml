@@ -1,0 +1,8 @@
+# Коротка назва в контексті папки справи та провадження.
+template: "{date}_{name}"
+attachment_role: "додаток"
+sequence_width: 3
+allowed_date_roles: [document_date, submitted_date, registered_date]
+missing_date_behavior: manual_review_required
+allow_imported_at_as_document_date: false
+transliteration_standard: kmu_55   # Постанова КМУ №55 (паспортна транслітерація)

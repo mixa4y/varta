@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VARTA — кабінет справи</title>
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body>
+  <div class="ambient ambient-one"></div>
+  <div class="ambient ambient-two"></div>
+
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="VARTA">
+      <span class="brand-mark">VA</span>
+      <span><strong>VARTA</strong><small>зв’язки, хронологія, аналіз</small></span>
+    </a>
+    <div class="case-heading">
+      <span class="eyebrow">Поточна справа</span>
+      <strong id="case-number">—</strong>
+    </div>
+    <div class="top-widget" aria-label="Швидкі параметри збереження">
+      <span class="top-widget-label">Зберігати</span>
+      <label class="mini-switch"><input type="checkbox" data-setting="includeOriginals"><span></span>Оригінали</label>
+      <label class="mini-switch"><input type="checkbox" data-setting="extractArchives"><span></span>RAR/ZIP</label>
+      <label class="mini-switch"><input type="checkbox" data-setting="includeCards"><span></span>Картки</label>
+      <label class="mini-switch"><input type="checkbox" data-setting="includeSignatures"><span></span>КЕП</label>
+    </div>
+    <button class="add-document-action" id="add-document-button" type="button" aria-controls="file-input">
+      <span aria-hidden="true">＋</span>Додати документ
+    </button>
+    <a class="manual-link map-link" href="/legal-case-map.html">Карта справи</a>
+    <a class="manual-link" href="/manual.html" target="_blank" rel="noopener">Інструкція</a>
+    <div class="connection-pill" id="connection-pill"><span></span>Локально</div>
+  </header>
+
+  <main class="layout">
+    <section class="content">
+      <div class="hero">
+        <div>
+          <span class="eyebrow">Вхідні матеріали</span>
+          <h1>Покладіть пакет — решту збере конвеєр</h1>
+          <p>Файли автоматично потраплять у потрібне провадження всередині <code>00_INBOX</code>. RAR, ZIP та всі підпапки обробляються рекурсивно.</p>
+        </div>
+        <div class="metric-row">
+          <article class="metric"><span>У INBOX</span><strong id="metric-files">0</strong><small>файлів</small></article>
+          <article class="metric"><span>Обсяг</span><strong id="metric-size">0</strong><small>МБ</small></article>
+          <article class="metric accent"><span>Останній запуск</span><strong id="metric-docs">—</strong><small>документів</small></article>
+          <article class="metric risk"><span>Відкриті сигнали</span><strong id="metric-anomalies">—</strong><small>нестиковок</small></article>
+        </div>
+      </div>
+
+      <section class="card upload-card">
+        <div class="card-title-row">
+          <div><span class="step">01</span><h2>Додати матеріали</h2></div>
+          <span class="safe-badge">Лише локальний запис</span>
+        </div>
+
+        <div class="form-grid">
+          <label><span>Провадження</span><input id="proceeding" autocomplete="off" placeholder="номер або локальний alias" value="НОВЕ_ПРОВАДЖЕННЯ"></label>
+          <label><span>Потік</span><select id="flow"><option value="02_МОЇ_ДОКУМЕНТИ">Мої документи</option><option value="01_ВІД_СУДУ">Від суду</option></select></label>
+          <label><span>Канал</span><select id="channel"><option>ЕСУД_МОЇ</option><option>ЕСУД_СУД</option><option>ЦІННИЙ_ЛИСТ</option><option>МЕСЕНДЖЕР</option><option>ОСОБИСТО</option><option>EMAIL</option><option>ПАПІР</option><option>ЄДРСР</option><option>АСВП</option><option>ІНШЕ</option></select></label>
+        </div>
+
+        <div class="drop-zone" id="drop-zone" tabindex="0" role="button" aria-label="Вибрати файли">
+          <input id="file-input" type="file" accept=".rar,.zip,.pdf,.doc,.docx,.rtf,.txt,.html,.htm,.png,.jpg,.jpeg,.webp,.bmp,.tif,.tiff,.p7s" multiple hidden>
+          <input id="folder-input" type="file" multiple webkitdirectory directory hidden>
+          <div class="drop-icon"><span>↓</span></div>
+          <h3>Перетягніть RAR-архів або окремий файл</h3>
+          <p>Основний формат пакета — RAR із віджета Chrome. Також підтримуються ZIP, PDF, DOCX, зображення, КЕП та окремі документи.</p>
+          <div class="drop-actions"><button class="secondary" id="choose-files" type="button">＋ Додати файл</button><button class="ghost" id="choose-folder" type="button">Вибрати папку</button></div>
+          <div class="selected-files" id="selected-files" aria-live="polite">Файли ще не вибрано</div>
+        </div>
+
+        <div class="action-row">
+          <button class="primary" id="upload-button" type="button"><span>Зберегти у 00_INBOX</span><b>→</b></button>
+          <p id="upload-status" class="status-text" aria-live="polite">Назви оригіналів не змінюються на етапі завантаження.</p>
+        </div>
+      </section>
+
+      <section class="card process-card">
+        <div class="card-title-row">
+          <div><span class="step">02</span><h2>Опрацювати INBOX</h2></div>
+          <button class="primary compact" id="process-button" type="button">Запустити конвеєр</button>
+        </div>
+        <div class="pipeline">
+          <div><b>1</b><span>Рекурсивна черга<small>усі підпапки</small></span></div>
+          <i>→</i><div><b>2</b><span>Безпечний RAR/ZIP<small>без виходу зі staging</small></span></div>
+          <i>→</i><div><b>3</b><span>DOC_ID і назви<small>стабільні зв’язки</small></span></div>
+          <i>→</i><div><b>4</b><span>Нова копія Реєстру<small>оригінал не стирається</small></span></div>
+        </div>
+        <div class="run-result" id="run-result"><span class="muted">Після запуску тут з’явиться звіт і шлях до нової копії Реєстру.</span></div>
+      </section>
+
+      <section class="card document-tree-card" id="document-tree-card">
+        <div class="card-title-row">
+          <div><span class="step">03</span><h2>Дерево документів</h2></div>
+          <button class="ghost" id="tree-refresh" type="button">Оновити дерево</button>
+        </div>
+        <div class="tree-toolbar">
+          <div class="tree-status-filters" role="group" aria-label="Фільтр статусу документів">
+            <button class="tree-filter active" type="button" data-tree-status="all">Усі <b id="tree-count-all">0</b></button>
+            <button class="tree-filter completed" type="button" data-tree-status="completed">Завершені <b id="tree-count-completed">0</b></button>
+            <button class="tree-filter in-progress" type="button" data-tree-status="in_progress">В роботі <b id="tree-count-in-progress">0</b></button>
+            <button class="tree-filter waiting" type="button" data-tree-status="waiting">Очікують <b id="tree-count-waiting">0</b></button>
+            <button class="tree-filter needs-review" type="button" data-tree-status="needs_review">Перевірити <b id="tree-count-needs-review">0</b></button>
+          </div>
+          <label class="tree-search"><span>Пошук у дереві</span><input id="tree-query" type="search" placeholder="DOC_ID, назва або провадження"></label>
+        </div>
+        <p class="tree-meta" id="tree-meta">Завантаження дерева…</p>
+        <div class="document-tree" id="document-tree" aria-live="polite"><div class="empty-state">Завантаження…</div></div>
+      </section>
+
+      <section class="card anomaly-card" id="anomaly-control">
+        <div class="card-title-row">
+          <div><span class="step">04</span><h2>Контроль нестиковок</h2></div>
+          <button class="primary compact" id="anomaly-button" type="button">Запустити перевірку</button>
+        </div>
+        <div class="anomaly-overview">
+          <div class="risk-score"><span>Індекс уваги</span><strong id="risk-score">—</strong><small>0–100; це не оцінка вини</small></div>
+          <div class="anomaly-count critical"><span>Критичні</span><strong id="count-critical">0</strong></div>
+          <div class="anomaly-count high"><span>Високі</span><strong id="count-high">0</strong></div>
+          <div class="anomaly-count medium"><span>Середні</span><strong id="count-medium">0</strong></div>
+          <div class="anomaly-count low"><span>Низькі</span><strong id="count-low">0</strong></div>
+        </div>
+        <div class="anomaly-toolbar">
+          <label><span>Рівень</span><select id="filter-severity"><option value="">Усі</option><option value="critical">Критичні</option><option value="high">Високі</option><option value="medium">Середні</option><option value="low">Низькі</option></select></label>
+          <label><span>Статус</span><select id="filter-status"><option value="open">Відкриті</option><option value="">Усі</option><option value="acknowledged">Взято до уваги</option><option value="resolved">Пояснено/усунуто</option><option value="false_positive">Хибний сигнал</option></select></label>
+          <label><span>Категорія</span><select id="filter-category"><option value="">Усі</option></select></label>
+          <label class="search-filter"><span>DOC_ID, провадження або текст</span><input id="filter-query" placeholder="Напр. DOC_0010 або номер провадження"></label>
+        </div>
+        <p class="anomaly-meta" id="anomaly-meta">Перевірка ще не запускалась.</p>
+        <div class="anomaly-list" id="anomaly-list"><div class="empty-state">Після перевірки тут з’являться доказові картки.</div></div>
+        <p class="neutral-notice">Автоматичний сигнал показує неузгодженість джерел. Він не доводить умисел, порушення чи втручання без перевірки первинних матеріалів.</p>
+      </section>
+
+      <section class="card recent-card">
+        <div class="card-title-row"><div><span class="step">05</span><h2>Останні надходження</h2></div><button class="ghost" id="refresh-button" type="button">Оновити</button></div>
+        <div class="table-wrap"><table><thead><tr><th>Файл</th><th>Шлях</th><th>Час</th><th>Розмір</th></tr></thead><tbody id="recent-body"><tr><td colspan="4" class="muted">Завантаження…</td></tr></tbody></table></div>
+      </section>
+    </section>
+
+    <aside class="widget" id="widget">
+      <div class="widget-head">
+        <div><span class="eyebrow">Віджет імпорту</span><h2>Що опрацьовувати</h2></div>
+        <button class="icon-button" id="collapse-widget" aria-label="Згорнути віджет">›</button>
+      </div>
+      <p class="widget-intro">Перемикачі діють і для верхньої панелі, і для конвеєра.</p>
+
+      <div class="switch-list">
+        <label class="switch-row"><span><b>Оригінали</b><small>копія у фінальну структуру</small></span><input type="checkbox" data-setting="includeOriginals"><i></i></label>
+        <label class="switch-row"><span><b>Розпаковувати RAR/ZIP</b><small>RAR через 7-Zip; вкладені ZIP рекурсивно</small></span><input type="checkbox" data-setting="extractArchives"><i></i></label>
+        <label class="switch-row"><span><b>Картки та протоколи</b><small>джерела часу й реквізитів</small></span><input type="checkbox" data-setting="includeCards"><i></i></label>
+        <label class="switch-row"><span><b>Підписи КЕП</b><small>.p7s як окремі компоненти</small></span><input type="checkbox" data-setting="includeSignatures"><i></i></label>
+        <label class="switch-row"><span><b>Скріншоти</b><small>лише докази для звірки</small></span><input type="checkbox" data-setting="includeScreenshots"><i></i></label>
+        <label class="switch-row"><span><b>Оновити Реєстр</b><small>створити нову копію .xlsx</small></span><input type="checkbox" data-setting="autoRegister"><i></i></label>
+        <label class="switch-row"><span><b>Контроль нестиковок</b><small>автоматично після нового Реєстру</small></span><input type="checkbox" data-setting="runAnomalyScan"><i></i></label>
+      </div>
+
+      <div class="opacity-control"><label for="opacity-range"><span>Прозорість віджета</span><output id="opacity-output">82%</output></label><input id="opacity-range" type="range" min="45" max="98" value="82"></div>
+
+      <div class="divider"></div>
+      <div class="drive-head"><div class="drive-logo">G</div><div><b>Google Drive</b><small id="drive-status">Не підключено</small></div></div>
+      <div class="drive-folders">
+        <label><input type="checkbox" data-drive="00_INBOX" checked><span>00_INBOX</span></label>
+        <label><input type="checkbox" data-drive="01_ОПРАЦЬОВАНО" checked><span>01_ОПРАЦЬОВАНО</span></label>
+        <label><input type="checkbox" data-drive="03_РЕЄСТР" checked><span>03_РЕЄСТР</span></label>
+      </div>
+      <button class="drive-button" id="drive-connect" type="button">Налаштувати й увійти</button>
+      <button class="secondary full" id="drive-sync" type="button" disabled>Синхронізувати вибране</button>
+
+      <details class="oauth-details" id="oauth-details">
+        <summary>OAuth Client ID</summary>
+        <label><span>Client ID (Desktop app)</span><input id="google-client-id" autocomplete="off" placeholder="….apps.googleusercontent.com"></label>
+        <label><span>Client secret (необов’язково)</span><input id="google-client-secret" type="password" autocomplete="off"></label>
+        <div class="oauth-actions"><button class="secondary" id="save-google" type="button">Зберегти</button><button class="ghost danger" id="disconnect-google" type="button">Від’єднати</button></div>
+        <p>У Google Cloud потрібно ввімкнути Drive API та створити OAuth-клієнт типу Desktop app.</p>
+      </details>
+
+      <footer><span class="lock">●</span> Сервер слухає лише <code>127.0.0.1</code>. Токен Drive захищено Windows DPAPI.</footer>
+    </aside>
+  </main>
+
+  <div class="toast" id="toast" role="status"></div>
+  <script src="/app.js"></script>
+</body>
+</html>

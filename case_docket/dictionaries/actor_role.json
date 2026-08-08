@@ -1,0 +1,13 @@
+[
+  {"code": "plaintiff", "name_uk": "Позивач"},
+  {"code": "defendant", "name_uk": "Відповідач"},
+  {"code": "third_party", "name_uk": "Третя особа"},
+  {"code": "representative", "name_uk": "Представник (адвокат)"},
+  {"code": "court", "name_uk": "Суд"},
+  {"code": "registry", "name_uk": "Канцелярія суду"},
+  {"code": "expert", "name_uk": "Експерт"},
+  {"code": "witness", "name_uk": "Свідок"},
+  {"code": "prosecutor", "name_uk": "Прокурор"},
+  {"code": "state_body", "name_uk": "Державний орган"},
+  {"code": "other", "name_uk": "Інше"}
+]

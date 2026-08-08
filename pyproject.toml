@@ -1,0 +1,54 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "varta"
+version = "0.1.0"
+description = "Verified Archive of Relations, Timeline & Analysis"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "openpyxl>=3.1",
+    "pypdf>=5.0",
+]
+
+[project.scripts]
+varta = "caseflow.server:main"
+
+[project.optional-dependencies]
+dev = [
+    "jsonschema>=4.23",
+    "mypy>=1.11",
+    "pytest>=8.0",
+    "ruff>=0.6",
+]
+future = [
+    "pydantic>=2.6",
+    "PyYAML>=6.0",
+]
+
+[tool.setuptools.packages.find]
+include = ["case_docket*", "caseflow*"]
+
+[tool.setuptools.package-data]
+case_docket = ["dictionaries/*.json"]
+caseflow = ["static/*", "version.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+# Initial consolidation gate: syntax/import/runtime errors. Stricter style and
+# modernization rules are enabled after the imported baseline is reviewed.
+select = ["E4", "E7", "E9", "F"]
+
+[tool.mypy]
+python_version = "3.12"
+warn_unused_configs = true
+check_untyped_defs = true

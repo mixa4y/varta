@@ -1,0 +1,18 @@
+{
+  "schemaVersion": "1.0.0",
+  "export": {
+    "exportId": "export_example",
+    "generatedAt": null,
+    "profile": "metadata_only"
+  },
+  "case": {
+    "id": "case_example",
+    "number": null,
+    "title": "Нова справа"
+  },
+  "proceedings": [],
+  "documents": [],
+  "events": [],
+  "relations": [],
+  "inventory": {}
+}

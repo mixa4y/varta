@@ -1,0 +1,9 @@
+[
+  {"code": "reg_card", "name_uk": "Реєстраційна картка документа"},
+  {"code": "movement_card", "name_uk": "Картка руху документа"},
+  {"code": "signature_protocol", "name_uk": "Протокол перевірки підпису (КЕП/ЄЦП)"},
+  {"code": "delivery_receipt", "name_uk": "Повідомлення про доставку/вручення"},
+  {"code": "system_log", "name_uk": "Системний журнал/лог автоматизованої системи"},
+  {"code": "hearing_audio", "name_uk": "Аудіозапис засідання"},
+  {"code": "hearing_video", "name_uk": "Відеозапис засідання"}
+]

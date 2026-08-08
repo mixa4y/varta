@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VARTA — доказова мапа</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #08111f;
+      --panel: rgba(18, 32, 51, .92);
+      --panel-2: #12253b;
+      --line: #294765;
+      --text: #f3f7fb;
+      --muted: #a7b8ca;
+      --cyan: #63d7ff;
+      --green: #4de39b;
+      --amber: #ffc565;
+      --red: #ff7185;
+      --violet: #b79cff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 15% -10%, rgba(38, 126, 171, .35), transparent 34rem),
+        radial-gradient(circle at 90% 10%, rgba(94, 67, 166, .24), transparent 30rem),
+        var(--bg);
+      color: var(--text);
+      font: 15px/1.5 "Segoe UI Variable Text", "Segoe UI", sans-serif;
+    }
+    button, a { font: inherit; }
+    button { color: inherit; }
+    .topbar {
+      min-height: 74px;
+      padding: 12px 22px;
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      border-bottom: 1px solid rgba(129, 176, 215, .19);
+      background: rgba(6, 15, 28, .78);
+      backdrop-filter: blur(18px);
+      position: sticky;
+      top: 0;
+      z-index: 20;
+    }
+    .brand { display: flex; gap: 10px; align-items: center; min-width: 180px; }
+    .brand-mark {
+      width: 40px; height: 40px; display: grid; place-items: center;
+      border: 1px solid rgba(99, 215, 255, .55); border-radius: 13px;
+      background: linear-gradient(145deg, rgba(99, 215, 255, .25), rgba(183, 156, 255, .14));
+      color: var(--cyan); font-weight: 800; letter-spacing: .08em;
+    }
+    .brand strong, .brand small { display: block; }
+    .brand strong { letter-spacing: .08em; }
+    .brand small, .meta, .eyebrow { color: var(--muted); }
+    .heading { min-width: 0; flex: 1; }
+    .heading strong { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .eyebrow { font-size: 11px; text-transform: uppercase; letter-spacing: .16em; }
+    .back {
+      color: var(--text); text-decoration: none; border: 1px solid var(--line);
+      border-radius: 11px; padding: 8px 12px; background: rgba(18, 37, 59, .7);
+    }
+    .shell { display: grid; grid-template-columns: minmax(0, 1fr) 350px; min-height: calc(100vh - 75px); }
+    .workspace { min-width: 0; padding: 18px; }
+    .toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+    .tab {
+      border: 1px solid var(--line); background: rgba(13, 28, 45, .72);
+      border-radius: 999px; padding: 8px 14px; cursor: pointer;
+    }
+    .tab.active { color: #04131f; border-color: var(--cyan); background: var(--cyan); font-weight: 700; }
+    .toolbar .meta { margin-left: auto; font-size: 12px; }
+    .surface {
+      min-height: calc(100vh - 135px); border: 1px solid rgba(90, 139, 180, .24);
+      border-radius: 22px; overflow: hidden; background: rgba(10, 23, 38, .76);
+      box-shadow: 0 24px 70px rgba(0, 0, 0, .28);
+    }
+    .view { display: none; }
+    .view.active { display: block; }
+    #map-view { position: relative; min-height: calc(100vh - 135px); overflow: auto; }
+    #map-canvas { position: relative; min-width: 980px; min-height: 680px; }
+    #edges { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+    .map-node {
+      position: absolute; width: 210px; min-height: 86px; padding: 13px 14px;
+      border: 1px solid var(--line); border-radius: 16px; cursor: pointer; text-align: left;
+      background: linear-gradient(145deg, rgba(24, 48, 74, .98), rgba(12, 27, 44, .98));
+      box-shadow: 0 12px 30px rgba(0, 0, 0, .24); transition: .16s ease;
+    }
+    .map-node:hover, .map-node.selected { transform: translateY(-2px); border-color: var(--cyan); }
+    .map-node strong { display: block; margin-top: 4px; line-height: 1.25; }
+    .map-node small { display: block; color: var(--muted); margin-top: 5px; }
+    .map-node .kind { color: var(--cyan); font-size: 10px; text-transform: uppercase; letter-spacing: .14em; }
+    .map-node.case { border-color: rgba(77, 227, 155, .65); }
+    .map-node.document { border-color: rgba(255, 197, 101, .55); }
+    .map-node.event { border-color: rgba(183, 156, 255, .58); }
+    .empty { padding: 70px 28px; text-align: center; color: var(--muted); }
+    .empty b { color: var(--text); display: block; font-size: 20px; margin-bottom: 6px; }
+    .list { padding: 18px; display: grid; gap: 10px; }
+    .row {
+      padding: 13px 15px; border: 1px solid var(--line); border-radius: 14px;
+      background: rgba(18, 37, 59, .7); display: grid; grid-template-columns: 150px 1fr auto; gap: 14px;
+    }
+    .row time, .row small { color: var(--muted); }
+    .details {
+      border-left: 1px solid rgba(90, 139, 180, .24); padding: 22px;
+      background: rgba(9, 20, 34, .9); position: sticky; top: 74px;
+      height: calc(100vh - 74px); overflow: auto;
+    }
+    .details h1 { font-size: 22px; line-height: 1.25; margin: 8px 0 6px; }
+    .details h2 { font-size: 13px; margin: 24px 0 8px; color: var(--muted); text-transform: uppercase; letter-spacing: .12em; }
+    .badge { display: inline-flex; padding: 4px 8px; border-radius: 999px; background: rgba(99, 215, 255, .12); color: var(--cyan); font-size: 12px; }
+    .facts { display: grid; gap: 8px; }
+    .fact { border-left: 2px solid var(--line); padding: 4px 0 4px 10px; }
+    .fact small { color: var(--muted); display: block; }
+    pre { white-space: pre-wrap; overflow-wrap: anywhere; color: #c9d8e8; font-size: 12px; }
+    @media (max-width: 920px) {
+      .shell { grid-template-columns: 1fr; }
+      .details { position: static; height: auto; border-left: 0; border-top: 1px solid var(--line); }
+      .topbar { flex-wrap: wrap; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="brand-mark">VA</span><span><strong>VARTA</strong><small>доказова мапа</small></span></div>
+    <div class="heading"><span class="eyebrow">Поточна справа</span><strong id="case-title">Нова справа</strong></div>
+    <div class="meta" id="export-meta">Локальний read-only snapshot</div>
+    <a class="back" href="/">← Кабінет</a>
+  </header>
+
+  <main class="shell">
+    <section class="workspace">
+      <div class="toolbar" role="tablist">
+        <button class="tab active" data-view="map-view" type="button">Карта</button>
+        <button class="tab" data-view="timeline-view" type="button">Хронологія</button>
+        <button class="tab" data-view="inventory-view" type="button">Інвентар</button>
+        <span class="meta" id="map-counts">0 вузлів · 0 зв’язків</span>
+      </div>
+      <div class="surface">
+        <section class="view active" id="map-view"><div id="map-canvas"><svg id="edges" aria-hidden="true"></svg><div id="nodes"></div></div></section>
+        <section class="view" id="timeline-view"><div class="list" id="timeline"></div></section>
+        <section class="view" id="inventory-view"><div class="list" id="inventory"></div></section>
+      </div>
+    </section>
+
+    <aside class="details">
+      <span class="badge" id="detail-kind">snapshot</span>
+      <h1 id="detail-title">Оберіть вузол</h1>
+      <p class="meta" id="detail-subtitle">Тут з’явиться контекст документа, події або провадження.</p>
+      <h2>Доказовий стан</h2>
+      <div class="facts" id="detail-facts"><div class="fact"><small>Статус</small>Не визначено</div></div>
+      <h2>Джерела та зв’язки</h2>
+      <pre id="detail-json">—</pre>
+    </aside>
+  </main>
+
+  <!-- Renderer replaces only the JSON text of this element. -->
+  <script id="varta-map-data" type="application/json">
+  {
+    "schemaVersion": "1.0.0",
+    "export": {"exportId": "template", "generatedAt": null, "profile": "metadata_only"},
+    "case": {"id": "case_example", "number": null, "title": "Нова справа"},
+    "proceedings": [],
+    "documents": [],
+    "events": [],
+    "relations": [],
+    "inventory": {}
+  }
+  </script>
+  <script>
+    (() => {
+      "use strict";
+      const data = JSON.parse(document.querySelector("#varta-map-data").textContent);
+      const $ = selector => document.querySelector(selector);
+      const all = selector => [...document.querySelectorAll(selector)];
+      const arrays = ["proceedings", "documents", "events", "relations"];
+      arrays.forEach(key => { if (!Array.isArray(data[key])) data[key] = []; });
+
+      const title = data.case?.title || data.case?.number || "Нова справа";
+      $("#case-title").textContent = title;
+      const exportBits = [data.export?.exportId, data.export?.generatedAt].filter(Boolean);
+      $("#export-meta").textContent = exportBits.length ? exportBits.join(" · ") : "Локальний read-only snapshot";
+
+      const nodes = [
+        {...(data.case || {}), id: data.case?.id || "case", type: "case", label: title},
+        ...data.proceedings.map(item => ({...item, type: "proceeding", label: item.label || item.title || item.number || item.id})),
+        ...data.documents.map(item => ({...item, type: "document", label: item.label || item.title || item.name || item.id})),
+        ...data.events.map(item => ({...item, type: "event", label: item.label || item.title || item.eventType || item.id}))
+      ];
+      const byId = new Map(nodes.map(item => [item.id, item]));
+      const positions = new Map();
+      const columns = {case: 45, proceeding: 300, document: 565, event: 830};
+      const counters = {case: 0, proceeding: 0, document: 0, event: 0};
+      nodes.forEach(node => {
+        const slot = counters[node.type]++;
+        const x = Number.isFinite(node.map?.x) ? node.map.x : columns[node.type];
+        const y = Number.isFinite(node.map?.y) ? node.map.y : 50 + slot * 122;
+        positions.set(node.id, {x, y});
+      });
+
+      const kindLabel = {case: "справа", proceeding: "провадження", document: "документ", event: "подія"};
+      function selectNode(id) {
+        const node = byId.get(id);
+        if (!node) return;
+        all(".map-node").forEach(element => element.classList.toggle("selected", element.dataset.id === id));
+        $("#detail-kind").textContent = kindLabel[node.type] || node.type;
+        $("#detail-title").textContent = node.label || node.id;
+        $("#detail-subtitle").textContent = node.subtitle || node.number || node.date || "Без додаткового опису";
+        const classification = node.classification || node.reviewStatus || "unverified";
+        $("#detail-facts").innerHTML = `<div class="fact"><small>Статус</small>${escapeHtml(classification)}</div>`;
+        const related = data.relations.filter(relation => relation.fromId === id || relation.toId === id);
+        $("#detail-json").textContent = JSON.stringify({sourceReferences: node.sourceReferences || [], relations: related}, null, 2);
+      }
+      function escapeHtml(value) {
+        return String(value ?? "").replace(/[&<>"']/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[char]));
+      }
+
+      const nodeHost = $("#nodes");
+      nodes.forEach(node => {
+        const position = positions.get(node.id);
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = `map-node ${node.type}`;
+        button.dataset.id = node.id;
+        button.style.left = `${position.x}px`;
+        button.style.top = `${position.y}px`;
+        button.innerHTML = `<span class="kind">${escapeHtml(kindLabel[node.type] || node.type)}</span><strong>${escapeHtml(node.label || node.id)}</strong><small>${escapeHtml(node.subtitle || node.number || node.reviewStatus || "")}</small>`;
+        button.addEventListener("click", () => selectNode(node.id));
+        nodeHost.append(button);
+      });
+
+      const edgeHost = $("#edges");
+      data.relations.forEach(relation => {
+        const from = positions.get(relation.fromId);
+        const to = positions.get(relation.toId);
+        if (!from || !to) return;
+        const line = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        const x1 = from.x + 210, y1 = from.y + 43, x2 = to.x, y2 = to.y + 43;
+        const middle = (x1 + x2) / 2;
+        line.setAttribute("d", `M ${x1} ${y1} C ${middle} ${y1}, ${middle} ${y2}, ${x2} ${y2}`);
+        line.setAttribute("fill", "none");
+        line.setAttribute("stroke", relation.classification === "contradiction" ? "#ff7185" : "#51799c");
+        line.setAttribute("stroke-width", "2");
+        line.setAttribute("stroke-dasharray", relation.reviewStatus === "confirmed" ? "0" : "6 6");
+        edgeHost.append(line);
+      });
+
+      const templateIsEmpty = nodes.length === 1 && !data.case?.number && !data.proceedings.length && !data.documents.length;
+      if (templateIsEmpty) {
+        nodeHost.innerHTML = '<div class="empty"><b>Шаблон готовий до snapshot</b>Згенеруйте дані з локального workspace VARTA — не редагуйте HTML як реєстр.</div>';
+      }
+      const visibleNodeCount = templateIsEmpty ? 0 : nodes.length;
+      $("#map-counts").textContent = `${visibleNodeCount} вузлів · ${data.relations.length} зв’язків`;
+
+      const timeline = [...data.events].sort((a, b) => String(a.date || a.occurredAt || "").localeCompare(String(b.date || b.occurredAt || "")));
+      $("#timeline").innerHTML = timeline.length ? timeline.map(event => `<article class="row"><time>${escapeHtml(event.date || event.occurredAt || "—")}</time><strong>${escapeHtml(event.label || event.title || event.eventType || event.id)}</strong><small>${escapeHtml(event.reviewStatus || event.classification || "unverified")}</small></article>`).join("") : '<div class="empty"><b>Подій ще немає</b>Вони з’являться після генерації snapshot.</div>';
+
+      const inventory = {proceedings: data.proceedings.length, documents: data.documents.length, events: data.events.length, relations: data.relations.length, ...(data.inventory || {})};
+      $("#inventory").innerHTML = Object.entries(inventory).map(([key, value]) => `<article class="row"><span>${escapeHtml(key)}</span><strong>${escapeHtml(typeof value === "object" ? JSON.stringify(value) : value)}</strong><small>snapshot</small></article>`).join("");
+
+      all(".tab").forEach(tab => tab.addEventListener("click", () => {
+        all(".tab").forEach(item => item.classList.toggle("active", item === tab));
+        all(".view").forEach(view => view.classList.toggle("active", view.id === tab.dataset.view));
+      }));
+    })();
+  </script>
+</body>
+</html>

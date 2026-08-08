@@ -1,0 +1,13 @@
+[
+  {"code": "sent", "name_uk": "Надіслав"},
+  {"code": "received", "name_uk": "Отримав"},
+  {"code": "delivered_to", "name_uk": "Доставлено до"},
+  {"code": "signed_by", "name_uk": "Підписано"},
+  {"code": "references", "name_uk": "Посилається на"},
+  {"code": "answers", "name_uk": "Відповідає на"},
+  {"code": "contains", "name_uk": "Містить"},
+  {"code": "belongs_to", "name_uk": "Належить до"},
+  {"code": "registered_in", "name_uk": "Зареєстровано в"},
+  {"code": "duplicates", "name_uk": "Дублює"},
+  {"code": "generated_from", "name_uk": "Породжено з"}
+]

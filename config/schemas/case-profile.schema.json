@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://varta.local/schemas/case-profile.schema.json",
+  "title": "VARTA case profile",
+  "type": "object",
+  "required": ["schemaVersion", "case", "proceedings", "evidenceMap"],
+  "properties": {
+    "schemaVersion": {"type": "string", "const": "1.0.0"},
+    "case": {
+      "type": "object",
+      "required": ["id", "number", "folderKey", "title"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "number": {"type": ["string", "null"]},
+        "folderKey": {"type": "string", "minLength": 1},
+        "title": {"type": "string", "minLength": 1},
+        "aliases": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": true
+    },
+    "proceedings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "number", "folderKey"],
+        "properties": {
+          "id": {"type": "string", "minLength": 1},
+          "number": {"type": "string", "minLength": 1},
+          "folderKey": {"type": "string", "minLength": 1},
+          "aliases": {"type": "array", "items": {"type": "string"}}
+        },
+        "additionalProperties": true
+      }
+    },
+    "evidenceMap": {
+      "type": "object",
+      "required": ["rootDocumentId", "relations"],
+      "properties": {
+        "rootDocumentId": {"type": ["string", "null"]},
+        "keyDocumentRules": {"type": "array", "items": {"type": "object"}},
+        "relations": {"type": "array", "items": {"type": "object"}}
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}

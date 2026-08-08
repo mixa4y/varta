@@ -1,0 +1,9 @@
+[
+  {"code": "document", "name_uk": "Документ"},
+  {"code": "person", "name_uk": "Фізична особа"},
+  {"code": "organization", "name_uk": "Організація"},
+  {"code": "court", "name_uk": "Суд"},
+  {"code": "case", "name_uk": "Справа"},
+  {"code": "proceeding", "name_uk": "Провадження"},
+  {"code": "archive", "name_uk": "Архів (вхідний файл-джерело)"}
+]

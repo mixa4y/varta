@@ -1,0 +1,5 @@
+# Патч 6/9 — вибір OCR-рушія. engine: null, доки не обрано конкретну
+# реалізацію (немає мережі в build-середовищі для встановлення/тесту).
+engine: null
+languages: [uk]
+min_confidence_for_auto_confirm: 0.85

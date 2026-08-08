@@ -1,0 +1,63 @@
+metadata:
+  document: document-types
+  status: DRAFT
+  version: v0.1
+  date: 2026-07-24
+
+policy:
+  identifiers: english_snake_case
+  case_specific_values_allowed: false
+  unknown_fallback: unknown_document
+  automatic_classification_requires_confidence: true
+  low_confidence_result: manual_review_required
+
+document_types:
+  - id: procedural_document
+    label_uk: Процесуальний документ
+    abstract: true
+  - id: court_decision
+    label_uk: Судове рішення
+    parent: procedural_document
+  - id: court_order
+    label_uk: Ухвала суду
+    parent: court_decision
+  - id: judgment
+    label_uk: Рішення або вирок
+    parent: court_decision
+  - id: party_submission
+    label_uk: Подання учасника
+    parent: procedural_document
+  - id: claim
+    label_uk: Позовна заява
+    parent: party_submission
+  - id: response
+    label_uk: Відзив або заперечення
+    parent: party_submission
+  - id: motion
+    label_uk: Заява або клопотання
+    parent: party_submission
+  - id: evidence_document
+    label_uk: Документальний доказ
+  - id: correspondence
+    label_uk: Листування або повідомлення
+  - id: registry_extract
+    label_uk: Витяг із реєстру
+  - id: payment_document
+    label_uk: Платіжний документ
+  - id: signature_container
+    label_uk: Контейнер електронного підпису
+  - id: audio_recording
+    label_uk: Аудіозапис
+  - id: video_recording
+    label_uk: Відеозапис
+  - id: archive_package
+    label_uk: Архівний пакет
+  - id: unknown_document
+    label_uk: Невизначений документ
+
+assumptions:
+  - Початковий перелік є узагальненим і не замінює юридичний класифікатор.
+
+open_questions:
+  - Які юрисдикції та види проваджень мають бути підтримані першими?
+  - Чи потрібна багаторівнева класифікація окремо від document_type?

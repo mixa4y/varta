@@ -1,0 +1,3 @@
+# Патч 9 — перевірка КЕП/ЄЦП.
+provider: null
+never_transmit_private_key: true   # п.6 CSMD: ніколи не просити приватний ключ/пароль

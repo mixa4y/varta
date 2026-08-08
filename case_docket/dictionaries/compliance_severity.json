@@ -1,0 +1,6 @@
+[
+  {"code": "info", "name_uk": "Інформаційно"},
+  {"code": "warning", "name_uk": "Попередження"},
+  {"code": "critical", "name_uk": "Критично"},
+  {"code": "falsification_risk", "name_uk": "Підозра на фальсифікацію"}
+]

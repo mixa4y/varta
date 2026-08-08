@@ -1,0 +1,17 @@
+[
+  {"code": "submitted", "name_uk": "Подано (до суду)"},
+  {"code": "registered", "name_uk": "Зареєстровано судом"},
+  {"code": "assigned", "name_uk": "Розподілено (судді/колегії)"},
+  {"code": "sent", "name_uk": "Надіслано (адресату)"},
+  {"code": "delivered", "name_uk": "Доставлено"},
+  {"code": "served", "name_uk": "Вручено особисто"},
+  {"code": "returned_undelivered", "name_uk": "Повернуто без вручення"},
+  {"code": "reviewed", "name_uk": "Розглянуто"},
+  {"code": "granted", "name_uk": "Задоволено"},
+  {"code": "denied", "name_uk": "Відхилено"},
+  {"code": "appealed", "name_uk": "Оскаржено"},
+  {"code": "withdrawn", "name_uk": "Відкликано"},
+  {"code": "left_without_action", "name_uk": "Залишено без руху"},
+  {"code": "joined_to_case", "name_uk": "Приєднано до справи"},
+  {"code": "severed", "name_uk": "Виділено в окреме провадження"}
+]

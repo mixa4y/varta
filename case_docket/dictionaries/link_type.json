@@ -1,0 +1,10 @@
+[
+  {"code": "attachment_of", "name_uk": "Є додатком до"},
+  {"code": "technical_for", "name_uk": "Є технологічним супроводом до"},
+  {"code": "response_to", "name_uk": "Є відповіддю на"},
+  {"code": "appeals", "name_uk": "Оскаржує"},
+  {"code": "amends", "name_uk": "Вносить зміни до"},
+  {"code": "revokes", "name_uk": "Скасовує"},
+  {"code": "replaces", "name_uk": "Замінює"},
+  {"code": "refers_to", "name_uk": "Посилається на"}
+]
