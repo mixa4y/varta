@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import base64
-import cgi
 import ctypes
 import hashlib
 import importlib
@@ -16,6 +15,7 @@ import secrets
 import shutil
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import urllib.error
@@ -26,6 +26,8 @@ import zipfile
 from contextlib import contextmanager, redirect_stderr, redirect_stdout
 from ctypes import wintypes
 from datetime import datetime, timedelta, timezone
+from email.parser import BytesHeaderParser
+from email.policy import default as email_policy
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -49,6 +51,9 @@ def load_app_manifest() -> dict:
 
 APP_MANIFEST = load_app_manifest()
 MAX_UPLOAD_BYTES = 12 * 1024 * 1024 * 1024
+MAX_FORM_FIELD_BYTES = 64 * 1024
+MAX_MULTIPART_HEADER_BYTES = 64 * 1024
+MAX_MULTIPART_PARTS = 20_000
 GOOGLE_SCOPE = "https://www.googleapis.com/auth/drive.file"
 GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
@@ -159,6 +164,179 @@ def safe_upload_path(folder: Path, raw_name: str) -> Path:
     if resolved_folder not in candidate.parents:
         raise ValueError(f"Шлях файла виходить за межі пакета: {raw_name}")
     return candidate
+
+
+class MultipartStream:
+    """Bounded streaming reader for a single multipart/form-data request."""
+
+    def __init__(self, stream, length: int):
+        self.stream = stream
+        self.remaining = length
+        self.buffer = bytearray()
+
+    def _fill(self, minimum: int = 1) -> bool:
+        while len(self.buffer) < minimum and self.remaining > 0:
+            block = self.stream.read(min(1024 * 1024, self.remaining))
+            if not block:
+                raise ValueError("Неочікуваний кінець multipart-запиту")
+            self.remaining -= len(block)
+            self.buffer.extend(block)
+        return len(self.buffer) >= minimum
+
+    def readline(self, limit: int) -> bytes:
+        while True:
+            newline = self.buffer.find(b"\n")
+            if newline >= 0:
+                size = newline + 1
+                if size > limit:
+                    raise ValueError("Завеликий заголовок multipart-запиту")
+                line = bytes(self.buffer[:size])
+                del self.buffer[:size]
+                return line
+            if len(self.buffer) > limit:
+                raise ValueError("Завеликий заголовок multipart-запиту")
+            if self.remaining <= 0:
+                if not self.buffer:
+                    return b""
+                line = bytes(self.buffer)
+                self.buffer.clear()
+                return line
+            self._fill(len(self.buffer) + 1)
+
+    def copy_part(self, boundary: bytes, output, max_bytes: int | None = None) -> tuple[bool, int]:
+        marker = b"\r\n--" + boundary
+        written = 0
+
+        def write(data: bytes) -> None:
+            nonlocal written
+            if max_bytes is not None and written + len(data) > max_bytes:
+                raise ValueError("Завелике текстове поле multipart-запиту")
+            output.write(data)
+            written += len(data)
+
+        while True:
+            marker_at = self.buffer.find(marker)
+            if marker_at >= 0:
+                required = marker_at + len(marker) + 2
+                self._fill(required)
+                if len(self.buffer) < required:
+                    raise ValueError("Незавершена межа multipart-запиту")
+                suffix = bytes(self.buffer[marker_at + len(marker) : required])
+                if suffix in {b"\r\n", b"--"}:
+                    write(bytes(self.buffer[:marker_at]))
+                    del self.buffer[:required]
+                    if suffix == b"--":
+                        self._fill(2)
+                        if self.buffer.startswith(b"\r\n"):
+                            del self.buffer[:2]
+                        return True, written
+                    return False, written
+                # A boundary-like byte sequence inside a file is ordinary payload.
+                writable = marker_at + 2
+            else:
+                writable = max(0, len(self.buffer) - len(marker) - 1)
+
+            if writable:
+                write(bytes(self.buffer[:writable]))
+                del self.buffer[:writable]
+                continue
+            if self.remaining <= 0:
+                raise ValueError("Не знайдено завершальну межу multipart-запиту")
+            self._fill(len(self.buffer) + 1)
+
+    def discard_remaining(self) -> None:
+        self.buffer.clear()
+        while self.remaining > 0:
+            block = self.stream.read(min(1024 * 1024, self.remaining))
+            if not block:
+                raise ValueError("Неочікуваний кінець multipart-запиту")
+            self.remaining -= len(block)
+
+
+def multipart_boundary(content_type: str) -> bytes:
+    try:
+        raw_header = b"Content-Type: " + content_type.encode("latin-1") + b"\r\n\r\n"
+        message = BytesHeaderParser(policy=email_policy).parsebytes(raw_header)
+        boundary = message.get_boundary()
+        if message.get_content_type() != "multipart/form-data" or not boundary:
+            raise ValueError
+        encoded = boundary.encode("ascii")
+    except (UnicodeEncodeError, ValueError):
+        raise ValueError("Некоректний Content-Type multipart-запиту") from None
+    if not 1 <= len(encoded) <= 70 or any(byte < 32 or byte > 126 for byte in encoded):
+        raise ValueError("Некоректна межа multipart-запиту")
+    return encoded
+
+
+def parse_multipart_form(
+    stream,
+    content_type: str,
+    content_length: int,
+    temporary_directory: Path,
+) -> tuple[dict[str, str], list[dict]]:
+    """Parse form fields in memory and stream file fields into temporary files."""
+    boundary = multipart_boundary(content_type)
+    reader = MultipartStream(stream, content_length)
+    if reader.readline(len(boundary) + 8) != b"--" + boundary + b"\r\n":
+        raise ValueError("Некоректний початок multipart-запиту")
+
+    fields: dict[str, str] = {}
+    files: list[dict] = []
+    final_boundary = False
+    part_count = 0
+    while not final_boundary:
+        part_count += 1
+        if part_count > MAX_MULTIPART_PARTS:
+            raise ValueError("Забагато частин у multipart-запиті")
+
+        header_lines = bytearray()
+        while True:
+            line = reader.readline(MAX_MULTIPART_HEADER_BYTES)
+            if line == b"\r\n":
+                break
+            if not line:
+                raise ValueError("Незавершені заголовки multipart-запиту")
+            header_lines.extend(line)
+            if len(header_lines) > MAX_MULTIPART_HEADER_BYTES:
+                raise ValueError("Завеликі заголовки multipart-запиту")
+
+        headers = BytesHeaderParser(policy=email_policy).parsebytes(bytes(header_lines))
+        if headers.get_content_disposition() != "form-data":
+            raise ValueError("Частина multipart-запиту не є form-data")
+        field_name = headers.get_param("name", header="content-disposition")
+        if not field_name:
+            raise ValueError("Частина multipart-запиту не має імені поля")
+        filename = headers.get_filename()
+
+        if filename is None:
+            payload = io.BytesIO()
+            final_boundary, _ = reader.copy_part(
+                boundary,
+                payload,
+                max_bytes=MAX_FORM_FIELD_BYTES,
+            )
+            charset = headers.get_content_charset("utf-8") or "utf-8"
+            try:
+                value = payload.getvalue().decode(charset)
+            except (LookupError, UnicodeDecodeError):
+                raise ValueError(f"Некоректне кодування поля {field_name}") from None
+            fields.setdefault(str(field_name), value)
+            continue
+
+        temporary_path = temporary_directory / f"part_{len(files) + 1:06}.bin"
+        with temporary_path.open("wb") as output:
+            final_boundary, size = reader.copy_part(boundary, output)
+        files.append(
+            {
+                "field": str(field_name),
+                "filename": str(filename),
+                "path": temporary_path,
+                "bytes": size,
+            }
+        )
+
+    reader.discard_remaining()
+    return fields, files
 
 
 class BusyError(RuntimeError):
@@ -1288,44 +1466,63 @@ class Handler(BaseHTTPRequestHandler):
         length = int(self.headers.get("Content-Length", "0"))
         if length <= 0 or length > MAX_UPLOAD_BYTES:
             raise ValueError("Некоректний або завеликий пакет")
-        form = cgi.FieldStorage(
-            fp=self.rfile,  # type: ignore[arg-type]
-            headers=self.headers,
-            environ={"REQUEST_METHOD": "POST", "CONTENT_TYPE": self.headers.get("Content-Type", ""), "CONTENT_LENGTH": str(length)},
-            keep_blank_values=True,
-        )
-        proceeding = safe_segment(form.getfirst("proceeding", "НОВЕ_ПРОВАДЖЕННЯ"), "НОВЕ_ПРОВАДЖЕННЯ")
-        flow = form.getfirst("flow", "02_МОЇ_ДОКУМЕНТИ")
-        if flow not in {"01_ВІД_СУДУ", "02_МОЇ_ДОКУМЕНТИ"}:
-            raise ValueError("Невідомий потік")
-        channel = safe_segment(form.getfirst("channel", "ІНШЕ").upper(), "ІНШЕ")
-        options = json.loads(form.getfirst("options", "{}"))
-        stamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-        destination = self.state.root / "00_INBOX" / proceeding / flow / f"{stamp}__{channel}"
-        destination.mkdir(parents=True, exist_ok=False)
-        file_fields = form["files"] if "files" in form else []
-        if not isinstance(file_fields, list):
-            file_fields = [file_fields]
-        saved = []
-        for item in file_fields:
-            if not getattr(item, "filename", None):
-                continue
-            target = safe_upload_path(destination, item.filename)
-            with target.open("wb") as output:
-                shutil.copyfileobj(item.file, output, length=1024 * 1024)
-            saved.append(
-                {
-                    "name": str(target.relative_to(destination)),
-                    "path": str(target.relative_to(self.state.root)),
-                    "bytes": target.stat().st_size,
-                }
+        temporary_root = self.state.root / ".caseflow" / "tmp" / "uploads"
+        temporary_root.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(prefix="request_", dir=temporary_root) as temporary:
+            fields, uploads = parse_multipart_form(
+                self.rfile,
+                self.headers.get("Content-Type", ""),
+                length,
+                Path(temporary),
             )
-        if not saved:
-            destination.rmdir()
-            raise ValueError("Файли не отримано")
-        manifest = {"uploaded_at": now_iso(), "proceeding_folder": proceeding, "flow": flow, "channel": channel, "options": options, "files": saved}
-        write_json(destination / "caseflow_upload.json", manifest)
-        self.send_json(200, {"ok": True, "destination": str(destination.relative_to(self.state.root)), "saved": saved})
+            proceeding = safe_segment(
+                fields.get("proceeding", "НОВЕ_ПРОВАДЖЕННЯ"),
+                "НОВЕ_ПРОВАДЖЕННЯ",
+            )
+            flow = fields.get("flow", "02_МОЇ_ДОКУМЕНТИ")
+            if flow not in {"01_ВІД_СУДУ", "02_МОЇ_ДОКУМЕНТИ"}:
+                raise ValueError("Невідомий потік")
+            channel = safe_segment(fields.get("channel", "ІНШЕ").upper(), "ІНШЕ")
+            options = json.loads(fields.get("options", "{}"))
+            stamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+            destination = self.state.root / "00_INBOX" / proceeding / flow / f"{stamp}__{channel}"
+            destination.mkdir(parents=True, exist_ok=False)
+            saved = []
+            try:
+                for item in uploads:
+                    if item["field"] != "files" or not item["filename"]:
+                        continue
+                    target = safe_upload_path(destination, item["filename"])
+                    item["path"].replace(target)
+                    saved.append(
+                        {
+                            "name": str(target.relative_to(destination)),
+                            "path": str(target.relative_to(self.state.root)),
+                            "bytes": target.stat().st_size,
+                        }
+                    )
+                if not saved:
+                    raise ValueError("Файли не отримано")
+                manifest = {
+                    "uploaded_at": now_iso(),
+                    "proceeding_folder": proceeding,
+                    "flow": flow,
+                    "channel": channel,
+                    "options": options,
+                    "files": saved,
+                }
+                write_json(destination / "caseflow_upload.json", manifest)
+            except Exception:
+                shutil.rmtree(destination, ignore_errors=True)
+                raise
+        self.send_json(
+            200,
+            {
+                "ok": True,
+                "destination": str(destination.relative_to(self.state.root)),
+                "saved": saved,
+            },
+        )
 
     def handle_process(self) -> None:
         payload = self.read_json_body()

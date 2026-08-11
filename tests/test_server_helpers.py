@@ -1,3 +1,4 @@
+import io
 import json
 import sys
 import tempfile
@@ -10,6 +11,7 @@ from caseflow.server import (
     CaseFlowState,
     anomaly_summary,
     build_preflight,
+    parse_multipart_form,
     run_worker,
     safe_segment,
 )
@@ -69,6 +71,54 @@ class ServerTypingRegressionTests(unittest.TestCase):
         self.assertEqual(summary["open"], 3)
         self.assertEqual(summary["high"], 1)
         self.assertEqual(summary["risk_score"], 40)
+
+
+class MultipartFormTests(unittest.TestCase):
+    def test_fields_and_multiple_files_are_parsed_without_changing_bytes(self) -> None:
+        boundary = "VartaBoundary0123456789"
+        binary = b"first\x00line\r\n--VartaBoundary0123456789-not-a-boundary\r\nlast"
+        parts = [
+            ("proceeding", None, "1_111_222_33".encode()),
+            ("flow", None, "02_МОЇ_ДОКУМЕНТИ".encode("utf-8")),
+            ("options", None, b'{"runOcr":true}'),
+            ("files", "вкладена/доказ.bin", binary),
+            ("files", "порожній.txt", b""),
+        ]
+        body = bytearray()
+        for field, filename, payload in parts:
+            body.extend(f"--{boundary}\r\n".encode("ascii"))
+            disposition = f'Content-Disposition: form-data; name="{field}"'
+            if filename is not None:
+                disposition += f'; filename="{filename}"'
+            body.extend((disposition + "\r\n\r\n").encode("utf-8"))
+            body.extend(payload)
+            body.extend(b"\r\n")
+        body.extend(f"--{boundary}--\r\n".encode("ascii"))
+
+        with tempfile.TemporaryDirectory() as temporary:
+            fields, files = parse_multipart_form(
+                io.BytesIO(body),
+                f"multipart/form-data; boundary={boundary}",
+                len(body),
+                Path(temporary),
+            )
+            self.assertEqual(fields["proceeding"], "1_111_222_33")
+            self.assertEqual(fields["flow"], "02_МОЇ_ДОКУМЕНТИ")
+            self.assertEqual(json.loads(fields["options"]), {"runOcr": True})
+            self.assertEqual([item["filename"] for item in files], ["вкладена/доказ.bin", "порожній.txt"])
+            self.assertEqual(files[0]["path"].read_bytes(), binary)
+            self.assertEqual(files[0]["bytes"], len(binary))
+            self.assertEqual(files[1]["path"].read_bytes(), b"")
+
+    def test_missing_boundary_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            with self.assertRaisesRegex(ValueError, "Content-Type"):
+                parse_multipart_form(
+                    io.BytesIO(b"invalid"),
+                    "multipart/form-data",
+                    7,
+                    Path(temporary),
+                )
 
 
 if __name__ == "__main__":
