@@ -5,13 +5,22 @@
 1. `../README.md` — назва, межа продукту, структура й запуск.
 2. `../PROJECT_STATUS.md` — підтверджений поточний стан і відкриті рішення.
 3. `../AGENTS.md` — правила роботи в репозиторії та privacy boundary.
-4. `blueprints/evidence-map-blueprint.md` — універсальна специфікація мапи.
-5. `source-inventory.md` — що перенесено й що свідомо виключено.
-6. `../config/schemas/case-profile.schema.json` — контракт профілю справи.
-7. `../config/schemas/map-data.schema.json` — контракт snapshot мапи.
-8. `../templates/case/case-profile.example.json` — порожній профіль.
-9. `../templates/evidence-map/map-data.example.json` — порожній snapshot.
-10. `../caseflow/static/legal-case-map.html` — дизайн офлайн-в’юхи.
+4. `action-algorithm.md` — порядок оцінки, рішень, реалізації та приймання.
+5. `interactive/varta-action-map.html` — інтерактивне подання етапів `A0`–`A12`.
+6. `blueprints/evidence-map-blueprint.md` — універсальна специфікація мапи.
+7. `airtable-sql-migration.md` — повне відображення Airtable у SQLite.
+8. `source-inventory.md` — що перенесено й що свідомо виключено.
+9. `../config/schemas/case-profile.schema.json` — контракт профілю справи.
+10. `../config/schemas/map-data.schema.json` — контракт snapshot мапи.
+11. `../templates/case/case-profile.example.json` — порожній профіль.
+12. `../templates/evidence-map/map-data.example.json` — порожній snapshot.
+13. `../caseflow/static/legal-case-map.html` — дизайн офлайн-в’юхи.
+
+## Поза baseline 0.1.0
+
+Пара `chat-roadmap.md` / `interactive/varta-chat-roadmap.html` була створена
+паралельно іншою задачею. Вона не входить до baseline commits, не є частиною
+цього канонічного індексу й потребує окремого content/provenance review.
 
 ## Імпортовані матеріали для звірки
 

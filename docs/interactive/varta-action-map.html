@@ -1,0 +1,589 @@
+<!doctype html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Інтерактивна карта етапів A0–A12 канонічного алгоритму розвитку VARTA">
+  <title>VARTA — інтерактивна карта дій A0–A12</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --background: #07110c;
+      --foreground: #e9fff1;
+      --muted: #203128;
+      --muted-foreground: #a8bdb0;
+      --border: #31503d;
+      --card: #0d1d14;
+      --viz-series-1: #43e08d;
+      --viz-series-2: #e3b341;
+      --viz-series-3: #f06f6f;
+      --viz-series-4: #65b8ff;
+      font-family: Inter, "Segoe UI", system-ui, -apple-system, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      min-width: 320px;
+      background: var(--background);
+    }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      color: var(--foreground);
+      background:
+        radial-gradient(circle at 18% 0%, rgb(67 224 141 / 10%), transparent 30rem),
+        var(--background);
+    }
+
+    main {
+      width: min(74rem, 100%);
+      margin: 0 auto;
+      padding: clamp(1rem, 3vw, 2.5rem);
+    }
+
+    .vam-source {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem 1rem;
+      justify-content: space-between;
+      margin-bottom: 1.25rem;
+      padding-bottom: 0.9rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .vam-source a {
+      color: var(--viz-series-1);
+      text-underline-offset: 0.2em;
+    }
+
+    .text-muted {
+      color: var(--muted-foreground);
+    }
+
+    .text-small {
+      font-size: 0.875rem;
+    }
+
+    .card {
+      border: 1px solid var(--border);
+      border-radius: 0.75rem;
+      background: color-mix(in srgb, var(--card) 92%, transparent);
+    }
+
+    .viz-badge {
+      display: inline-flex;
+      align-items: center;
+      width: fit-content;
+      padding: 0.18rem 0.45rem;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      color: var(--foreground);
+      background: var(--muted);
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.025em;
+      line-height: 1.2;
+    }
+
+    code {
+      padding: 0.08em 0.28em;
+      border: 1px solid var(--border);
+      border-radius: 0.3rem;
+      color: #c8ffdc;
+      background: #09170f;
+      overflow-wrap: anywhere;
+    }
+
+    h2,
+    h3 {
+      color: var(--foreground);
+    }
+
+    a:focus-visible,
+    summary:focus-visible {
+      outline: 3px solid var(--viz-series-4);
+      outline-offset: 3px;
+    }
+  </style>
+</head>
+<body>
+<main>
+  <nav class="vam-source text-small" aria-label="Джерело і статус документа">
+    <a href="../action-algorithm.md">← Канонічний алгоритм дій</a>
+    <span class="text-muted">HTML є інтерактивним поданням; у разі розбіжності діє Markdown</span>
+  </nav>
+
+<div id="varta-action-map">
+  <style>
+    #varta-action-map {
+      color: var(--foreground);
+      width: 100%;
+    }
+
+    #varta-action-map .vam-header {
+      display: grid;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+
+    #varta-action-map .vam-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem 1rem;
+      align-items: center;
+    }
+
+    #varta-action-map .vam-legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    #varta-action-map .vam-marker {
+      width: 0.75rem;
+      height: 0.75rem;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      background: var(--muted);
+      flex: 0 0 auto;
+    }
+
+    #varta-action-map .vam-marker[data-status="verify"] {
+      background: color-mix(in srgb, var(--viz-series-4) 72%, var(--background));
+    }
+
+    #varta-action-map .vam-marker[data-status="done"] {
+      background: color-mix(in srgb, var(--viz-series-1) 82%, var(--background));
+    }
+
+    #varta-action-map .vam-marker[data-status="blocked"] {
+      background: color-mix(in srgb, var(--viz-series-3) 72%, var(--background));
+    }
+
+    #varta-action-map .vam-marker[data-status="partial"] {
+      background: color-mix(in srgb, var(--viz-series-2) 72%, var(--background));
+    }
+
+    #varta-action-map .vam-marker[data-status="ready"] {
+      background: color-mix(in srgb, var(--viz-series-1) 72%, var(--background));
+    }
+
+    #varta-action-map .vam-marker[data-status="planned"] {
+      background: color-mix(in srgb, var(--muted-foreground) 42%, var(--background));
+    }
+
+    #varta-action-map .vam-map {
+      position: relative;
+      display: grid;
+      gap: 0;
+    }
+
+    #varta-action-map .vam-step {
+      position: relative;
+      display: grid;
+      grid-template-columns: 2.25rem minmax(0, 1fr);
+      column-gap: 0.75rem;
+    }
+
+    #varta-action-map .vam-rail {
+      position: relative;
+      display: flex;
+      justify-content: center;
+    }
+
+    #varta-action-map .vam-rail::after {
+      content: "";
+      position: absolute;
+      top: 1.5rem;
+      bottom: -0.75rem;
+      width: 1px;
+      background: var(--border);
+    }
+
+    #varta-action-map .vam-step:last-child .vam-rail::after {
+      display: none;
+    }
+
+    #varta-action-map .vam-step .vam-marker {
+      margin-top: 1rem;
+      position: relative;
+      z-index: 1;
+      box-shadow: 0 0 0 0.3rem var(--background);
+    }
+
+    #varta-action-map details {
+      min-width: 0;
+      padding: 0.45rem 0 0.85rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    #varta-action-map .vam-step:last-child details {
+      border-bottom: 0;
+    }
+
+    #varta-action-map summary {
+      cursor: pointer;
+      list-style: none;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 0.75rem;
+      align-items: center;
+      padding: 0.4rem 0;
+    }
+
+    #varta-action-map summary::-webkit-details-marker {
+      display: none;
+    }
+
+    #varta-action-map .vam-summary-main {
+      min-width: 0;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem 0.65rem;
+      align-items: baseline;
+    }
+
+    #varta-action-map .vam-code {
+      color: var(--muted-foreground);
+      white-space: nowrap;
+    }
+
+    #varta-action-map .vam-title {
+      font-weight: 500;
+    }
+
+    #varta-action-map .vam-chevron {
+      transition: transform 160ms ease;
+    }
+
+    #varta-action-map details[open] .vam-chevron {
+      transform: rotate(180deg);
+    }
+
+    #varta-action-map .vam-detail {
+      margin-top: 0.55rem;
+    }
+
+    #varta-action-map .vam-detail-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1rem;
+    }
+
+    #varta-action-map .vam-detail-section {
+      min-width: 0;
+    }
+
+    #varta-action-map .vam-detail-section h3 {
+      margin-top: 0;
+      margin-bottom: 0.45rem;
+    }
+
+    #varta-action-map .vam-detail-section ul {
+      margin: 0;
+      padding-left: 1.15rem;
+    }
+
+    #varta-action-map .vam-detail-section li + li {
+      margin-top: 0.35rem;
+    }
+
+    #varta-action-map .vam-dependency {
+      margin-top: 0.85rem;
+      padding-top: 0.65rem;
+      border-top: 1px solid var(--border);
+    }
+
+    @media (max-width: 680px) {
+      #varta-action-map .vam-detail-grid {
+        grid-template-columns: 1fr;
+      }
+
+      #varta-action-map summary {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      #varta-action-map .vam-chevron {
+        display: none;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      #varta-action-map .vam-chevron {
+        transition: none;
+      }
+    }
+  </style>
+
+  <section class="vam-header" aria-labelledby="vam-title">
+    <h2 id="vam-title">VARTA — карта переходів</h2>
+    <div class="text-muted">Версія карти 1.2 · синхронізовано з алгоритмом від 11.08.2026 · live baseline: 82 passed · статус документа ACTIVE</div>
+    <div class="vam-legend text-small" aria-label="Позначення статусів">
+      <span class="vam-legend-item"><span class="vam-marker" data-status="done" aria-hidden="true"></span>DONE · gate пройдено</span>
+      <span class="vam-legend-item"><span class="vam-marker" data-status="verify" aria-hidden="true"></span>VERIFY · повторно підтвердити</span>
+      <span class="vam-legend-item"><span class="vam-marker" data-status="blocked" aria-hidden="true"></span>BLOCKED · потрібне рішення</span>
+      <span class="vam-legend-item"><span class="vam-marker" data-status="partial" aria-hidden="true"></span>PARTIAL · виконано частково</span>
+      <span class="vam-legend-item"><span class="vam-marker" data-status="ready" aria-hidden="true"></span>READY · можна починати після залежностей</span>
+      <span class="vam-legend-item"><span class="vam-marker" data-status="planned" aria-hidden="true"></span>PLANNED · заплановано</span>
+    </div>
+  </section>
+
+  <div class="vam-map" aria-label="Послідовність етапів VARTA">
+    <div class="vam-step">
+      <div class="vam-rail" aria-hidden="true"><span class="vam-marker" data-status="done"></span></div>
+      <details data-step="A0" open>
+        <summary>
+          <span class="vam-summary-main"><span class="vam-code">A0</span><span class="vam-title">Стабілізувати baseline</span><span class="viz-badge">DONE</span></span>
+          <i class="vam-chevron" data-lucide="chevron-down" aria-hidden="true"></i>
+        </summary>
+        <div class="card vam-detail">
+          <div class="vam-detail-grid">
+            <section class="vam-detail-section"><h3>Результат</h3><ul><li>Початкові 27 tracked/10 untracked і <code>MM</code>/<code>AM</code> проінвентаризовано; stale staging очищено без зміни working content.</li><li>38 погоджених шляхів розділено на шість P0 commits; два пізні chat-roadmap файли виключено як сторонні.</li><li>Multipart upload винесено в окремий двофайловий <code>HOLD-1</code> commit, не домішуючи його через спільний <code>server.py</code>.</li><li>Гілка <code>codex/stabilize-baseline</code> перевірена з clean checkout; push не виконувався.</li></ul></section>
+            <section class="vam-detail-section"><h3>Перевірка</h3><ul><li><code>pytest</code>: 82 passed; також <code>ruff</code>, <code>mypy</code>, <code>compileall</code>.</li><li><code>git diff --check</code> і exact staged scope кожного patch.</li><li>Privacy scan tracked і staged-файлів.</li><li>Fresh checkout містить SQL migrations і Airtable schema.</li></ul></section>
+            <section class="vam-detail-section"><h3>Результат переходу</h3><ul><li>Кожна зміна має відоме походження та scope.</li><li>Усі технічні перевірки проходять.</li><li>Матеріалів справи або secrets не додано.</li><li>Стан відтворюється на synthetic workspace; наступний етап — A1.</li></ul></section>
+          </div>
+          <div class="vam-dependency text-small text-muted">Залежність: немає · наступний крок: A1</div>
+        </div>
+      </details>
+    </div>
+
+    <div class="vam-step">
+      <div class="vam-rail" aria-hidden="true"><span class="vam-marker" data-status="partial"></span></div>
+      <details data-step="A1">
+        <summary>
+          <span class="vam-summary-main"><span class="vam-code">A1</span><span class="vam-title">Погодити архітектурні рішення</span><span class="viz-badge">PARTIAL</span></span>
+          <i class="vam-chevron" data-lucide="chevron-down" aria-hidden="true"></i>
+        </summary>
+        <div class="card vam-detail">
+          <div class="vam-detail-grid">
+            <section class="vam-detail-section"><h3>Що зробити</h3><ul><li>SQLite authority, versioned migrations та opaque IDs уже встановлені.</li><li>Описати XLSX як compatibility adapter.</li><li>Погодити workspace model.</li><li>Погодити backup/restore та перехід <code>.caseflow</code> → <code>.varta</code>.</li></ul></section>
+            <section class="vam-detail-section"><h3>Перевірка</h3><ul><li>ADR містять проблему, варіанти, рішення, наслідки й ризики.</li><li>Немає суперечностей із <code>AGENTS.md</code> і blueprint.</li><li>Для data changes описано migration та rollback.</li><li>Відхилені варіанти зафіксовані.</li></ul></section>
+            <section class="vam-detail-section"><h3>Gate переходу</h3><ul><li><code>ADR-001</code> підтверджено або замінено.</li><li>Repository, SQL migrations, IDs і workspace мають <code>APPROVED</code> рішення.</li><li>Є чітка межа legacy compatibility.</li></ul></section>
+          </div>
+          <div class="vam-dependency text-small text-muted">Залежність: A0 · repository/migrations розблоковані, workspace і backup/restore ще відкриті</div>
+        </div>
+      </details>
+    </div>
+
+    <div class="vam-step">
+      <div class="vam-rail" aria-hidden="true"><span class="vam-marker" data-status="partial"></span></div>
+      <details data-step="A2">
+        <summary>
+          <span class="vam-summary-main"><span class="vam-code">A2</span><span class="vam-title">Запровадити SQLite schema та migrations</span><span class="viz-badge">DDL/RUNNER DONE · GATE PARTIAL</span></span>
+          <i class="vam-chevron" data-lucide="chevron-down" aria-hidden="true"></i>
+        </summary>
+        <div class="card vam-detail">
+          <div class="vam-detail-grid">
+            <section class="vam-detail-section"><h3>Що зробити</h3><ul><li>Зберегти наявні versioned <code>0001</code>/<code>0002</code>, runner, checksums і schema history як один відтворюваний patch.</li><li>Довести upgrade path і логічне розділення system/intake/case/evidence migrations.</li><li>Зберегти append-only audit/review constraints.</li><li>Додати перевірений backup/restore gate.</li></ul></section>
+            <section class="vam-detail-section"><h3>Перевірка</h3><ul><li>Fresh database, failure rollback і immutable checksum tests уже проходять.</li><li>LF/CRLF checkout дає один canonical migration checksum.</li><li>Upgrade із legacy schema зберігає записи; FK та append-only triggers блокують невалідні операції.</li><li>Backup/restore proof ще належить виконати.</li></ul></section>
+            <section class="vam-detail-section"><h3>Gate переходу</h3><ul><li>Fresh і upgraded DB мають однакову schema version.</li><li>Applied migration не можна мовчки змінити.</li><li>Constraints реально блокують невалідний запис.</li><li>Restore перевірено.</li></ul></section>
+          </div>
+          <div class="vam-dependency text-small text-muted">Залежність: A1 · розблоковує A3, A5, A6, A11</div>
+        </div>
+      </details>
+    </div>
+
+    <div class="vam-step">
+      <div class="vam-rail" aria-hidden="true"><span class="vam-marker" data-status="partial"></span></div>
+      <details data-step="A3">
+        <summary>
+          <span class="vam-summary-main"><span class="vam-code">A3</span><span class="vam-title">Завершити immutable intake vertical slice</span><span class="viz-badge">PARTIAL</span></span>
+          <i class="vam-chevron" data-lucide="chevron-down" aria-hidden="true"></i>
+        </summary>
+        <div class="card vam-detail">
+          <div class="vam-detail-grid">
+            <section class="vam-detail-section"><h3>Що зробити</h3><ul><li>Приймати file/folder/archive в intake context.</li><li>Обчислювати streaming SHA-256.</li><li>Зберігати незмінний original через <code>file_id</code>.</li><li>Записувати provenance, duplicate signal та inventory у SQLite.</li></ul></section>
+            <section class="vam-detail-section"><h3>Перевірка</h3><ul><li>Source bytes не змінюються.</li><li>Archive traversal блокується.</li><li>Retry не створює мовчазних дублів.</li><li>Після restart inventory читається з БД.</li></ul></section>
+            <section class="vam-detail-section"><h3>Gate переходу</h3><ul><li>Один synthetic package проходить шлях input → SQLite/filesystem → read-back.</li><li>Partial failure видимий і не стирає успішні записи.</li><li>XLSX не є єдиним authoritative output.</li></ul></section>
+          </div>
+          <div class="vam-dependency text-small text-muted">Залежність: A2 · розблоковує A4, A8, A10, A11</div>
+        </div>
+      </details>
+    </div>
+
+    <div class="vam-step">
+      <div class="vam-rail" aria-hidden="true"><span class="vam-marker" data-status="ready"></span></div>
+      <details data-step="A4">
+        <summary>
+          <span class="vam-summary-main"><span class="vam-code">A4</span><span class="vam-title">Реалізувати case bootstrap</span><span class="viz-badge">READY ПІСЛЯ A3</span></span>
+          <i class="vam-chevron" data-lucide="chevron-down" aria-hidden="true"></i>
+        </summary>
+        <div class="card vam-detail">
+          <div class="vam-detail-grid">
+            <section class="vam-detail-section"><h3>Що зробити</h3><ul><li>Створювати тимчасовий <code>intake_case_id</code>.</li><li>Виділяти й нормалізувати кандидати номера.</li><li>Зберігати raw value, source, confidence і decision.</li><li>Активувати versioned case profile після підтвердження.</li></ul></section>
+            <section class="vam-detail-section"><h3>Перевірка</h3><ul><li>Zero/one/multiple candidate tests.</li><li>Ім’я файла не вважається достатнім доказом.</li><li>Неоднозначність дає <code>manual_review_required</code>.</li><li>Audit фіксує ручне рішення.</li></ul></section>
+            <section class="vam-detail-section"><h3>Gate переходу</h3><ul><li>Перший документ не втрачається без номера справи.</li><li>Однозначний case приєднується детерміновано.</li><li>Конфлікт не вирішується мовчки.</li></ul></section>
+          </div>
+          <div class="vam-dependency text-small text-muted">Залежність: A3 · розблоковує повний A5</div>
+        </div>
+      </details>
+    </div>
+
+    <div class="vam-step">
+      <div class="vam-rail" aria-hidden="true"><span class="vam-marker" data-status="partial"></span></div>
+      <details data-step="A5">
+        <summary>
+          <span class="vam-summary-main"><span class="vam-code">A5</span><span class="vam-title">Завершити domain та evidence model</span><span class="viz-badge">DDL/CONTRACT DONE · FLOW PARTIAL</span></span>
+          <i class="vam-chevron" data-lucide="chevron-down" aria-hidden="true"></i>
+        </summary>
+        <div class="card vam-detail">
+          <div class="vam-detail-grid">
+            <section class="vam-detail-section"><h3>Що зробити</h3><ul><li>DDL уже створює files, processing runs, claims, typed relations, source references і review decisions.</li><li>JSON contracts 1.1.0 та privacy-safe templates уже формалізовані.</li><li>Додати repository/application services для нових Evidence Map entities.</li><li>Під’єднати їх до intake, projection, review і export flow.</li></ul></section>
+            <section class="vam-detail-section"><h3>Перевірка</h3><ul><li>DDL/contract tests уже перевіряють таблиці, classifications і append-only decisions.</li><li>Додати repository CRUD та application integration tests.</li><li>Один document має працювати в кількох contexts без копіювання bytes.</li><li>Confirmed facts/relations повинні мати перевірену evidence basis наскрізно.</li></ul></section>
+            <section class="vam-detail-section"><h3>Gate переходу</h3><ul><li>Repository API існує для claims, relations, sources і decisions.</li><li>Timeline і map projection не потребують hardcode або прямого SQL у handlers.</li><li>Один synthetic case проходить SQLite → service → Evidence Map.</li></ul></section>
+          </div>
+          <div class="vam-dependency text-small text-muted">Залежності: A2, A4 · розблоковує A6, A7, A8, A10</div>
+        </div>
+      </details>
+    </div>
+
+    <div class="vam-step">
+      <div class="vam-rail" aria-hidden="true"><span class="vam-marker" data-status="planned"></span></div>
+      <details data-step="A6">
+        <summary>
+          <span class="vam-summary-main"><span class="vam-code">A6</span><span class="vam-title">Імпортувати legacy XLSX і .caseflow</span><span class="viz-badge">PLANNED</span></span>
+          <i class="vam-chevron" data-lucide="chevron-down" aria-hidden="true"></i>
+        </summary>
+        <div class="card vam-detail">
+          <div class="vam-detail-grid">
+            <section class="vam-detail-section"><h3>Що зробити</h3><ul><li>Зробити read-only inventory legacy state.</li><li>Описати field mapping і unsupported values.</li><li>Додати dry-run report, idempotent import і reconciliation.</li><li>Конфлікти направляти в manual review.</li></ul></section>
+            <section class="vam-detail-section"><h3>Перевірка</h3><ul><li>Legacy source не змінюється.</li><li>Повторний import не дублює записи.</li><li>Counts і hashes пояснюють розбіжності.</li><li>Unsupported fields не губляться мовчки.</li></ul></section>
+            <section class="vam-detail-section"><h3>Gate переходу</h3><ul><li>Reconciliation охоплює кожен source record.</li><li>Authoritative read path переключається лише після звірки.</li><li>XLSX залишається adapter, а не другою writable БД.</li></ul></section>
+          </div>
+          <div class="vam-dependency text-small text-muted">Залежності: A2, A5 · передує повному відключенню legacy read path</div>
+        </div>
+      </details>
+    </div>
+
+    <div class="vam-step">
+      <div class="vam-rail" aria-hidden="true"><span class="vam-marker" data-status="blocked"></span></div>
+      <details data-step="A7">
+        <summary>
+          <span class="vam-summary-main"><span class="vam-code">A7</span><span class="vam-title">Побудувати Evidence Map projection</span><span class="viz-badge">BLOCKED ДО A5 API</span></span>
+          <i class="vam-chevron" data-lucide="chevron-down" aria-hidden="true"></i>
+        </summary>
+        <div class="card vam-detail">
+          <div class="vam-detail-grid">
+            <section class="vam-detail-section"><h3>Що зробити</h3><ul><li>Читати case graph із SQLite за <code>case_id</code>.</li><li>Застосовувати versioned profile і key-node rules.</li><li>Детерміновано формувати nodes, relations та inventory.</li><li>Валідувати schema й обчислювати snapshot SHA-256.</li></ul></section>
+            <section class="vam-detail-section"><h3>Перевірка</h3><ul><li>Referential integrity.</li><li>Однаковий input revision → однаковий canonical hash.</li><li>Broken source references дають validation error.</li><li>Snapshot не редагується як реєстр.</li></ul></section>
+            <section class="vam-detail-section"><h3>Gate переходу</h3><ul><li>Валідний <code>map-data.json</code> відтворюється з БД.</li><li>Inventory показує included/excluded матеріали.</li><li>Немає конкретного номера справи в generator code.</li></ul></section>
+          </div>
+          <div class="vam-dependency text-small text-muted">Залежність: A5 repository/application API · після цього розблоковує A8 і A9</div>
+        </div>
+      </details>
+    </div>
+
+    <div class="vam-step">
+      <div class="vam-rail" aria-hidden="true"><span class="vam-marker" data-status="partial"></span></div>
+      <details data-step="A8">
+        <summary>
+          <span class="vam-summary-main"><span class="vam-code">A8</span><span class="vam-title">Під’єднати integrated local UI</span><span class="viz-badge">PARTIAL</span></span>
+          <i class="vam-chevron" data-lucide="chevron-down" aria-hidden="true"></i>
+        </summary>
+        <div class="card vam-detail">
+          <div class="vam-detail-grid">
+            <section class="vam-detail-section"><h3>Що зробити</h3><ul><li>Викликати application services, не SQLite напряму.</li><li>Додати intake, inventory, case review, timeline і map surfaces.</li><li>Зберігати context IDs та <code>returnTo</code>.</li><li>Показувати provenance, findings і review state.</li></ul></section>
+            <section class="vam-detail-section"><h3>Перевірка</h3><ul><li>Browser/runtime upload smoke test.</li><li>Persistence після restart.</li><li>Повернення від source відновлює selection і filters.</li><li>UI не робить юридичних висновків із кольору.</li></ul></section>
+            <section class="vam-detail-section"><h3>Gate переходу</h3><ul><li>Користувач проходить intake → review → map без ручного XLSX edit.</li><li>Domain rules не дублюються в handler/JavaScript.</li><li>Помилки видимі та журналюються.</li></ul></section>
+          </div>
+          <div class="vam-dependency text-small text-muted">Залежності: A3, A5, A7</div>
+        </div>
+      </details>
+    </div>
+
+    <div class="vam-step">
+      <div class="vam-rail" aria-hidden="true"><span class="vam-marker" data-status="partial"></span></div>
+      <details data-step="A9">
+        <summary>
+          <span class="vam-summary-main"><span class="vam-code">A9</span><span class="vam-title">Завершити sealed standalone export</span><span class="viz-badge">PARTIAL</span></span>
+          <i class="vam-chevron" data-lucide="chevron-down" aria-hidden="true"></i>
+        </summary>
+        <div class="card vam-detail">
+          <div class="vam-detail-grid">
+            <section class="vam-detail-section"><h3>Що зробити</h3><ul><li>Генерувати HTML, snapshot, manifest і validation report.</li><li>Додати export ID, versions, profile і hashes.</li><li>Реалізувати <code>full_local</code>, <code>redacted</code>, <code>metadata_only</code>.</li><li>Заборонити network dependencies.</li></ul></section>
+            <section class="vam-detail-section"><h3>Перевірка</h3><ul><li>Відкриття без сервера та інтернету.</li><li>Assertion: немає <code>fetch</code>, XHR, WebSocket, CDN.</li><li>Schema й hash validation.</li><li><code>full_local</code> вимагає явного вибору.</li></ul></section>
+            <section class="vam-detail-section"><h3>Gate переходу</h3><ul><li>Пакет самодостатній і read-only.</li><li>Manifest відповідає фактичним entries.</li><li>Export не потрапляє до Git автоматично.</li><li>Немає ілюзії збереження змін у VARTA.</li></ul></section>
+          </div>
+          <div class="vam-dependency text-small text-muted">Залежність: A7 · потрібен для A12</div>
+        </div>
+      </details>
+    </div>
+
+    <div class="vam-step">
+      <div class="vam-rail" aria-hidden="true"><span class="vam-marker" data-status="partial"></span></div>
+      <details data-step="A10">
+        <summary>
+          <span class="vam-summary-main"><span class="vam-code">A10</span><span class="vam-title">Реалізувати processors як plugins</span><span class="viz-badge">PARTIAL / SCAFFOLD</span></span>
+          <i class="vam-chevron" data-lucide="chevron-down" aria-hidden="true"></i>
+        </summary>
+        <div class="card vam-detail">
+          <div class="vam-detail-grid">
+            <section class="vam-detail-section"><h3>Що зробити</h3><ul><li>OCR, КЕП, matching, attachments і STT під’єднати як adapters.</li><li>Версіонувати parameters і tool version.</li><li>Створювати derived artifacts/findings із provenance.</li><li>Підтримати <code>not_available</code> і <code>not_verifiable</code>.</li></ul></section>
+            <section class="vam-detail-section"><h3>Перевірка</h3><ul><li>Synthetic fixtures для кожного processor.</li><li>Failure/timeout/corrupt-input tests.</li><li>Original bytes не змінюються.</li><li>Private keys і passwords не виходять назовні.</li></ul></section>
+            <section class="vam-detail-section"><h3>Gate переходу</h3><ul><li>Кожен результат посилається на input і processing run.</li><li>Confidence не підміняє manual review.</li><li>Відсутній tool не ламає основний intake flow.</li></ul></section>
+          </div>
+          <div class="vam-dependency text-small text-muted">Залежності: A3, A5 · може виконуватися окремими patches</div>
+        </div>
+      </details>
+    </div>
+
+    <div class="vam-step">
+      <div class="vam-rail" aria-hidden="true"><span class="vam-marker" data-status="partial"></span></div>
+      <details data-step="A11">
+        <summary>
+          <span class="vam-summary-main"><span class="vam-code">A11</span><span class="vam-title">Перевірити backup, restore і Windows delivery</span><span class="viz-badge">PARTIAL</span></span>
+          <i class="vam-chevron" data-lucide="chevron-down" aria-hidden="true"></i>
+        </summary>
+        <div class="card vam-detail">
+          <div class="vam-detail-grid">
+            <section class="vam-detail-section"><h3>Що зробити</h3><ul><li>Створювати узгоджений backup SQLite + filesystem.</li><li>Додати checksum manifest і restore flow.</li><li>Перевірити install/update/uninstall без видалення даних.</li><li>Підтвердити offline dependencies і packaged runtime.</li></ul></section>
+            <section class="vam-detail-section"><h3>Перевірка</h3><ul><li>Restore у новий каталог.</li><li>Integrity та schema preflight після restore.</li><li>Packaged launch smoke test.</li><li>Update failure повертається через backup.</li></ul></section>
+            <section class="vam-detail-section"><h3>Gate переходу</h3><ul><li>Відновлений workspace дає ті самі hashes і counts.</li><li>User data переживає update/uninstall.</li><li>Release archive зібрано з чистого staging.</li></ul></section>
+          </div>
+          <div class="vam-dependency text-small text-muted">Залежності: A2, A3, A8 · потрібен для A12</div>
+        </div>
+      </details>
+    </div>
+
+    <div class="vam-step">
+      <div class="vam-rail" aria-hidden="true"><span class="vam-marker" data-status="planned"></span></div>
+      <details data-step="A12">
+        <summary>
+          <span class="vam-summary-main"><span class="vam-code">A12</span><span class="vam-title">Пройти release gate</span><span class="viz-badge">PLANNED</span></span>
+          <i class="vam-chevron" data-lucide="chevron-down" aria-hidden="true"></i>
+        </summary>
+        <div class="card vam-detail">
+          <div class="vam-detail-grid">
+            <section class="vam-detail-section"><h3>Що зробити</h3><ul><li>Зафіксувати включені та відкладені можливості.</li><li>Узгодити product/schema versions.</li><li>Зібрати release з контрольованого staging.</li><li>Підготувати known limits і rollback instructions.</li></ul></section>
+            <section class="vam-detail-section"><h3>Перевірка</h3><ul><li>Tests, lint, types, compile, privacy.</li><li>Fresh install, restart, upgrade, backup/restore.</li><li>Фактична перевірка archive entries.</li><li>Runtime/UI/export smoke tests.</li></ul></section>
+            <section class="vam-detail-section"><h3>Результат</h3><ul><li>Відтворюваний release candidate.</li><li>Жодне відоме обмеження не приховано.</li><li>Commit, push або release виконуються лише за явним дозволом.</li></ul></section>
+          </div>
+          <div class="vam-dependency text-small text-muted">Залежності: усі включені етапи A0–A11</div>
+        </div>
+      </details>
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      const root = document.getElementById("varta-action-map");
+      if (!root) return;
+      const steps = Array.from(root.querySelectorAll("details[data-step]"));
+      steps.forEach((step) => {
+        step.addEventListener("toggle", () => {
+          if (!step.open) return;
+          steps.forEach((other) => {
+            if (other !== step) other.open = false;
+          });
+        });
+      });
+    })();
+  </script>
+</div>
+</main>
+</body>
+</html>

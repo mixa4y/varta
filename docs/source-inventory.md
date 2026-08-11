@@ -18,6 +18,21 @@
 - Windows build/install/update scripts as migration material;
 - server and anomaly tests.
 
+## Instruction authority and supersession
+
+- `AGENTS.md` defines the repository, privacy, product and verification
+  boundaries.
+- `docs/action-algorithm.md` is the canonical execution order; its interactive
+  HTML map is a companion view, not a separate source of truth.
+- `docs/blueprints/evidence-map-blueprint.md` is the canonical generic Evidence
+  Map specification for VARTA.
+- Case-specific instructions outside this repository remain read-only migration
+  evidence and must not be copied into universal core documentation.
+- The older downstream copy of the case-specific map instruction in the external
+  ESUD workspace is `SUPERSEDED` for VARTA planning: it predates the current
+  intake and snapshot contracts. The protected external file is intentionally
+  left unchanged.
+
 ## Explicitly excluded
 
 - `00_INBOX`, `01_ОПРАЦЬОВАНО`, `02_РОЗПАКОВАНО`, `03_РЕЄСТР`,
