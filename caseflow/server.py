@@ -5,6 +5,7 @@ import base64
 import cgi
 import ctypes
 import hashlib
+import importlib
 import importlib.util
 import io
 import json
@@ -27,6 +28,7 @@ from ctypes import wintypes
 from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path, PurePosixPath
+from typing import Any
 
 from case_docket.repository import SQLiteRepository
 
@@ -108,12 +110,9 @@ def run_worker(script: Path, worker_args: list[str], cwd: Path, timeout: int) ->
             timeout=timeout,
         )
 
-    if script.stem == "caseflow_process":
-        import caseflow_process as worker_module
-    elif script.stem == "anomaly_detector":
-        import anomaly_detector as worker_module
-    else:
+    if script.stem not in {"caseflow_process", "anomaly_detector"}:
         raise ValueError(f"Невідомий вбудований worker: {script.stem}")
+    worker_module = importlib.import_module(f"caseflow.{script.stem}")
 
     stdout = io.StringIO()
     stderr = io.StringIO()
@@ -370,7 +369,10 @@ def google_json(method: str, url: str, token: str, payload: dict | None = None) 
 
 
 def create_drive_folder(token: str, name: str, parent_id: str | None) -> dict:
-    metadata = {"name": name, "mimeType": "application/vnd.google-apps.folder"}
+    metadata: dict[str, Any] = {
+        "name": name,
+        "mimeType": "application/vnd.google-apps.folder",
+    }
     if parent_id:
         metadata["parents"] = [parent_id]
     return google_json("POST", f"{GOOGLE_DRIVE_API}/files?fields=id,name,webViewLink", token, metadata)
@@ -856,11 +858,14 @@ def build_preflight(state: CaseFlowState) -> dict:
     inbox = root / "00_INBOX"
     index_path = root / ".caseflow" / "index.json"
     index_valid = True
-    index = {"hashes": {}}
+    index: dict[str, Any] = {"hashes": {}}
     if index_path.exists():
         try:
-            index = json.loads(index_path.read_text(encoding="utf-8-sig"))
-            index_valid = isinstance(index, dict) and isinstance(index.get("hashes", {}), dict)
+            loaded_index = json.loads(index_path.read_text(encoding="utf-8-sig"))
+            if isinstance(loaded_index, dict) and isinstance(loaded_index.get("hashes", {}), dict):
+                index = loaded_index
+            else:
+                index_valid = False
         except (OSError, json.JSONDecodeError):
             index_valid = False
     indexed_sources = {
@@ -995,14 +1000,18 @@ def build_preflight(state: CaseFlowState) -> dict:
     }
 
 
-def anomaly_summary(findings: list[dict]) -> dict:
+def anomaly_summary(findings: list[dict[str, Any]]) -> dict[str, int]:
     open_items = [item for item in findings if item.get("status", "open") == "open"]
-    counts = {level: sum(item.get("severity") == level for item in open_items) for level in ANOMALY_WEIGHTS}
+    severities = [
+        severity if isinstance(severity := item.get("severity"), str) else ""
+        for item in open_items
+    ]
+    counts = {level: severities.count(level) for level in ANOMALY_WEIGHTS}
     return {
         "total": len(findings),
         "open": len(open_items),
         **counts,
-        "risk_score": min(100, sum(ANOMALY_WEIGHTS.get(item.get("severity"), 0) for item in open_items)),
+        "risk_score": min(100, sum(ANOMALY_WEIGHTS.get(severity, 0) for severity in severities)),
     }
 
 
@@ -1280,7 +1289,7 @@ class Handler(BaseHTTPRequestHandler):
         if length <= 0 or length > MAX_UPLOAD_BYTES:
             raise ValueError("Некоректний або завеликий пакет")
         form = cgi.FieldStorage(
-            fp=self.rfile,
+            fp=self.rfile,  # type: ignore[arg-type]
             headers=self.headers,
             environ={"REQUEST_METHOD": "POST", "CONTENT_TYPE": self.headers.get("Content-Type", ""), "CONTENT_LENGTH": str(length)},
             keep_blank_values=True,

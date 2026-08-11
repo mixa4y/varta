@@ -22,6 +22,7 @@ dev = [
     "mypy>=1.11",
     "pytest>=8.0",
     "ruff>=0.6",
+    "types-openpyxl>=3.1",
 ]
 future = [
     "pydantic>=2.6",
@@ -32,8 +33,11 @@ future = [
 include = ["case_docket*", "caseflow*"]
 
 [tool.setuptools.package-data]
-case_docket = ["dictionaries/*.json"]
+case_docket = ["dictionaries/*.json", "repository/migrations/*.sql"]
 caseflow = ["static/*", "version.json"]
+
+[tool.setuptools.data-files]
+config = ["config/airtable_schema.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
