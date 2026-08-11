@@ -9,7 +9,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from case_docket.models import Actor, Document, DocumentDates, DocumentFile, Event
+from case_docket.models import Actor, Contact, Document, DocumentDates, DocumentFile, Event
 
 
 def test_document_accepts_valid_codes():
@@ -64,6 +64,23 @@ def test_actor_rejects_invalid_role():
     try:
         Actor(id="a1", name="Іванов", role="bogus_role")
         assert False, "мало кинути ValueError"
+    except ValueError:
+        pass
+
+
+def test_contact_roundtrip_and_validation():
+    contact = Contact(
+        id="contact-1",
+        full_name="  Тестова Особа  ",
+        participant_type="person",
+        email="test@example.invalid",
+    )
+    assert contact.full_name == "Тестова Особа"
+    assert contact.to_record()["email"] == "test@example.invalid"
+
+    try:
+        Contact(id="contact-2", full_name="", participant_type="person")
+        assert False, "порожній full_name мав бути відхилений"
     except ValueError:
         pass
 

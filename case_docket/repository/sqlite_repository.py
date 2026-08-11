@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import sqlite3
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Optional
 
@@ -12,6 +12,8 @@ from case_docket.airtable import (
     import_airtable_snapshot,
     install_airtable_catalog,
 )
+from case_docket.models.contact import Contact
+
 from .base import Repository
 from .migrations import MigrationRunner
 
@@ -204,6 +206,12 @@ class SQLiteRepository(Repository):
                 values[key] = self._sqlite_value(value)
         if table == "document_files" and not record.get("document_id"):
             raise ValueError("document_files: обов'язкове поле 'document_id'")
+        if table == "contacts":
+            if not str(record.get("full_name") or "").strip():
+                raise ValueError("contacts.full_name є обов'язковим")
+            participant_type = record.get("participant_type")
+            if participant_type not in {"person", "organization"}:
+                raise ValueError("contacts.participant_type має бути person або organization")
         with self._conn:
             self._conn.execute(
                 f"INSERT INTO {table} ({', '.join(values)}) "
@@ -268,6 +276,135 @@ class SQLiteRepository(Repository):
                 continue
             yield item
 
+    # --- contacts ------------------------------------------------------------
+    def create_contact(self, record: dict[str, Any]) -> str:
+        validated = self._validate_contact(record)
+        return self.insert("contacts", validated)
+
+    def get_contact(self, contact_id: str) -> Optional[dict[str, Any]]:
+        item = self.get("contacts", contact_id)
+        if item is not None:
+            item["roles"] = self.list_contact_roles(contact_id)
+        return item
+
+    def list_contacts(self, search: str | None = None) -> list[dict[str, Any]]:
+        sql = "SELECT id FROM contacts"
+        params: list[Any] = []
+        if search:
+            sql += (
+                " WHERE full_name LIKE ? OR short_name LIKE ? OR email LIKE ? "
+                "OR phone LIKE ? OR additional_phone LIKE ?"
+            )
+            needle = f"%{search}%"
+            params = [needle] * 5
+        sql += " ORDER BY full_name COLLATE NOCASE"
+        contacts: list[dict[str, Any]] = []
+        for row in self._conn.execute(sql, params).fetchall():
+            item = self.get_contact(str(row["id"]))
+            assert item is not None
+            contacts.append(item)
+        return contacts
+
+    def update_contact(self, contact_id: str, fields: dict[str, Any]) -> None:
+        allowed = self._table_columns("contacts") - _SYSTEM_COLUMNS
+        unknown = set(fields) - allowed
+        if unknown:
+            raise ValueError(f"Невідомі contact fields: {sorted(unknown)}")
+        current = self.get("contacts", contact_id)
+        if current is None:
+            raise KeyError(f"contacts:{contact_id} не знайдено")
+        merged = {key: current.get(key) for key in allowed}
+        merged.update(fields)
+        validated = self._validate_contact({"id": contact_id, **merged})
+        self.update("contacts", contact_id, validated)
+
+    def contacts_context(self) -> dict[str, Any]:
+        cases = [
+            dict(row)
+            for row in self._conn.execute(
+                "SELECT id, case_number, name FROM cases ORDER BY case_number, name"
+            ).fetchall()
+        ]
+        proceedings = [
+            dict(row)
+            for row in self._conn.execute(
+                """
+                SELECT
+                    p.id,
+                    p.proceeding_number,
+                    p.name,
+                    GROUP_CONCAT(cp.case_id) AS case_ids
+                FROM proceedings AS p
+                LEFT JOIN case_proceedings AS cp ON cp.proceeding_id = p.id
+                GROUP BY p.id
+                ORDER BY p.proceeding_number, p.name
+                """
+            ).fetchall()
+        ]
+        for proceeding in proceedings:
+            raw_case_ids = proceeding.pop("case_ids", None)
+            proceeding["caseIds"] = raw_case_ids.split(",") if raw_case_ids else []
+        roles = [
+            str(row["choice_name"])
+            for row in self._conn.execute(
+                """
+                SELECT choice_name
+                FROM airtable_select_choices
+                WHERE airtable_field_id = 'fldnQfVMsMWOXwJRV'
+                ORDER BY position
+                """
+            ).fetchall()
+        ]
+        return {"cases": cases, "proceedings": proceedings, "roles": roles}
+
+    def assign_contact_role(self, record: dict[str, Any]) -> str:
+        required = ("contact_id", "case_id", "role")
+        if any(not record.get(field) for field in required):
+            raise ValueError("case_participants потребує contact_id, case_id і role")
+        participant_id = str(record.get("id") or uuid.uuid4())
+        now = datetime.now(timezone.utc).isoformat()
+        values = {
+            "id": participant_id,
+            "contact_id": record["contact_id"],
+            "case_id": record["case_id"],
+            "proceeding_id": record.get("proceeding_id"),
+            "role": record["role"],
+            "active": int(record.get("active", True)),
+            "notes": record.get("notes"),
+            "created_at": now,
+            "updated_at": now,
+            "legacy_payload": "{}",
+        }
+        with self._conn:
+            self._conn.execute(
+                f"INSERT INTO case_participants ({', '.join(values)}) "
+                f"VALUES ({', '.join('?' for _ in values)})",
+                list(values.values()),
+            )
+            self._record_audit_event(
+                "assign_role",
+                "contacts",
+                str(record["contact_id"]),
+                {
+                    "case_id": record["case_id"],
+                    "proceeding_id": record.get("proceeding_id"),
+                    "role": record["role"],
+                },
+            )
+        return participant_id
+
+    def list_contact_roles(self, contact_id: str) -> list[dict[str, Any]]:
+        rows = self._conn.execute(
+            """
+            SELECT id, case_id, proceeding_id, role, active, notes, created_at
+            FROM case_participants
+            WHERE contact_id = ?
+            ORDER BY created_at
+            """,
+            (contact_id,),
+        ).fetchall()
+        return [dict(row) for row in rows]
+
     # --- Airtable migration adapter ------------------------------------------
     def import_airtable_snapshot(self, snapshot: dict[str, Any]) -> AirtableImportSummary:
         return import_airtable_snapshot(self._conn, snapshot, self._record_audit_event)
@@ -294,6 +431,28 @@ class SQLiteRepository(Repository):
                 ).fetchone()[0]
             ),
         }
+
+    @staticmethod
+    def _validate_contact(record: dict[str, Any]) -> dict[str, object]:
+        raw_date = record.get("birth_or_registration_date")
+        parsed_date = date.fromisoformat(str(raw_date)) if raw_date else None
+        model = Contact(
+            id=str(record.get("id") or uuid.uuid4()),
+            full_name=str(record.get("full_name") or ""),
+            participant_type=str(record.get("participant_type") or ""),
+            short_name=record.get("short_name"),
+            active=bool(record.get("active", True)),
+            email=record.get("email"),
+            phone=record.get("phone"),
+            additional_phone=record.get("additional_phone"),
+            address=record.get("address"),
+            tax_id=record.get("tax_id"),
+            edrpou=record.get("edrpou"),
+            birth_or_registration_date=parsed_date,
+            representative_or_contact_person=record.get("representative_or_contact_person"),
+            notes=record.get("notes"),
+        )
+        return model.to_record()
 
     # --- audit log ------------------------------------------------------------
     def record_audit_event(

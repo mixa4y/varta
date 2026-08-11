@@ -28,6 +28,8 @@ from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path, PurePosixPath
 
+from case_docket.repository import SQLiteRepository
+
 
 APP_DIR = Path(__file__).resolve().parent
 STATIC_DIR = APP_DIR / "static"
@@ -210,6 +212,7 @@ class CaseFlowState:
         self.lock = threading.RLock()
         self.job_lock = threading.Lock()
         self.active_job: dict | None = None
+        self._repository: SQLiteRepository | None = None
         self.config_path = self.root / ".caseflow" / "config.json"
         self.token_path = self.root / ".caseflow" / "secrets" / "google_token.dpapi"
         self.google_secret_path = self.root / ".caseflow" / "secrets" / "google_client_secret.dpapi"
@@ -231,6 +234,21 @@ class CaseFlowState:
                 self.save_config()
             except OSError:
                 pass
+
+    @property
+    def repository(self) -> SQLiteRepository:
+        with self.lock:
+            if self._repository is None:
+                database_path = self.root / ".caseflow" / "varta.sqlite3"
+                database_path.parent.mkdir(parents=True, exist_ok=True)
+                self._repository = SQLiteRepository(database_path)
+            return self._repository
+
+    def close(self) -> None:
+        with self.lock:
+            if self._repository is not None:
+                self._repository.close()
+                self._repository = None
 
     def save_config(self) -> None:
         write_json(self.config_path, self.config)
@@ -1036,6 +1054,15 @@ class Handler(BaseHTTPRequestHandler):
         if parsed.path == "/api/documents/tree":
             self.handle_document_tree()
             return
+        if parsed.path == "/api/contacts/context":
+            self.handle_contacts_context()
+            return
+        if parsed.path == "/api/contacts":
+            self.handle_contacts(urllib.parse.parse_qs(parsed.query))
+            return
+        if parsed.path.startswith("/api/contacts/"):
+            self.handle_contact(parsed.path.rsplit("/", 1)[-1])
+            return
         if parsed.path == "/api/anomalies/latest":
             self.handle_anomalies_latest()
             return
@@ -1060,6 +1087,10 @@ class Handler(BaseHTTPRequestHandler):
                 self.handle_anomaly_status()
             elif route == "/api/settings":
                 self.handle_settings()
+            elif route == "/api/contacts":
+                self.handle_contact_create()
+            elif route.startswith("/api/contacts/") and route.endswith("/roles"):
+                self.handle_contact_role(route.split("/")[3])
             elif route == "/api/google/config":
                 self.handle_google_config()
             elif route == "/api/google/login":
@@ -1074,6 +1105,21 @@ class Handler(BaseHTTPRequestHandler):
             self.send_error_json(409, exc)
         except PermissionError as exc:
             self.send_error_json(403, exc)
+        except Exception as exc:  # noqa: BLE001
+            self.send_error_json(400, exc)
+
+    def do_PATCH(self) -> None:
+        try:
+            self.require_csrf()
+            route = urllib.parse.urlparse(self.path).path
+            if route.startswith("/api/contacts/"):
+                self.handle_contact_update(route.rsplit("/", 1)[-1])
+            else:
+                self.send_error_json(404, "Маршрут не знайдено")
+        except PermissionError as exc:
+            self.send_error_json(403, exc)
+        except KeyError as exc:
+            self.send_error_json(404, exc)
         except Exception as exc:  # noqa: BLE001
             self.send_error_json(400, exc)
 
@@ -1109,6 +1155,9 @@ class Handler(BaseHTTPRequestHandler):
         last_run = read_json(runs[0], None) if runs else None
         anomaly_report = read_json(self.state.root / "tmp" / "caseflow_anomalies" / "latest.json", None)
         google = self.state.config.get("google", {})
+        with self.state.lock:
+            database = self.state.repository.airtable_catalog_counts()
+            database["contacts"] = len(self.state.repository.list_contacts())
         self.send_json(
             200,
             {
@@ -1136,6 +1185,7 @@ class Handler(BaseHTTPRequestHandler):
                     "rar": bool(find_7zip(str(self.state.config.get("seven_zip_path", "")))),
                     "sevenZip": str(find_7zip(str(self.state.config.get("seven_zip_path", ""))) or ""),
                 },
+                "database": database,
                 "ui": self.state.config.get("ui", {}),
             },
         )
@@ -1145,6 +1195,49 @@ class Handler(BaseHTTPRequestHandler):
 
     def handle_document_tree(self) -> None:
         self.send_json(200, build_document_tree(self.state.root))
+
+    def handle_contacts(self, query: dict[str, list[str]]) -> None:
+        search = str(query.get("q", [""])[0]).strip()[:200]
+        with self.state.lock:
+            contacts = self.state.repository.list_contacts(search or None)
+        self.send_json(200, {"ok": True, "contacts": contacts, "count": len(contacts)})
+
+    def handle_contact(self, contact_id: str) -> None:
+        with self.state.lock:
+            contact = self.state.repository.get_contact(urllib.parse.unquote(contact_id))
+        if contact is None:
+            self.send_error_json(404, "Контакт не знайдено")
+            return
+        self.send_json(200, {"ok": True, "contact": contact})
+
+    def handle_contacts_context(self) -> None:
+        with self.state.lock:
+            context = self.state.repository.contacts_context()
+        self.send_json(200, {"ok": True, **context})
+
+    def handle_contact_create(self) -> None:
+        payload = self.read_json_body()
+        with self.state.lock:
+            contact_id = self.state.repository.create_contact(payload)
+            contact = self.state.repository.get_contact(contact_id)
+        self.send_json(201, {"ok": True, "contact": contact})
+
+    def handle_contact_update(self, contact_id: str) -> None:
+        payload = self.read_json_body()
+        decoded_id = urllib.parse.unquote(contact_id)
+        with self.state.lock:
+            self.state.repository.update_contact(decoded_id, payload)
+            contact = self.state.repository.get_contact(decoded_id)
+        self.send_json(200, {"ok": True, "contact": contact})
+
+    def handle_contact_role(self, contact_id: str) -> None:
+        payload = self.read_json_body()
+        decoded_id = urllib.parse.unquote(contact_id)
+        payload["contact_id"] = decoded_id
+        with self.state.lock:
+            participant_id = self.state.repository.assign_contact_role(payload)
+            contact = self.state.repository.get_contact(decoded_id)
+        self.send_json(201, {"ok": True, "id": participant_id, "contact": contact})
 
     def handle_document_status(self) -> None:
         payload = self.read_json_body()
@@ -1440,6 +1533,7 @@ def main() -> int:
         pass
     finally:
         server.server_close()
+        state.close()
         try:
             if pid_path.read_text(encoding="ascii").strip() == str(os.getpid()):
                 pid_path.unlink()

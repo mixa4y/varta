@@ -168,12 +168,10 @@ def test_airtable_snapshot_materializes_sql_relations(tmp_path: Path) -> None:
     assert repo._conn.execute("SELECT COUNT(*) FROM proceedings").fetchone()[0] == 1
     assert repo._conn.execute("SELECT COUNT(*) FROM documents").fetchone()[0] == 2
 
-    contact = repo._conn.execute(
-        "SELECT full_name, participant_type FROM contacts"
-    ).fetchone()
+    contact = repo.list_contacts()[0]
     assert contact["full_name"] == "Тестова Особа"
     assert contact["participant_type"] == "person"
-    assert repo._conn.execute("SELECT role FROM case_participants").fetchone()[0] == "Позивач"
+    assert contact["roles"][0]["role"] == "Позивач"
 
     detail = repo._conn.execute("SELECT * FROM v_contact_proceeding_details").fetchone()
     assert detail["proceeding_name"] == "Вигадане провадження"
