@@ -7,6 +7,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Optional
 
+from case_docket.airtable import (
+    AirtableImportSummary,
+    import_airtable_snapshot,
+    install_airtable_catalog,
+)
 from .base import Repository
 from .migrations import MigrationRunner
 
@@ -49,6 +54,7 @@ class SQLiteRepository(Repository):
         self,
         db_path: str | Path = "case_docket.sqlite3",
         *,
+        airtable_schema_path: Path | None = None,
         migrations_path: Path | None = None,
     ):
         self.db_path = Path(db_path)
@@ -58,6 +64,7 @@ class SQLiteRepository(Repository):
         self._conn.execute("PRAGMA journal_mode = WAL")
         self._prepare_legacy_tables()
         MigrationRunner(self._conn, migrations_path).migrate()
+        install_airtable_catalog(self._conn, airtable_schema_path)
         self._restore_legacy_records()
 
     def close(self) -> None:
@@ -260,6 +267,33 @@ class SQLiteRepository(Repository):
             if where and any(item.get(key) != value for key, value in where.items()):
                 continue
             yield item
+
+    # --- Airtable migration adapter ------------------------------------------
+    def import_airtable_snapshot(self, snapshot: dict[str, Any]) -> AirtableImportSummary:
+        return import_airtable_snapshot(self._conn, snapshot, self._record_audit_event)
+
+    def airtable_catalog_counts(self) -> dict[str, int]:
+        return {
+            "tables": int(
+                self._conn.execute("SELECT COUNT(*) FROM airtable_table_mappings").fetchone()[0]
+            ),
+            "fields": int(
+                self._conn.execute("SELECT COUNT(*) FROM airtable_field_mappings").fetchone()[0]
+            ),
+            "relations": int(
+                self._conn.execute(
+                    "SELECT COUNT(*) FROM airtable_relationship_mappings"
+                ).fetchone()[0]
+            ),
+            "computed": int(
+                self._conn.execute(
+                    """
+                    SELECT COUNT(*) FROM airtable_field_mappings
+                    WHERE sql_kind IN ('lookup', 'formula')
+                    """
+                ).fetchone()[0]
+            ),
+        }
 
     # --- audit log ------------------------------------------------------------
     def record_audit_event(
