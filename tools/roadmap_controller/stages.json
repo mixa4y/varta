@@ -1,0 +1,205 @@
+{
+  "schemaVersion": 1,
+  "stages": [
+    {
+      "id": "C01",
+      "order": 1,
+      "group": "core",
+      "title": "Підготувати поточні напрацювання до контрольованого baseline",
+      "topic": "VARTA C01 — стабілізація поточного working baseline",
+      "planningStatus": "READY",
+      "dependencies": [],
+      "prompt": "Виконай тільки package C01 з docs/chat-roadmap.md. Інвентаризуй і стабілізуй поточний dirty working tree VARTA без видалення, reset, commit або push. Результат — exact logical patch manifests, quality/privacy gates, runtime smoke і handoff для C02."
+    },
+    {
+      "id": "C02",
+      "order": 2,
+      "group": "core",
+      "title": "Затвердити цільову local-web архітектуру та ADR-пакет",
+      "topic": "VARTA C02 — local web, source of truth і ключові ADR",
+      "planningStatus": "PARTIAL",
+      "dependencies": ["C01"],
+      "prompt": "Виконай тільки C02. Формалізуй архітектуру VARTA: без Notion, local web UI на loopback, SQLite + managed filesystem як source of truth, application-service boundary і isolated workers. Синхронізуй ADR/spec/status. Не починай refactor коду."
+    },
+    {
+      "id": "C03",
+      "order": 3,
+      "group": "core",
+      "title": "Створити application layer і versioned API boundary",
+      "topic": "VARTA C03 — application services, ports і local API v1",
+      "planningStatus": "BLOCKED_BY_DECISION",
+      "dependencies": ["C02"],
+      "prompt": "Виконай C03 після gate C02. Створи мінімальний application layer, ports/Unit of Work та /api/v1 contract; перенеси один існуючий vertical slice без зміни UX. Додай architecture, unit, integration і HTTP tests. Не мігруй intake або Evidence Map."
+    },
+    {
+      "id": "C04",
+      "order": 4,
+      "group": "core",
+      "title": "Завершити SQLite lifecycle, Unit of Work і migration gates",
+      "topic": "VARTA C04 — SQLite transactions, migrations і recovery foundation",
+      "planningStatus": "PARTIAL",
+      "dependencies": ["C03"],
+      "prompt": "Виконай тільки C04. Заверши SQLite connection/UoW lifecycle, migration gates, schema compatibility і online-backup primitive. Не реалізуй filesystem originals або UI. Доведи fresh/upgrade/failure/concurrency/restore tests."
+    },
+    {
+      "id": "C05",
+      "order": 5,
+      "group": "core",
+      "title": "Реалізувати managed storage та immutable originals",
+      "topic": "VARTA C05 — immutable originals і managed filesystem",
+      "planningStatus": "PARTIAL",
+      "dependencies": ["C02", "C04"],
+      "prompt": "Виконай C05: реалізуй managed storage та immutable originals поверх C02/C04. Збережи literal source names, streaming SHA-256 і provenance; відокрем managed names. Додай Windows/path/crash/collision tests. Не будуй повний intake UI."
+    },
+    {
+      "id": "C06",
+      "order": 6,
+      "group": "core",
+      "title": "Реалізувати intake vertical slice до SQLite",
+      "topic": "VARTA C06 — file, folder і ZIP intake до SQLite",
+      "planningStatus": "PARTIAL",
+      "dependencies": ["C05"],
+      "prompt": "Виконай C06: побудуй end-to-end intake file/folder/ZIP через application service, immutable storage й SQLite. Inventory має читатися з БД після restart; partial failures і duplicates — явні. Не починай case detection або legacy import."
+    },
+    {
+      "id": "C07",
+      "order": 7,
+      "group": "core",
+      "title": "Реалізувати workspace, case bootstrap та active case",
+      "topic": "VARTA C07 — multi-case workspace і case bootstrap",
+      "planningStatus": "PLANNED",
+      "dependencies": ["C06"],
+      "prompt": "Виконай C07. Реалізуй multi-case workspace, temporary intake_case_id, candidate detection/normalization і manual confirmation. Filename/folder не є достатнім доказом. Додай API contracts і zero/one/multiple candidate tests; повний UI залиш C12/C13."
+    },
+    {
+      "id": "C08",
+      "order": 8,
+      "group": "core",
+      "title": "Завершити evidence-domain services і invariants",
+      "topic": "VARTA C08 — claims, relations, sources і review services",
+      "planningStatus": "PARTIAL",
+      "dependencies": ["C04", "C07"],
+      "prompt": "Виконай C08. Заверши repository/application services та invariants для evidence domain поверх чинного DDL/JSON contract. Перенеси authoritative review state до SQLite, збережи automatic/user history окремо. Не генеруй map-data і не перебудовуй UI."
+    },
+    {
+      "id": "C09",
+      "order": 9,
+      "group": "core",
+      "title": "Побудувати read-only legacy XLSX/.caseflow adapter",
+      "topic": "VARTA C09 — read-only XLSX/.caseflow migration adapter",
+      "planningStatus": "PLANNED",
+      "dependencies": ["C08"],
+      "prompt": "Виконай C09. Побудуй read-only dry-run та idempotent XLSX/.caseflow importer до application services/SQLite. Не змінюй legacy sources і не перемикай production read path без reconciliation gate. Використовуй synthetic fixtures, якщо окремо не надано acceptance corpus."
+    },
+    {
+      "id": "C10",
+      "order": 10,
+      "group": "core",
+      "title": "Запровадити durable processing jobs і plugin contract",
+      "topic": "VARTA C10 — durable processing jobs і plugin contract",
+      "planningStatus": "PARTIAL",
+      "dependencies": ["C06", "C08"],
+      "prompt": "Виконай C10. Створи durable processing job contract і isolated worker lifecycle поверх processing_runs. Доведи crash/restart/timeout/retry та provenance. Реальні OCR/КЕП/STT algorithms не реалізовуй — лише synthetic reference processor і stable plugin API."
+    },
+    {
+      "id": "C11",
+      "order": 11,
+      "group": "core",
+      "title": "Побудувати детерміновану Evidence Map projection",
+      "topic": "VARTA C11 — SQLite → Evidence Map generator",
+      "planningStatus": "BLOCKED_BY_DECISION",
+      "dependencies": ["C08"],
+      "prompt": "Виконай C11 після C08. Реалізуй детермінований Evidence Map projection через application queries, schema validation і canonical SHA-256. Snapshot — лише read-only projection. Додай golden, determinism і broken-reference tests; HTML UI не змінюй."
+    },
+    {
+      "id": "C12",
+      "order": 12,
+      "group": "core",
+      "title": "Перевести local web UI на application services",
+      "topic": "VARTA C12 — thin local HTTP API та integrated web UI",
+      "planningStatus": "PARTIAL",
+      "dependencies": ["C03", "C06", "C07", "C08", "C11"],
+      "prompt": "Виконай C12. Переведи local web UI на /api/v1 application services, зроби handlers thin і підключи SQLite-backed intake/case/documents/map. Посиль loopback Host/Origin/CSRF/CSP boundary та додай browser/runtime tests. Не розширюй processors або packaging."
+    },
+    {
+      "id": "C13",
+      "order": 13,
+      "group": "core",
+      "title": "Завершити review, timeline і source-context workflow",
+      "topic": "VARTA C13 — manual review, timeline і source context",
+      "planningStatus": "PLANNED",
+      "dependencies": ["C12"],
+      "prompt": "Виконай C13. Побудуй наскрізний manual-review, timeline і source-context flow поверх C08/C11/C12. Зберігай automatic і user decisions окремо та append-only. Додай conflict, provenance, navigation і browser tests."
+    },
+    {
+      "id": "C14",
+      "order": 14,
+      "group": "core",
+      "title": "Створити sealed standalone export і validator",
+      "topic": "VARTA C14 — sealed standalone export і offline validator",
+      "planningStatus": "PARTIAL",
+      "dependencies": ["C11", "C13"],
+      "prompt": "Виконай C14. Створи sealed standalone export і offline validator на основі C11 projection. Додай manifest SHA-256, explicit modes, tamper tests і browser zero-network verification. Не пакуй весь Windows application."
+    },
+    {
+      "id": "C15",
+      "order": 15,
+      "group": "core",
+      "title": "Довести backup/restore, Windows package та update path",
+      "topic": "VARTA C15 — backup/restore, Windows package та update",
+      "planningStatus": "PARTIAL",
+      "dependencies": ["C04", "C05", "C12", "C14"],
+      "prompt": "Виконай C15. Заверши coordinated SQLite+filesystem backup/restore, clean Windows package і safe update/rollback. Використай offline bundle лише read-only. Доведи restore в новий Unicode path і що uninstall/update не видаляють user data. Не commit/push/release."
+    },
+    {
+      "id": "C16",
+      "order": 16,
+      "group": "core",
+      "title": "Провести acceptance, privacy та release gate",
+      "topic": "VARTA C16 — acceptance, privacy та release candidate audit",
+      "planningStatus": "PLANNED",
+      "dependencies": ["C01", "C02", "C03", "C04", "C05", "C06", "C07", "C08", "C09", "C10", "C11", "C12", "C13", "C14", "C15"],
+      "prompt": "Виконай C16 як read/verify-first release candidate audit. Побудуй clean candidate, запусти automated, browser, offline, package, backup/restore і privacy gates; synthetic та authorized real-corpus результати звітуй окремо. Не commit, push або release без окремої явної команди."
+    },
+    {
+      "id": "P01",
+      "order": 101,
+      "group": "processor",
+      "title": "Реалізувати OCR і text extraction adapter",
+      "topic": "VARTA P01 — OCR/text processor adapter",
+      "planningStatus": "PLANNED",
+      "dependencies": ["C05", "C08", "C10"],
+      "prompt": "Виконай тільки P01 з docs/chat-roadmap.md після gates C05, C08 і C10. Реалізуй local OCR capability detection, versioned language/model params, derived text з page mapping, confidence/errors і незмінністю originals. Додай synthetic Ukrainian/English, rotation, blank/corrupt PDF, missing dependency, timeout, restart і provenance tests."
+    },
+    {
+      "id": "P02",
+      "order": 102,
+      "group": "processor",
+      "title": "Реалізувати КЕП/P7S і attachment validation adapter",
+      "topic": "VARTA P02 — КЕП/P7S і заявлені додатки",
+      "planningStatus": "PLANNED",
+      "dependencies": ["C05", "C08", "C10"],
+      "prompt": "Виконай тільки P02 з docs/chat-roadmap.md після gates C05, C08 і C10. Реалізуй literal .pdf/.pdf.p7s pairing, local verification adapter, certificate/tool metadata, not_verifiable та claimed-vs-actual attachments без передавання private keys. Додай valid/invalid/missing/ambiguous, unsupported provider, no-secret-log і unchanged-original tests."
+    },
+    {
+      "id": "P03",
+      "order": 103,
+      "group": "processor",
+      "title": "Реалізувати offline STT processor",
+      "topic": "VARTA P03 — offline STT processor",
+      "planningStatus": "PLANNED",
+      "dependencies": ["C05", "C08", "C10"],
+      "prompt": "Виконай тільки P03 з docs/chat-roadmap.md після gates C05, C08, C10 і лише за наявності verified offline model asset. Реалізуй FFmpeg normalization як derived artifact, local Whisper, segments/timestamps/language/confidence та interruption/resume policy. Додай synthetic Ukrainian audio, silence/corrupt/unsupported media, offline-load, timeout/retry і provenance tests."
+    },
+    {
+      "id": "P04",
+      "order": 104,
+      "group": "processor",
+      "title": "Реалізувати document matching і findings",
+      "topic": "VARTA P04 — document matching і findings",
+      "planningStatus": "PLANNED",
+      "dependencies": ["C08", "C10"],
+      "prompt": "Виконай тільки P04 з docs/chat-roadmap.md після gates C08 і C10. Реалізуй versioned exact/metadata/text matching, explicit confidence, structured findings і manual-review link без automatic fraud/legal conclusion. Додай true/false/ambiguous pairs, threshold boundaries, same-hash different-role, determinism і preserved-user-decision tests."
+    }
+  ]
+}

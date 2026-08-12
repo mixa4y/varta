@@ -1,0 +1,1269 @@
+<!doctype html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="varta-session-token" content="__VARTA_SESSION_TOKEN__">
+  <meta name="description" content="Керована карта work packages C01–C16 і P01–P04 для розвитку VARTA">
+  <title>VARTA — керований roadmap tasks C01–C16 і P01–P04</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #07110c;
+      --surface: #0d1d14;
+      --surface-2: #11261a;
+      --text: #e9fff1;
+      --muted: #a8bdb0;
+      --border: #31503d;
+      --green: #43e08d;
+      --blue: #65b8ff;
+      --yellow: #e3b341;
+      --red: #f06f6f;
+      --rail: #294436;
+      font-family: Inter, "Segoe UI", system-ui, -apple-system, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    html { min-width: 320px; background: var(--bg); }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 16% 0%, rgb(67 224 141 / 10%), transparent 30rem),
+        radial-gradient(circle at 92% 24%, rgb(101 184 255 / 7%), transparent 28rem),
+        var(--bg);
+    }
+
+    main {
+      width: min(78rem, 100%);
+      margin: 0 auto;
+      padding: clamp(1rem, 3vw, 2.5rem);
+    }
+
+    a { color: var(--green); text-underline-offset: 0.2em; }
+    a:focus-visible, button:focus-visible, summary:focus-visible {
+      outline: 3px solid var(--blue);
+      outline-offset: 3px;
+    }
+
+    code, pre {
+      font-family: "Cascadia Code", Consolas, monospace;
+    }
+
+    code {
+      padding: 0.08em 0.28em;
+      border: 1px solid var(--border);
+      border-radius: 0.3rem;
+      color: #c8ffdc;
+      background: #09170f;
+      overflow-wrap: anywhere;
+    }
+
+    .topbar {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 0.65rem 1rem;
+      align-items: center;
+      padding-bottom: 0.9rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .muted { color: var(--muted); }
+    .small { font-size: 0.88rem; }
+
+    header {
+      display: grid;
+      gap: 0.7rem;
+      padding: clamp(1.1rem, 3vw, 2rem) 0 1rem;
+    }
+
+    h1, h2, h3, p { margin-top: 0; }
+    h1 { margin-bottom: 0; font-size: clamp(1.65rem, 4vw, 2.55rem); }
+    h2 { margin: 0; font-size: 1.2rem; }
+    h3 { margin-bottom: 0.45rem; font-size: 0.98rem; }
+    p { line-height: 1.55; }
+
+    .decision {
+      max-width: 70rem;
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 0.65rem;
+      margin: 0.4rem 0 1rem;
+    }
+
+    .stat {
+      padding: 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: 0.65rem;
+      background: color-mix(in srgb, var(--surface) 92%, transparent);
+    }
+
+    .stat b { display: block; margin-top: 0.25rem; font-size: 1.45rem; }
+
+    .stat[data-tone="ready"] b { color: var(--green); }
+    .stat[data-tone="partial"] b { color: var(--yellow); }
+    .stat[data-tone="blocked"] b { color: var(--red); }
+    .stat[data-tone="planned"] b { color: var(--muted); }
+
+    .path {
+      margin-bottom: 1rem;
+      padding: 0.8rem 0;
+      border-block: 1px solid var(--border);
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.55rem;
+      margin-bottom: 1rem;
+    }
+
+    button {
+      min-height: 2.35rem;
+      padding: 0.5rem 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: 0.5rem;
+      color: var(--text);
+      background: var(--surface-2);
+      font: inherit;
+      cursor: pointer;
+    }
+
+    button:hover { border-color: var(--green); }
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.52;
+    }
+
+    .controller-panel {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 0.75rem 1rem;
+      align-items: center;
+      margin: 0.15rem 0 1rem;
+      padding: 0.85rem;
+      border: 1px solid var(--border);
+      border-radius: 0.7rem;
+      background: color-mix(in srgb, var(--surface) 94%, transparent);
+    }
+
+    .controller-panel[data-state="online"] { border-color: var(--green); }
+    .controller-panel[data-state="offline"] { border-color: var(--yellow); }
+    .controller-panel p { margin: 0.25rem 0 0; }
+
+    .connection-badge,
+    .run-badge,
+    .git-badge {
+      display: inline-flex;
+      align-items: center;
+      width: fit-content;
+      min-height: 1.75rem;
+      padding: 0.2rem 0.55rem;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 700;
+    }
+
+    .controller-panel[data-state="online"] .connection-badge,
+    .run-badge[data-run-status="completed"] { color: var(--green); }
+    .controller-panel[data-state="offline"] .connection-badge,
+    .run-badge[data-run-status="needs_review"],
+    .run-badge[data-run-status="waiting"] { color: var(--yellow); }
+    .run-badge[data-run-status="failed"],
+    .run-badge[data-run-status="blocked"],
+    .run-badge[data-run-status="interrupted"] { color: var(--red); }
+    .run-badge[data-run-status="starting"],
+    .run-badge[data-run-status="running"] { color: var(--blue); }
+    .git-badge[data-git-status="synced"] { color: var(--green); }
+    .git-badge[data-git-status="awaiting_approval"],
+    .git-badge[data-git-status="needs_review"],
+    .git-badge[data-git-status="waiting"] { color: var(--yellow); }
+    .git-badge[data-git-status="failed"],
+    .git-badge[data-git-status="blocked"],
+    .git-badge[data-git-status="interrupted"] { color: var(--red); }
+    .git-badge[data-git-status="starting"],
+    .git-badge[data-git-status="running"] { color: var(--blue); }
+
+    .copy-result {
+      align-self: center;
+      min-height: 1.4rem;
+      color: var(--muted);
+    }
+
+    .phase {
+      margin: 1.5rem 0 0.6rem;
+      padding-left: 2.75rem;
+      color: var(--muted);
+    }
+
+    .roadmap {
+      display: grid;
+      gap: 0;
+    }
+
+    .step {
+      display: grid;
+      grid-template-columns: 2rem minmax(0, 1fr);
+      gap: 0.75rem;
+      min-width: 0;
+    }
+
+    .rail {
+      position: relative;
+      display: flex;
+      justify-content: center;
+    }
+
+    .rail::after {
+      content: "";
+      position: absolute;
+      top: 1.45rem;
+      bottom: -0.8rem;
+      width: 1px;
+      background: var(--rail);
+    }
+
+    .step:last-child .rail::after { display: none; }
+
+    .dot {
+      position: relative;
+      z-index: 1;
+      width: 0.82rem;
+      height: 0.82rem;
+      margin-top: 1.1rem;
+      border: 1px solid var(--border);
+      border-radius: 50%;
+      background: var(--muted);
+      box-shadow: 0 0 0 0.32rem var(--bg);
+    }
+
+    .step[data-status="ready"] .dot { background: var(--green); }
+    .step[data-status="partial"] .dot { background: var(--yellow); }
+    .step[data-status="blocked"] .dot { background: var(--red); }
+
+    details {
+      min-width: 0;
+      padding: 0.35rem 0 0.85rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    summary {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      gap: 0.7rem;
+      align-items: center;
+      padding: 0.65rem;
+      border-radius: 0.55rem;
+      cursor: pointer;
+      list-style: none;
+    }
+
+    summary::-webkit-details-marker { display: none; }
+    summary:hover { background: rgb(67 224 141 / 5%); }
+    details[open] summary { background: rgb(67 224 141 / 7%); }
+
+    .id {
+      min-width: 3rem;
+      color: var(--green);
+      font-weight: 700;
+      letter-spacing: 0.04em;
+    }
+
+    .title { min-width: 0; }
+    .title b { display: block; line-height: 1.35; }
+    .title small { display: block; margin-top: 0.25rem; color: var(--muted); }
+
+    .status {
+      width: fit-content;
+      padding: 0.2rem 0.45rem;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .step[data-status="ready"] .status { color: var(--green); }
+    .step[data-status="partial"] .status { color: var(--yellow); }
+    .step[data-status="blocked"] .status { color: var(--red); }
+    .step[data-status="planned"] .status { color: var(--muted); }
+
+    .body {
+      display: grid;
+      gap: 0.85rem;
+      padding: 0.8rem 0.65rem 0.35rem;
+    }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem 1rem;
+      color: var(--muted);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.85rem 1.1rem;
+    }
+
+    .grid section {
+      min-width: 0;
+      padding-top: 0.55rem;
+      border-top: 1px solid var(--border);
+    }
+
+    ul, ol { margin: 0; padding-left: 1.2rem; }
+    li { margin-bottom: 0.32rem; line-height: 1.45; }
+
+    .gate {
+      padding: 0.75rem;
+      border-left: 3px solid var(--green);
+      background: rgb(67 224 141 / 6%);
+      line-height: 1.5;
+    }
+
+    .prompt-wrap {
+      display: grid;
+      gap: 0.55rem;
+    }
+
+    .live-controls {
+      display: grid;
+      gap: 0.65rem;
+      margin-top: 0.2rem;
+      padding: 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: 0.55rem;
+      background: rgb(101 184 255 / 5%);
+    }
+
+    .live-actions,
+    .live-heading {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+    }
+
+    .live-heading { justify-content: space-between; }
+    .start-stage { border-color: color-mix(in srgb, var(--green) 55%, var(--border)); }
+    .stop-stage { border-color: color-mix(in srgb, var(--red) 65%, var(--border)); }
+    .start-git { border-color: color-mix(in srgb, var(--green) 75%, var(--border)); }
+    .stop-git { border-color: color-mix(in srgb, var(--red) 65%, var(--border)); }
+    .run-note { margin: 0; color: var(--muted); }
+    .run-message {
+      max-height: 9rem;
+      margin: 0;
+      padding: 0.6rem;
+      border-left: 3px solid var(--blue);
+      color: var(--muted);
+      background: rgb(0 0 0 / 18%);
+      white-space: pre-wrap;
+      overflow: auto;
+    }
+
+    .run-result {
+      display: grid;
+      gap: 0.5rem;
+      padding-top: 0.55rem;
+      border-top: 1px solid var(--border);
+    }
+
+    .run-result p { margin-bottom: 0; }
+    .run-result ul { margin-top: 0.15rem; }
+    .run-result .test-passed { color: var(--green); }
+    .run-result .test-failed { color: var(--red); }
+
+    .git-checkpoint {
+      display: grid;
+      gap: 0.6rem;
+      margin-top: 0.35rem;
+      padding: 0.7rem;
+      border: 1px solid color-mix(in srgb, var(--green) 40%, var(--border));
+      border-radius: 0.5rem;
+      background: rgb(92 219 149 / 5%);
+    }
+
+    .git-checkpoint .run-message { border-left-color: var(--green); }
+
+    .prompt {
+      margin: 0;
+      padding: 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: 0.5rem;
+      color: #c8ffdc;
+      background: #09170f;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      line-height: 1.45;
+    }
+
+    .satellites {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.8rem;
+      margin-top: 0.8rem;
+    }
+
+    .satellite {
+      padding: 0.85rem;
+      border: 1px solid var(--border);
+      border-radius: 0.65rem;
+      background: color-mix(in srgb, var(--surface) 92%, transparent);
+    }
+
+    .satellite p:last-child { margin-bottom: 0; }
+
+    footer {
+      margin-top: 1.5rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      line-height: 1.55;
+    }
+
+    @media (max-width: 760px) {
+      .stats, .grid, .satellites { grid-template-columns: 1fr; }
+      .controller-panel { grid-template-columns: 1fr; }
+      summary { grid-template-columns: auto minmax(0, 1fr); }
+      .status { grid-column: 2; }
+      .phase { padding-left: 0; }
+    }
+
+    @media (max-width: 430px) {
+      main { padding-inline: 0.75rem; }
+      .step { grid-template-columns: 1.15rem minmax(0, 1fr); gap: 0.35rem; }
+      summary { padding-inline: 0.4rem; }
+      .body { padding-inline: 0.4rem; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <nav class="topbar small" aria-label="Джерело roadmap">
+    <a href="../chat-roadmap.md">← Канонічний Markdown roadmap</a>
+    <span class="muted">HTML допомагає навігації; у разі розбіжності діє Markdown</span>
+  </nav>
+
+  <header>
+    <h1>VARTA: roadmap окремих чатів</h1>
+    <p class="decision">Ціль: local web UI на loopback → application services → SQLite і managed filesystem → локальні workers → відтворювані Evidence Map, reports та sealed exports. Notion не входить до системи.</p>
+  </header>
+
+  <section id="controller-panel" class="controller-panel" data-state="offline" aria-live="polite">
+    <div>
+      <b>Керований запуск Codex tasks</b>
+      <p id="controller-message" class="small muted">Offline-перегляд. Для кнопок Start відкрийте <code>START_ROADMAP.cmd</code>.</p>
+    </div>
+    <span id="connection-badge" class="connection-badge">OFFLINE PLAN</span>
+  </section>
+
+  <p class="path small"><b>Двофазний gate:</b> технічний <code>PASS</code> ще нічого не публікує. Після нього окрема підтверджена кнопка запускає Git audit → exact staging → commit → push у <code>codex/*</code> → Draft PR. Наступний залежний stage відкривається лише після статусу <code>GITHUB SYNCED</code>; merge, tag і release залишаються окремими ручними рішеннями.</p>
+
+  <section class="stats" aria-label="Поточний стан work packages">
+    <div class="stat small" data-tone="ready"><span>Можна почати зараз</span><b>1</b></div>
+    <div class="stat small" data-tone="partial"><span>Є часткова реалізація</span><b>9</b></div>
+    <div class="stat small" data-tone="blocked"><span>Заблоковано рішенням</span><b>2</b></div>
+    <div class="stat small" data-tone="planned"><span>Очікують prerequisites</span><b>4</b></div>
+  </section>
+
+  <p class="path small"><b>Критичний шлях:</b> C01 → C02 → C03 → C04 → C05 → C06 → C07 → C08 → C11 → C12 → C13 → C14 → C15 → C16. C09 і C10 мають власні gates; processor-чати P01–P04 можуть йти паралельно тільки після C10.</p>
+
+  <div class="controls" aria-label="Керування картою">
+    <button type="button" id="expand-all">Розгорнути всі</button>
+    <button type="button" id="collapse-all">Згорнути всі</button>
+    <span id="copy-result" class="copy-result small" role="status" aria-live="polite"></span>
+  </div>
+
+  <h2 class="phase">Фаза I — стабілізація й рішення</h2>
+  <div class="roadmap">
+    <article class="step" data-stage-id="C01" data-status="ready">
+      <div class="rail"><span class="dot"></span></div>
+      <details open>
+        <summary><span class="id">C01</span><span class="title"><b>Стабілізація поточного working baseline</b><small>Підготувати напрацювання до наступного етапу</small></span><span class="status">READY</span></summary>
+        <div class="body">
+          <div class="meta small"><span>Product stage: A0</span><span>Prerequisite: немає</span><span>Новий чат: VARTA C01 — стабілізація поточного working baseline</span></div>
+          <div class="grid">
+            <section><h3>Що є</h3><ul><li>Branch <code>codex/stabilize-baseline</code>, HEAD <code>bc51a00…</code>, 0 tracked changes, 0 staged і 14 untracked entries.</li><li>Roadmap/controller та окремий <code>.github/</code> scope ще не класифіковані для exact staging.</li><li>12 targeted controller tests і повний suite <code>94 passed</code>; gates повторюються перед checkpoint.</li></ul></section>
+            <section><h3>Що зробити</h3><ol><li>Повний inventory diff/staged/untracked.</li><li>Розкласти файли й hunks на logical patches.</li><li>Перевірити package data, quality й privacy gates.</li><li>Повторити runtime smoke; підготувати change records і handoff.</li></ol></section>
+            <section><h3>Результат</h3><p>Відтворюваний, пояснений baseline без втрати користувацьких змін і без автоматичного commit/push.</p></section>
+            <section><h3>Перевірка</h3><ul><li>pytest, Ruff, mypy, compileall.</li><li>working/cached diff check і privacy scan.</li><li>HTTP 200, SQLite write/read після restart.</li></ul></section>
+          </div>
+          <div class="gate"><b>Gate:</b> кожна зміна має власника patch; усі checks зелені; наступний чат не мусить вгадувати походження state.</div>
+          <div class="prompt-wrap"><button type="button" class="copy-prompt">Скопіювати стартовий запит</button><pre class="prompt">Виконай тільки package C01 з docs/chat-roadmap.md. Інвентаризуй і стабілізуй поточний dirty working tree VARTA без видалення, reset, commit або push. Результат — exact logical patch manifests, quality/privacy gates, runtime smoke і handoff для C02.</pre></div>
+        </div>
+      </details>
+    </article>
+
+    <article class="step" data-stage-id="C02" data-status="partial">
+      <div class="rail"><span class="dot"></span></div>
+      <details>
+        <summary><span class="id">C02</span><span class="title"><b>Local web, source of truth і ключові ADR</b><small>Формалізувати цільову архітектуру до refactor</small></span><span class="status">PARTIAL</span></summary>
+        <div class="body">
+          <div class="meta small"><span>Product stage: A1</span><span>Prerequisite: C01</span><span>Notion: поза системою</span></div>
+          <div class="grid">
+            <section><h3>Що є</h3><ul><li>Python + SQLite + filesystem і loopback web UI вже обрані.</li><li>ADR-001 та UI decision у legacy spec ще DRAFT/open.</li><li>Workspace, backup і <code>.caseflow</code> transition не затверджені.</li></ul></section>
+            <section><h3>Що зробити</h3><ol><li>Затвердити local-web architecture.</li><li>ADR для SQLite authority, migrations/restore, IDs, workspace/storage.</li><li>ADR local HTTP security: loopback, Host/Origin, CSRF, CSP.</li><li>Синхронізувати spec/status без реалізації коду.</li></ol></section>
+            <section><h3>Результат</h3><p>Одна dependency direction і повний набір рішень для application layer, data lifecycle та UI.</p></section>
+            <section><h3>Перевірка</h3><ul><li>Кожен ADR має alternatives/consequences.</li><li>Немає суперечностей щодо source of truth/UI.</li><li>Кожне open question має owner stage.</li></ul></section>
+          </div>
+          <div class="gate"><b>Gate:</b> C03 може визначити contracts без прихованого вибору DB, UI, IDs, workspace чи backup.</div>
+          <div class="prompt-wrap"><button type="button" class="copy-prompt">Скопіювати стартовий запит</button><pre class="prompt">Виконай тільки C02. Формалізуй архітектуру VARTA: без Notion, local web UI на loopback, SQLite + managed filesystem як source of truth, application-service boundary і isolated workers. Синхронізуй ADR/spec/status. Не починай refactor коду.</pre></div>
+        </div>
+      </details>
+    </article>
+
+    <article class="step" data-stage-id="C03" data-status="blocked">
+      <div class="rail"><span class="dot"></span></div>
+      <details>
+        <summary><span class="id">C03</span><span class="title"><b>Application services, ports і local API v1</b><small>Відділити use cases від HTTP, SQLite та UI</small></span><span class="status">BLOCKED</span></summary>
+        <div class="body">
+          <div class="meta small"><span>Product stage: A1 / A8 foundation</span><span>Prerequisite: C02</span></div>
+          <div class="grid">
+            <section><h3>Що є</h3><ul><li>Contacts vertical slice працює end-to-end.</li><li><code>server.py</code> поєднує 1750+ lines різних відповідальностей.</li><li>Окремого application package немає.</li></ul></section>
+            <section><h3>Що зробити</h3><ol><li>Commands, queries, DTOs, ports і Unit of Work.</li><li>Перенести один proof slice без UX change.</li><li>Запровадити <code>/api/v1</code> та stable error envelope.</li><li>Architecture tests на dependency direction.</li></ol></section>
+            <section><h3>Результат</h3><p>HTTP, CLI та workers викликають спільні use cases; handlers стають transport adapters.</p></section>
+            <section><h3>Перевірка</h3><ul><li>Unit tests із fake ports.</li><li>Application + temporary SQLite integration.</li><li>HTTP contracts і contacts regression/restart smoke.</li></ul></section>
+          </div>
+          <div class="gate"><b>Gate:</b> один real vertical slice повністю проходить application layer і задає шаблон наступним chats.</div>
+          <div class="prompt-wrap"><button type="button" class="copy-prompt">Скопіювати стартовий запит</button><pre class="prompt">Виконай C03 після gate C02. Створи мінімальний application layer, ports/Unit of Work та /api/v1 contract; перенеси один існуючий vertical slice без зміни UX. Додай architecture, unit, integration і HTTP tests. Не мігруй intake або Evidence Map.</pre></div>
+        </div>
+      </details>
+    </article>
+  </div>
+
+  <h2 class="phase">Фаза II — source of truth та intake</h2>
+  <div class="roadmap">
+    <article class="step" data-stage-id="C04" data-status="partial">
+      <div class="rail"><span class="dot"></span></div>
+      <details>
+        <summary><span class="id">C04</span><span class="title"><b>SQLite transactions, migrations і recovery foundation</b><small>Завершити data lifecycle нижнього рівня</small></span><span class="status">PARTIAL</span></summary>
+        <div class="body">
+          <div class="meta small"><span>Product stage: A2</span><span>Prerequisite: C03</span></div>
+          <div class="grid">
+            <section><h3>Що є</h3><ul><li>Migration checksums, transactions, 0001/0002, FK, WAL.</li><li>Shared connection + RLock, але немає formal UoW/busy policy.</li><li>Online backup/restore gate незавершений.</li></ul></section>
+            <section><h3>Що зробити</h3><ol><li>Connection/UoW lifecycle.</li><li>busy_timeout, WAL/checkpoint, schema compatibility.</li><li>Forward-only migrations і installed-package resources.</li><li>Online backup primitive та crash tests.</li></ol></section>
+            <section><h3>Результат</h3><p>Передбачувані транзакції, schema evolution і foundation для storage/restore.</p></section>
+            <section><h3>Перевірка</h3><ul><li>Fresh/upgrade/checksum/failure rollback.</li><li>Reader/writer bounded concurrency.</li><li>Backup → integrity_check → read-back.</li></ul></section>
+          </div>
+          <div class="gate"><b>Gate:</b> migration/transaction behavior однаковий у checkout та installed package.</div>
+          <div class="prompt-wrap"><button type="button" class="copy-prompt">Скопіювати стартовий запит</button><pre class="prompt">Виконай тільки C04. Заверши SQLite connection/UoW lifecycle, migration gates, schema compatibility і online-backup primitive. Не реалізуй filesystem originals або UI. Доведи fresh/upgrade/failure/concurrency/restore tests.</pre></div>
+        </div>
+      </details>
+    </article>
+
+    <article class="step" data-stage-id="C05" data-status="partial">
+      <div class="rail"><span class="dot"></span></div>
+      <details>
+        <summary><span class="id">C05</span><span class="title"><b>Immutable originals і managed filesystem</b><small>Створити безпечну файлову transaction boundary</small></span><span class="status">PARTIAL</span></summary>
+        <div class="body">
+          <div class="meta small"><span>Product stage: A3</span><span>Prerequisites: C02, C04</span></div>
+          <div class="grid">
+            <section><h3>Що є</h3><ul><li>Safe upload paths і timestamped inbox.</li><li>Вимоги immutable originals/SHA-256 визначені.</li><li>Storage service та crash reconciliation відсутні.</li></ul></section>
+            <section><h3>Що зробити</h3><ol><li>Versioned zones originals/staging/derived/reports.</li><li>Opaque file_id, literal name, streaming SHA-256.</li><li>Atomic finalize без overwrite.</li><li>Collision, path, reparse й crash recovery policies.</li></ol></section>
+            <section><h3>Результат</h3><p>Original bytes не перейменовуються й не перезаписуються; metadata й managed view відокремлені.</p></section>
+            <section><h3>Перевірка</h3><ul><li>Hash/size equality і source unchanged.</li><li>Unicode/long/reserved/path traversal cases.</li><li>Interrupted finalize і DB/file reconciliation.</li></ul></section>
+          </div>
+          <div class="gate"><b>Gate:</b> synthetic original приймається, повторно перевіряється й відновлюється без зміни source.</div>
+          <div class="prompt-wrap"><button type="button" class="copy-prompt">Скопіювати стартовий запит</button><pre class="prompt">Виконай C05: реалізуй managed storage та immutable originals поверх C02/C04. Збережи literal source names, streaming SHA-256 і provenance; відокрем managed names. Додай Windows/path/crash/collision tests. Не будуй повний intake UI.</pre></div>
+        </div>
+      </details>
+    </article>
+
+    <article class="step" data-stage-id="C06" data-status="partial">
+      <div class="rail"><span class="dot"></span></div>
+      <details>
+        <summary><span class="id">C06</span><span class="title"><b>File, folder і ZIP intake до SQLite</b><small>Перший authoritative end-to-end vertical slice</small></span><span class="status">PARTIAL</span></summary>
+        <div class="body">
+          <div class="meta small"><span>Product stage: A3</span><span>Prerequisite: C05</span></div>
+          <div class="grid">
+            <section><h3>Що є</h3><ul><li>Upload і legacy XLSX processor працюють.</li><li>Повний import_batch/provenance read-back відсутній.</li><li>Storage foundation має прийти з C05.</li></ul></section>
+            <section><h3>Що зробити</h3><ol><li>IntakeService file/folder/ZIP.</li><li>Per-entry status, provenance, SHA-256, duplicate signal.</li><li>Partial failure й idempotent retry.</li><li>Inventory query лише з SQLite; minimal API/CLI.</li></ol></section>
+            <section><h3>Результат</h3><p>Input → immutable storage → SQLite → restart → inventory без XLSX authority.</p></section>
+            <section><h3>Перевірка</h3><ul><li>Mixed package, corrupt/malicious ZIP.</li><li>Duplicate/retry/partial failure.</li><li>Source tree hash before/after і restart read-back.</li></ul></section>
+          </div>
+          <div class="gate"><b>Gate:</b> technical-spec intake/storage/integrity acceptance виконано end-to-end.</div>
+          <div class="prompt-wrap"><button type="button" class="copy-prompt">Скопіювати стартовий запит</button><pre class="prompt">Виконай C06: побудуй end-to-end intake file/folder/ZIP через application service, immutable storage й SQLite. Inventory має читатися з БД після restart; partial failures і duplicates — явні. Не починай case detection або legacy import.</pre></div>
+        </div>
+      </details>
+    </article>
+
+    <article class="step" data-stage-id="C07" data-status="planned">
+      <div class="rail"><span class="dot"></span></div>
+      <details>
+        <summary><span class="id">C07</span><span class="title"><b>Multi-case workspace і case bootstrap</b><small>Визначати справу без втрати першого документа</small></span><span class="status">PLANNED</span></summary>
+        <div class="body">
+          <div class="meta small"><span>Product stage: A4</span><span>Prerequisite: C06</span></div>
+          <div class="grid">
+            <section><h3>Що є</h3><ul><li>Case-profile candidates/manual-review contract.</li><li>Root folder/config case number у legacy flow.</li><li>Multi-case + active case ще не реалізовані.</li></ul></section>
+            <section><h3>Що зробити</h3><ol><li>Workspace/case/proceeding services.</li><li>Temporary intake_case_id.</li><li>Zero/one/multiple candidates та evidence basis.</li><li>Manual confirmation, memberships і active-case API.</li></ol></section>
+            <section><h3>Результат</h3><p>Одна БД містить багато справ; uncertainty не вирішується за filename/folder.</p></section>
+            <section><h3>Перевірка</h3><ul><li>Candidate fixtures і filename-only negative.</li><li>Many-to-many membership.</li><li>Active case switch, audit і restart persistence.</li></ul></section>
+          </div>
+          <div class="gate"><b>Gate:</b> кожен accepted file має case link або явний pending-review state.</div>
+          <div class="prompt-wrap"><button type="button" class="copy-prompt">Скопіювати стартовий запит</button><pre class="prompt">Виконай C07. Реалізуй multi-case workspace, temporary intake_case_id, candidate detection/normalization і manual confirmation. Filename/folder не є достатнім доказом. Додай API contracts і zero/one/multiple candidate tests; повний UI залиш C12/C13.</pre></div>
+        </div>
+      </details>
+    </article>
+  </div>
+
+  <h2 class="phase">Фаза III — domain, migration і processing</h2>
+  <div class="roadmap">
+    <article class="step" data-stage-id="C08" data-status="partial">
+      <div class="rail"><span class="dot"></span></div>
+      <details>
+        <summary><span class="id">C08</span><span class="title"><b>Claims, relations, sources і review services</b><small>Завершити evidence-domain application flow</small></span><span class="status">PARTIAL</span></summary>
+        <div class="body">
+          <div class="meta small"><span>Product stage: A5</span><span>Prerequisites: C04, C07</span></div>
+          <div class="grid">
+            <section><h3>Що є</h3><ul><li>DDL/JSON contracts та частина negative tests.</li><li>Repository/application APIs неповні.</li><li>Manual status частково живе у JSON.</li></ul></section>
+            <section><h3>Що зробити</h3><ol><li>Services для documents/events/claims/relations/sources/reviews.</li><li>Domain invariants і append-only decisions.</li><li>Optimistic concurrency та query model.</li><li>Authoritative review state у SQLite.</li></ol></section>
+            <section><h3>Результат</h3><p>Повна read/write model для timeline, review та Evidence Map без direct SQL у adapters.</p></section>
+            <section><h3>Перевірка</h3><ul><li>Aggregate integration й negative invariants.</li><li>Decision history/conflicts/audit rollback.</li><li>Synthetic case query після restart.</li></ul></section>
+          </div>
+          <div class="gate"><b>Gate:</b> synthetic case читається через application services і має повний source basis.</div>
+          <div class="prompt-wrap"><button type="button" class="copy-prompt">Скопіювати стартовий запит</button><pre class="prompt">Виконай C08. Заверши repository/application services та invariants для evidence domain поверх чинного DDL/JSON contract. Перенеси authoritative review state до SQLite, збережи automatic/user history окремо. Не генеруй map-data і не перебудовуй UI.</pre></div>
+        </div>
+      </details>
+    </article>
+
+    <article class="step" data-stage-id="C09" data-status="planned">
+      <div class="rail"><span class="dot"></span></div>
+      <details>
+        <summary><span class="id">C09</span><span class="title"><b>Read-only XLSX/.caseflow migration adapter</b><small>Перенести legacy state без другої writable truth</small></span><span class="status">PLANNED</span></summary>
+        <div class="body">
+          <div class="meta small"><span>Product stage: A6</span><span>Prerequisite: C08</span></div>
+          <div class="grid">
+            <section><h3>Що є</h3><ul><li>Airtable two-pass importer як reference.</li><li>Legacy XLSX/JSON/.caseflow state.</li><li>Старі каталоги read-only.</li></ul></section>
+            <section><h3>Що зробити</h3><ol><li>Versioned format inventory і mapping.</li><li>Zero-write dry-run report.</li><li>Idempotent two-pass import.</li><li>Counts/hashes/conflicts reconciliation та gated switchover.</li></ol></section>
+            <section><h3>Результат</h3><p>Legacy data переноситься повторювано; кожен skip/conflict пояснений; source не змінено.</p></section>
+            <section><h3>Перевірка</h3><ul><li>Golden dry-run.</li><li>Source hash before/after.</li><li>Reimport/update/conflict/rollback tests.</li></ul></section>
+          </div>
+          <div class="gate"><b>Gate:</b> два imports не дублюють records, reconciliation пояснює кожен source item.</div>
+          <div class="prompt-wrap"><button type="button" class="copy-prompt">Скопіювати стартовий запит</button><pre class="prompt">Виконай C09. Побудуй read-only dry-run та idempotent XLSX/.caseflow importer до application services/SQLite. Не змінюй legacy sources і не перемикай production read path без reconciliation gate. Використовуй synthetic fixtures, якщо окремо не надано acceptance corpus.</pre></div>
+        </div>
+      </details>
+    </article>
+
+    <article class="step" data-stage-id="C10" data-status="partial">
+      <div class="rail"><span class="dot"></span></div>
+      <details>
+        <summary><span class="id">C10</span><span class="title"><b>Durable processing jobs і plugin contract</b><small>Ізолювати важкі локальні workers та їх provenance</small></span><span class="status">PARTIAL</span></summary>
+        <div class="body">
+          <div class="meta small"><span>Product stage: A10 foundation</span><span>Prerequisites: C06, C08</span></div>
+          <div class="grid">
+            <section><h3>Що є</h3><ul><li>Subprocess workers, job lock і processing_runs DDL.</li><li>OCR/КЕП/STT plugin scaffolds.</li><li>Немає durable state/result contract.</li></ul></section>
+            <section><h3>Що зробити</h3><ol><li>Job state machine, queue/leases і restart recovery.</li><li>Versioned request/result manifest.</li><li>Validated application-side finalize.</li><li>Timeout/cancel/retry/capability semantics.</li></ol></section>
+            <section><h3>Результат</h3><p>Workers не блокують HTTP, не змінюють originals і повертають повністю provenance-linked results.</p></section>
+            <section><h3>Перевірка</h3><ul><li>Success/failure/timeout/cancel/crash/restart.</li><li>Invalid hash/result quarantine.</li><li>Server responsiveness і packaged capability smoke.</li></ul></section>
+          </div>
+          <div class="gate"><b>Gate:</b> synthetic processor переживає restart і його result читається з SQLite.</div>
+          <div class="prompt-wrap"><button type="button" class="copy-prompt">Скопіювати стартовий запит</button><pre class="prompt">Виконай C10. Створи durable processing job contract і isolated worker lifecycle поверх processing_runs. Доведи crash/restart/timeout/retry та provenance. Реальні OCR/КЕП/STT algorithms не реалізовуй — лише synthetic reference processor і stable plugin API.</pre></div>
+        </div>
+      </details>
+    </article>
+  </div>
+
+  <h2 class="phase">Фаза IV — projection, local web і review</h2>
+  <div class="roadmap">
+    <article class="step" data-stage-id="C11" data-status="blocked">
+      <div class="rail"><span class="dot"></span></div>
+      <details>
+        <summary><span class="id">C11</span><span class="title"><b>SQLite → Evidence Map generator</b><small>Зробити snapshot детермінованою проєкцією</small></span><span class="status">BLOCKED</span></summary>
+        <div class="body">
+          <div class="meta small"><span>Product stage: A7</span><span>Prerequisite: C08</span></div>
+          <div class="grid">
+            <section><h3>Що є</h3><ul><li>Schema 1.1.0, templates, DDL і HTML view.</li><li>Snapshot/embedded data не генерується з SQLite.</li></ul></section>
+            <section><h3>Що зробити</h3><ol><li>Read-only projection service через application queries.</li><li>Canonical ordering/timestamps.</li><li>Inventory/exclusions/reference validation.</li><li>Schema validation і snapshot SHA-256.</li></ol></section>
+            <section><h3>Результат</h3><p>UI й export використовують один canonical snapshot; JSON не стає другою БД.</p></section>
+            <section><h3>Перевірка</h3><ul><li>Golden snapshot і same-revision hash.</li><li>Insertion-order independence.</li><li>Broken source/reference negatives.</li></ul></section>
+          </div>
+          <div class="gate"><b>Gate:</b> одна input revision завжди дає один valid canonical hash після restart.</div>
+          <div class="prompt-wrap"><button type="button" class="copy-prompt">Скопіювати стартовий запит</button><pre class="prompt">Виконай C11 після C08. Реалізуй детермінований Evidence Map projection через application queries, schema validation і canonical SHA-256. Snapshot — лише read-only projection. Додай golden, determinism і broken-reference tests; HTML UI не змінюй.</pre></div>
+        </div>
+      </details>
+    </article>
+
+    <article class="step" data-stage-id="C12" data-status="partial">
+      <div class="rail"><span class="dot"></span></div>
+      <details>
+        <summary><span class="id">C12</span><span class="title"><b>Thin local HTTP API та integrated web UI</b><small>Перевести наявну в’юху на application services</small></span><span class="status">PARTIAL</span></summary>
+        <div class="body">
+          <div class="meta small"><span>Product stage: A8</span><span>Prerequisites: C03, C06, C07, C08, C11</span></div>
+          <div class="grid">
+            <section><h3>Що є</h3><ul><li>Local page, contacts, upload, tree, anomalies.</li><li>Loopback/token/CSP baseline.</li><li>Багато legacy filesystem/XLSX/JSON paths.</li></ul></section>
+            <section><h3>Що зробити</h3><ol><li>Route modules й thin handlers.</li><li>Application APIs для intake/cases/docs/timeline/map/reviews/exports.</li><li>Modular presentation JS і stable navigation IDs.</li><li>Host/Origin/CSRF/CSP/no-network hardening.</li></ol></section>
+            <section><h3>Результат</h3><p>Один local web UI над єдиним source of truth, незалежний від storage layout.</p></section>
+            <section><h3>Перевірка</h3><ul><li>HTTP/security contracts.</li><li>Browser upload → inventory → case → document → map.</li><li>Restart, no-network, accessibility/responsive smoke.</li></ul></section>
+          </div>
+          <div class="gate"><b>Gate:</b> minimum user journey працює без authoritative XLSX/JSON writes.</div>
+          <div class="prompt-wrap"><button type="button" class="copy-prompt">Скопіювати стартовий запит</button><pre class="prompt">Виконай C12. Переведи local web UI на /api/v1 application services, зроби handlers thin і підключи SQLite-backed intake/case/documents/map. Посиль loopback Host/Origin/CSRF/CSP boundary та додай browser/runtime tests. Не розширюй processors або packaging.</pre></div>
+        </div>
+      </details>
+    </article>
+
+    <article class="step" data-stage-id="C13" data-status="planned">
+      <div class="rail"><span class="dot"></span></div>
+      <details>
+        <summary><span class="id">C13</span><span class="title"><b>Manual review, timeline і source context</b><small>Показати доказову основу та історію рішення</small></span><span class="status">PLANNED</span></summary>
+        <div class="body">
+          <div class="meta small"><span>Product stage: A8</span><span>Prerequisite: C12</span></div>
+          <div class="grid">
+            <section><h3>Що є</h3><ul><li>Contacts/tree/anomaly cards.</li><li>Source/review contracts у domain.</li><li>Немає єдиного source-context journey.</li></ul></section>
+            <section><h3>Що зробити</h3><ol><li>Manual-review inbox.</li><li>Automatic vs user decision presentation.</li><li>Source file/hash/provenance/page context.</li><li>Timeline/map navigation і append-only decisions.</li></ol></section>
+            <section><h3>Результат</h3><p>Користувач бачить, чому виник висновок, перевіряє source і зберігає audit decision.</p></section>
+            <section><h3>Перевірка</h3><ul><li>Confirm/reject/defer/conflict.</li><li>Correct immutable source link.</li><li>Navigation/restart/a11y/privacy smoke.</li></ul></section>
+          </div>
+          <div class="gate"><b>Gate:</b> uncertain finding перевіряється за source, вирішується й зберігається після restart.</div>
+          <div class="prompt-wrap"><button type="button" class="copy-prompt">Скопіювати стартовий запит</button><pre class="prompt">Виконай C13. Побудуй наскрізний manual-review, timeline і source-context flow поверх C08/C11/C12. Зберігай automatic і user decisions окремо та append-only. Додай conflict, provenance, navigation і browser tests.</pre></div>
+        </div>
+      </details>
+    </article>
+
+    <article class="step" data-stage-id="C14" data-status="partial">
+      <div class="rail"><span class="dot"></span></div>
+      <details>
+        <summary><span class="id">C14</span><span class="title"><b>Sealed standalone export і offline validator</b><small>Створити перевірюваний пакет без сервера</small></span><span class="status">PARTIAL</span></summary>
+        <div class="body">
+          <div class="meta small"><span>Product stage: A9</span><span>Prerequisites: C11, C13</span></div>
+          <div class="grid">
+            <section><h3>Що є</h3><ul><li>Offline HTML view і snapshot schema.</li><li>Немає manifest/validator lifecycle.</li></ul></section>
+            <section><h3>Що зробити</h3><ol><li>Export ID/revision/profile linkage.</li><li>HTML + JSON + manifest + validation report.</li><li>Explicit full/redacted/metadata modes.</li><li>Offline validator і zero-network UI.</li></ol></section>
+            <section><h3>Результат</h3><p>Read-only пакет із hashes, exclusions і tamper detection, незалежний від VARTA server.</p></section>
+            <section><h3>Перевірка</h3><ul><li>Missing/extra/tampered entry.</li><li>Schema/hash validation.</li><li>Offline browser zero-network assertion.</li></ul></section>
+          </div>
+          <div class="gate"><b>Gate:</b> fresh export проходить validator; одна змінена byte дає контрольовану failure.</div>
+          <div class="prompt-wrap"><button type="button" class="copy-prompt">Скопіювати стартовий запит</button><pre class="prompt">Виконай C14. Створи sealed standalone export і offline validator на основі C11 projection. Додай manifest SHA-256, explicit modes, tamper tests і browser zero-network verification. Не пакуй весь Windows application.</pre></div>
+        </div>
+      </details>
+    </article>
+  </div>
+
+  <h2 class="phase">Фаза V — recovery, delivery і release gate</h2>
+  <div class="roadmap">
+    <article class="step" data-stage-id="C15" data-status="partial">
+      <div class="rail"><span class="dot"></span></div>
+      <details>
+        <summary><span class="id">C15</span><span class="title"><b>Backup/restore, Windows package та update</b><small>Довести повний data lifecycle і доставку</small></span><span class="status">PARTIAL</span></summary>
+        <div class="body">
+          <div class="meta small"><span>Product stage: A11</span><span>Prerequisites: C04, C05, C12, C14</span></div>
+          <div class="grid">
+            <section><h3>Що є</h3><ul><li>Windows scripts, PyInstaller material, offline bundle.</li><li>Немає coordinated DB+files backup/restore/update gate.</li></ul></section>
+            <section><h3>Що зробити</h3><ol><li>Quiesce/jobs + SQLite backup + file/hash manifest.</li><li>Restore у new target та integrity/read-back.</li><li>Clean package зі всіма resources.</li><li>Safe update/rollback/uninstall без видалення data.</li></ol></section>
+            <section><h3>Результат</h3><p>Відтворюваний offline package й повне відновлення на новому Windows workspace.</p></section>
+            <section><h3>Перевірка</h3><ul><li>Live consistency й corrupt backup rejection.</li><li>Unicode/long-path restore.</li><li>Fresh install/upgrade/rollback/uninstall offline.</li></ul></section>
+          </div>
+          <div class="gate"><b>Gate:</b> package, backup і restore проходять на clean Windows environment без мережі.</div>
+          <div class="prompt-wrap"><button type="button" class="copy-prompt">Скопіювати стартовий запит</button><pre class="prompt">Виконай C15. Заверши coordinated SQLite+filesystem backup/restore, clean Windows package і safe update/rollback. Використай offline bundle лише read-only. Доведи restore в новий Unicode path і що uninstall/update не видаляють user data. Не commit/push/release.</pre></div>
+        </div>
+      </details>
+    </article>
+
+    <article class="step" data-stage-id="C16" data-status="planned">
+      <div class="rail"><span class="dot"></span></div>
+      <details>
+        <summary><span class="id">C16</span><span class="title"><b>Acceptance, privacy та release candidate audit</b><small>Фінальний доказовий gate без автоматичної публікації</small></span><span class="status">PLANNED</span></summary>
+        <div class="body">
+          <div class="meta small"><span>Product stage: A12</span><span>Prerequisites: C01–C15</span></div>
+          <div class="grid">
+            <section><h3>Що є</h3><ul><li>Сильний synthetic baseline, але dirty tree не є release proof.</li><li>Real corpus дозволений лише локально/приватно.</li><li>Commit/push/release потребують окремої команди.</li></ul></section>
+            <section><h3>Що зробити</h3><ol><li>Clean controlled candidate.</li><li>All unit/integration/browser/offline/package/restore gates.</li><li>Synthetic E2E та окремий local real-corpus acceptance.</li><li>Performance, privacy/security, versions, manifests, limitations.</li></ol></section>
+            <section><h3>Результат</h3><p>Відтворюваний release candidate з exact evidence, hashes, recovery і known limits.</p></section>
+            <section><h3>Перевірка</h3><ul><li>Clean build parity і full E2E.</li><li>Network-disabled package/restore/upgrade.</li><li>Staged/package data/secret scan й archive inventory.</li></ul></section>
+          </div>
+          <div class="gate"><b>Gate:</b> TECH PASS означає готовність candidate; окремий GitHub checkpoint може створити commit/push/Draft PR, але не merge чи release.</div>
+          <div class="prompt-wrap"><button type="button" class="copy-prompt">Скопіювати стартовий запит</button><pre class="prompt">Виконай C16 як read/verify-first release candidate audit. Побудуй clean candidate, запусти automated, browser, offline, package, backup/restore і privacy gates; synthetic та authorized real-corpus результати звітуй окремо. Не commit, push або release без окремої явної команди.</pre></div>
+        </div>
+      </details>
+    </article>
+  </div>
+
+  <h2 class="phase">Processor lane після C10</h2>
+  <section class="satellites" aria-label="Окремі processor-чати">
+    <article class="satellite" data-stage-id="P01"><h3>P01 — OCR/text processor</h3><p class="small muted">Залежності: C05, C08, C10</p><p>Local OCR, page mapping, versioned params, confidence/errors. Тести: українські/англійські synthetic pages, rotation, blank/corrupt PDF, missing dependency, timeout і provenance.</p></article>
+    <article class="satellite" data-stage-id="P02"><h3>P02 — КЕП/P7S та attachments</h3><p class="small muted">Залежності: C05, C08, C10</p><p>Literal PDF/P7S pairing, local verification, <code>not_verifiable</code>, claimed-vs-actual attachments. Тести: valid/invalid/missing/ambiguous pairs, no private keys/log leaks.</p></article>
+    <article class="satellite" data-stage-id="P03"><h3>P03 — Offline STT</h3><p class="small muted">Залежності: C05, C08, C10</p><p>FFmpeg-derived normalization, local Whisper, timestamps/confidence, interruption policy. Тести: Ukrainian synthetic audio, silence/corrupt media, offline load, retry/provenance.</p></article>
+    <article class="satellite" data-stage-id="P04"><h3>P04 — Matching/anomalies</h3><p class="small muted">Залежності: C08, C10</p><p>Versioned exact/metadata/text matching, confidence і structured findings без fraud/legal auto-conclusion. Тести: true/false/ambiguous pairs, thresholds, deterministic results, preserved review.</p></article>
+  </section>
+
+  <footer>
+    <b>Найближчий новий чат:</b> <code>VARTA C01 — стабілізація поточного working baseline</code>.<br>
+    До його PASS не починати масовий refactor, новий UI framework, full Evidence Map generator або release packaging.
+  </footer>
+</main>
+
+<script>
+  const details = [...document.querySelectorAll("details")];
+  const copyResult = document.getElementById("copy-result");
+  const controllerPanel = document.getElementById("controller-panel");
+  const controllerMessage = document.getElementById("controller-message");
+  const connectionBadge = document.getElementById("connection-badge");
+  const sessionToken = document.querySelector('meta[name="varta-session-token"]').content;
+  const activeStatuses = new Set(["starting", "running", "waiting"]);
+  const runLabels = {
+    not_started: "НЕ РОЗПОЧАТО",
+    starting: "СТВОРЕННЯ TASK",
+    running: "ВИКОНУЄТЬСЯ",
+    waiting: "ОЧІКУЄ ДІЇ",
+    completed: "PASS",
+    blocked: "BLOCKED",
+    failed: "FAILED",
+    interrupted: "ЗУПИНЕНО",
+    needs_review: "ПОТРІБНА ПЕРЕВІРКА"
+  };
+  const gitLabels = {
+    not_ready: "ПІСЛЯ PASS",
+    awaiting_approval: "ОЧІКУЄ ПІДТВЕРДЖЕННЯ",
+    starting: "СТВОРЕННЯ GIT TASK",
+    running: "GIT AUDIT / PUSH",
+    waiting: "ОЧІКУЄ ДІЇ",
+    synced: "GITHUB SYNCED",
+    blocked: "GIT BLOCKED",
+    failed: "GIT FAILED",
+    interrupted: "GIT ЗУПИНЕНО",
+    needs_review: "GIT ПОТРІБНА ПЕРЕВІРКА"
+  };
+  let latestSnapshot = null;
+  let refreshInFlight = false;
+
+  document.getElementById("expand-all").addEventListener("click", () => {
+    details.forEach(item => { item.open = true; });
+  });
+
+  document.getElementById("collapse-all").addEventListener("click", () => {
+    details.forEach(item => { item.open = false; });
+  });
+
+  async function copyText(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return;
+    }
+    const area = document.createElement("textarea");
+    area.value = text;
+    area.setAttribute("readonly", "");
+    area.style.position = "absolute";
+    area.style.left = "-9999px";
+    document.body.appendChild(area);
+    area.select();
+    const copied = document.execCommand("copy");
+    area.remove();
+    if (!copied) throw new Error("copy failed");
+  }
+
+  function announce(message, clearAfter = 0) {
+    copyResult.textContent = message;
+    if (clearAfter) {
+      window.setTimeout(() => {
+        if (copyResult.textContent === message) copyResult.textContent = "";
+      }, clearAfter);
+    }
+  }
+
+  function createElement(tag, className = "", text = "") {
+    const element = document.createElement(tag);
+    if (className) element.className = className;
+    if (text) element.textContent = text;
+    return element;
+  }
+
+  function ensureLiveControls(card, stage) {
+    let controls = card.querySelector(":scope .live-controls");
+    if (controls) return controls;
+
+    controls = createElement("section", "live-controls");
+    controls.dataset.stageId = stage.id;
+    controls.setAttribute("aria-label", `Керований запуск ${stage.id}`);
+
+    const heading = createElement("div", "live-heading");
+    heading.append(
+      createElement("b", "", `Codex task ${stage.id}`),
+      createElement("span", "run-badge", "НЕ РОЗПОЧАТО")
+    );
+    heading.lastElementChild.dataset.runStatus = "not_started";
+
+    const actions = createElement("div", "live-actions");
+    const start = createElement("button", "start-stage", "Стартувати task");
+    start.type = "button";
+    start.dataset.stageId = stage.id;
+    const stop = createElement("button", "stop-stage", "Зупинити turn");
+    stop.type = "button";
+    stop.dataset.stageId = stage.id;
+    stop.hidden = true;
+    const copyPrompt = createElement("button", "copy-stage-prompt", "Скопіювати повний prompt");
+    copyPrompt.type = "button";
+    copyPrompt.dataset.stageId = stage.id;
+    const copyThread = createElement("button", "copy-thread-id", "Скопіювати Task ID");
+    copyThread.type = "button";
+    copyThread.dataset.stageId = stage.id;
+    copyThread.hidden = true;
+    actions.append(start, stop, copyPrompt, copyThread);
+
+    controls.append(
+      heading,
+      actions,
+      createElement("p", "run-note small", "Очікується підключення controller…"),
+      createElement("pre", "run-message small"),
+      createElement("div", "run-result small")
+    );
+    controls.querySelector(".run-message").hidden = true;
+    controls.querySelector(".run-result").hidden = true;
+
+    const gitPanel = createElement("section", "git-checkpoint");
+    gitPanel.setAttribute("aria-label", `GitHub checkpoint ${stage.id}`);
+    const gitHeading = createElement("div", "live-heading");
+    gitHeading.append(
+      createElement("b", "", "GitHub checkpoint"),
+      createElement("span", "git-badge", "ПІСЛЯ PASS")
+    );
+    gitHeading.lastElementChild.dataset.gitStatus = "not_ready";
+    const gitActions = createElement("div", "live-actions");
+    const startGit = createElement("button", "start-git", "GitHub checkpoint");
+    startGit.type = "button";
+    startGit.dataset.stageId = stage.id;
+    startGit.disabled = true;
+    const stopGit = createElement("button", "stop-git", "Зупинити Git turn");
+    stopGit.type = "button";
+    stopGit.dataset.stageId = stage.id;
+    stopGit.hidden = true;
+    const copyGitThread = createElement("button", "copy-git-thread-id", "Скопіювати Git Task ID");
+    copyGitThread.type = "button";
+    copyGitThread.dataset.stageId = stage.id;
+    copyGitThread.hidden = true;
+    gitActions.append(startGit, stopGit, copyGitThread);
+    gitPanel.append(
+      gitHeading,
+      gitActions,
+      createElement("p", "git-note run-note small", "Доступно після технічного PASS."),
+      createElement("pre", "git-message run-message small"),
+      createElement("div", "git-result run-result small")
+    );
+    gitPanel.querySelector(".git-message").hidden = true;
+    gitPanel.querySelector(".git-result").hidden = true;
+    controls.appendChild(gitPanel);
+
+    const target = card.querySelector(".body") || card;
+    target.appendChild(controls);
+    return controls;
+  }
+
+  function cleanAgentMessage(text) {
+    if (!text) return "";
+    return text
+      .replace(/<VARTA_STAGE_RESULT>[\s\S]*?<\/VARTA_STAGE_RESULT>/g, "")
+      .replace(/<VARTA_GIT_RESULT>[\s\S]*?<\/VARTA_GIT_RESULT>/g, "")
+      .trim()
+      .slice(-1800);
+  }
+
+  function renderResult(container, result, error) {
+    container.replaceChildren();
+    if (!result && !error) {
+      container.hidden = true;
+      return;
+    }
+    container.hidden = false;
+    if (error) container.appendChild(createElement("p", "test-failed", error));
+    if (!result) return;
+
+    container.appendChild(createElement("p", "", result.summary));
+    const gate = createElement("p");
+    gate.append(createElement("b", "", "Gate: "), document.createTextNode(result.gate));
+    container.appendChild(gate);
+    if (Array.isArray(result.tests) && result.tests.length) {
+      container.appendChild(createElement("b", "", "Перевірки"));
+      const list = document.createElement("ul");
+      result.tests.forEach(test => {
+        const item = createElement(
+          "li",
+          test.status === "passed" ? "test-passed" : (test.status === "failed" ? "test-failed" : ""),
+          `${test.status.toUpperCase()} — ${test.name}${test.evidence ? `: ${test.evidence}` : ""}`
+        );
+        list.appendChild(item);
+      });
+      container.appendChild(list);
+    }
+    if (Array.isArray(result.changed_files) && result.changed_files.length) {
+      container.appendChild(
+        createElement("p", "muted", `Змінені файли: ${result.changed_files.join(", ")}`)
+      );
+    }
+  }
+
+  function renderGitResult(container, result, error) {
+    container.replaceChildren();
+    if (!result && !error) {
+      container.hidden = true;
+      return;
+    }
+    container.hidden = false;
+    if (error) container.appendChild(createElement("p", "test-failed", error));
+    if (!result) return;
+
+    container.appendChild(createElement("p", "", result.summary));
+    const gate = createElement("p");
+    gate.append(createElement("b", "", "Git gate: "), document.createTextNode(result.gate));
+    container.appendChild(gate);
+    if (Array.isArray(result.checks) && result.checks.length) {
+      container.appendChild(createElement("b", "", "Перевірки публікації"));
+      const list = document.createElement("ul");
+      result.checks.forEach(check => {
+        list.appendChild(createElement(
+          "li",
+          check.status === "passed" ? "test-passed" : (check.status === "failed" ? "test-failed" : ""),
+          `${check.status.toUpperCase()} — ${check.name}${check.evidence ? `: ${check.evidence}` : ""}`
+        ));
+      });
+      container.appendChild(list);
+    }
+    if (result.branch || result.commit) {
+      container.appendChild(createElement(
+        "p",
+        "muted",
+        `Branch: ${result.branch || "—"} · Commit: ${result.commit || "—"}`
+      ));
+    }
+    if (result.controller_verification) {
+      container.appendChild(createElement(
+        "p", "test-passed", `Controller read-back: ${result.controller_verification}`
+      ));
+    }
+    if (Array.isArray(result.staged_files) && result.staged_files.length) {
+      container.appendChild(createElement(
+        "p", "muted", `Staged exact paths: ${result.staged_files.join(", ")}`
+      ));
+    }
+    if (result.pr_url) {
+      const row = createElement("p");
+      row.append("Draft PR: ");
+      const link = createElement("a", "", result.pr_url);
+      link.href = result.pr_url;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      row.appendChild(link);
+      container.appendChild(row);
+    }
+  }
+
+  function renderStage(stage) {
+    const card = document.querySelector(`[data-stage-id="${stage.id}"]`);
+    if (!card) return;
+    const controls = ensureLiveControls(card, stage);
+    const run = stage.run;
+    const status = run.runStatus || "not_started";
+    const badge = controls.querySelector(".run-badge");
+    badge.dataset.runStatus = status;
+    badge.textContent = runLabels[status] || status.toUpperCase();
+
+    const start = controls.querySelector(".start-stage");
+    start.disabled = !stage.canStart;
+    start.title = stage.startReason;
+    if (status === "completed") start.textContent = "Gate пройдено";
+    else if (["blocked", "failed", "interrupted", "needs_review"].includes(status)) {
+      start.textContent = "Створити нову спробу";
+    } else start.textContent = "Стартувати task";
+
+    const stop = controls.querySelector(".stop-stage");
+    stop.hidden = !activeStatuses.has(status);
+    stop.disabled = !run.threadId || !run.turnId;
+
+    const copyThread = controls.querySelector(".copy-thread-id");
+    copyThread.hidden = !run.threadId;
+    copyThread.dataset.threadId = run.threadId || "";
+
+    const noteBits = [stage.startReason];
+    if (run.attempt) noteBits.push(`Спроба: ${run.attempt}`);
+    if (run.threadId) noteBits.push(`Task ID: ${run.threadId.slice(0, 8)}…`);
+    if (run.updatedAt) noteBits.push(`Оновлено: ${new Date(run.updatedAt).toLocaleString("uk-UA")}`);
+    controls.querySelector(".run-note").textContent = noteBits.join(" · ");
+
+    const message = cleanAgentMessage(run.lastMessage);
+    const messageBox = controls.querySelector(".run-message");
+    messageBox.hidden = !message;
+    messageBox.textContent = message;
+    renderResult(controls.querySelector(".run-result"), run.result, run.error);
+
+    const git = run.git || {status: "not_ready"};
+    const gitStatus = git.status || "not_ready";
+    const gitBadge = controls.querySelector(".git-badge");
+    gitBadge.dataset.gitStatus = gitStatus;
+    gitBadge.textContent = gitLabels[gitStatus] || gitStatus.toUpperCase();
+
+    const startGit = controls.querySelector(".start-git");
+    startGit.disabled = !stage.canGitCheckpoint;
+    startGit.title = stage.gitReason;
+    if (gitStatus === "synced") startGit.textContent = "GitHub synced";
+    else if (["blocked", "failed", "interrupted", "needs_review"].includes(gitStatus)) {
+      startGit.textContent = "Повторити Git checkpoint";
+    } else startGit.textContent = "GitHub checkpoint";
+
+    const stopGit = controls.querySelector(".stop-git");
+    stopGit.hidden = !activeStatuses.has(gitStatus);
+    stopGit.disabled = !git.threadId || !git.turnId;
+
+    const copyGitThread = controls.querySelector(".copy-git-thread-id");
+    copyGitThread.hidden = !git.threadId;
+    copyGitThread.dataset.threadId = git.threadId || "";
+
+    const gitNoteBits = [stage.gitReason];
+    if (git.attempt) gitNoteBits.push(`Спроба: ${git.attempt}`);
+    if (git.threadId) gitNoteBits.push(`Git Task ID: ${git.threadId.slice(0, 8)}…`);
+    if (git.updatedAt) gitNoteBits.push(`Оновлено: ${new Date(git.updatedAt).toLocaleString("uk-UA")}`);
+    controls.querySelector(".git-note").textContent = gitNoteBits.join(" · ");
+
+    const gitMessage = cleanAgentMessage(git.lastMessage);
+    const gitMessageBox = controls.querySelector(".git-message");
+    gitMessageBox.hidden = !gitMessage;
+    gitMessageBox.textContent = gitMessage;
+    renderGitResult(controls.querySelector(".git-result"), git.result, git.error);
+  }
+
+  async function api(path, options = {}) {
+    const response = await fetch(path, {
+      ...options,
+      cache: "no-store",
+      headers: {
+        "X-Varta-Roadmap-Token": sessionToken,
+        ...(options.body ? {"Content-Type": "application/json"} : {}),
+        ...(options.headers || {})
+      }
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
+    return payload;
+  }
+
+  async function refreshRoadmap() {
+    if (refreshInFlight) return;
+    refreshInFlight = true;
+    try {
+      const snapshot = await api("/api/v1/roadmap");
+      latestSnapshot = snapshot;
+      controllerPanel.dataset.state = "online";
+      connectionBadge.textContent = snapshot.controller.codexReady ? "CODEX READY" : "CONTROLLER ONLY";
+      const active = snapshot.summary.active.length
+        ? `активний ${snapshot.summary.active.join(", ")}`
+        : "активних немає";
+      controllerMessage.textContent = `${snapshot.stages.length} tasks · TECH PASS ${snapshot.summary.completed} · GITHUB SYNCED ${snapshot.summary.gitSynced} · ${active} · оновлено ${new Date(snapshot.updatedAt).toLocaleString("uk-UA")}`;
+      snapshot.stages.forEach(renderStage);
+    } catch (error) {
+      controllerPanel.dataset.state = "offline";
+      connectionBadge.textContent = "OFFLINE PLAN";
+      controllerMessage.textContent = `Кнопки Start недоступні: ${error.message}. Запустіть START_ROADMAP.cmd.`;
+    } finally {
+      refreshInFlight = false;
+    }
+  }
+
+  function stageFromSnapshot(stageId) {
+    return latestSnapshot?.stages.find(stage => stage.id === stageId) || null;
+  }
+
+  document.addEventListener("click", async event => {
+    const button = event.target.closest(".copy-prompt");
+    if (button) {
+      const prompt = button.closest(".body").querySelector(".prompt").textContent.trim();
+      try {
+        await copyText(prompt);
+        announce("Стартовий запит скопійовано.", 3500);
+      } catch (error) {
+        announce("Не вдалося скопіювати автоматично — виділіть текст запиту вручну.");
+      }
+      return;
+    }
+
+    const liveButton = event.target.closest(
+      ".start-stage, .stop-stage, .copy-thread-id, .copy-stage-prompt, " +
+      ".start-git, .stop-git, .copy-git-thread-id"
+    );
+    if (!liveButton) return;
+    const stageId = liveButton.dataset.stageId;
+    const stage = stageFromSnapshot(stageId);
+    if (!stage) return;
+
+    if (liveButton.classList.contains("copy-thread-id")) {
+      await copyText(liveButton.dataset.threadId);
+      announce(`Task ID ${stageId} скопійовано.`, 3500);
+      return;
+    }
+    if (liveButton.classList.contains("copy-git-thread-id")) {
+      await copyText(liveButton.dataset.threadId);
+      announce(`Git Task ID ${stageId} скопійовано.`, 3500);
+      return;
+    }
+    if (liveButton.classList.contains("copy-stage-prompt")) {
+      await copyText(stage.prompt);
+      announce(`Prompt ${stageId} скопійовано.`, 3500);
+      return;
+    }
+
+    const isGit = liveButton.classList.contains("start-git")
+      || liveButton.classList.contains("stop-git");
+    const action = liveButton.classList.contains("stop-stage")
+      || liveButton.classList.contains("stop-git") ? "stop" : "start";
+    if (isGit && action === "start") {
+      const approved = window.confirm(
+        `Запустити GitHub checkpoint ${stageId}?\n\n` +
+        "Це пряма команда окремому Codex task: перевірити ownership і privacy, " +
+        "stage тільки точні файли цього етапу, створити commit, push у приватну " +
+        "codex/* branch та створити/оновити Draft PR.\n\n" +
+        "Merge, force-push, tag, release і зміна visibility заборонені."
+      );
+      if (!approved) return;
+    } else if (action === "start") {
+      const dependencies = stage.dependencies.length ? stage.dependencies.join(", ") : "немає";
+      const approved = window.confirm(
+        `Створити окремий Codex task і одразу почати виконання?\n\n${stage.topic}\nPrerequisites: ${dependencies}\n\nЦей stage не виконує commit або push. Після TECH PASS з'явиться окрема кнопка GitHub checkpoint.`
+      );
+      if (!approved) return;
+    } else if (!window.confirm(
+      isGit ? `Зупинити активний Git turn ${stageId}?` : `Зупинити активний turn ${stageId}?`
+    )) return;
+
+    liveButton.disabled = true;
+    announce(
+      action === "start"
+        ? `Створюється ${isGit ? "GitHub checkpoint " : "task "}${stageId}…`
+        : `Зупиняється ${isGit ? "Git " : ""}${stageId}…`
+    );
+    try {
+      const endpoint = isGit
+        ? `/api/v1/stages/${stageId}/git/${action}`
+        : `/api/v1/stages/${stageId}/${action}`;
+      await api(endpoint, {method: "POST", body: "{}"});
+      await refreshRoadmap();
+      announce(
+        action === "start"
+          ? `${isGit ? "GitHub checkpoint" : "Task"} ${stageId} створюється у Codex і починає роботу.`
+          : `Запит на зупинку ${isGit ? "Git " : ""}${stageId} прийнято.`,
+        4500
+      );
+    } catch (error) {
+      announce(`Не вдалося: ${error.message}`);
+      await refreshRoadmap();
+    }
+  });
+
+  const liveMode = location.protocol === "http:"
+    && sessionToken
+    && !sessionToken.startsWith("__VARTA_");
+  if (liveMode) {
+    refreshRoadmap();
+    window.setInterval(refreshRoadmap, 2500);
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "stage_id": "C01",
+  "patch_id": "C01-01",
+  "title": "Repository diagram guidance",
+  "logical_owner": "developer-experience / repository guidance",
+  "provenance": "pre-existing untracked scope before C01; author not inferred",
+  "disposition": "ready_for_exact_checkpoint_review",
+  "integration_order": 1,
+  "dependencies": [],
+  "staging_policy": "whole files via explicit pathspec; never git add . or -A",
+  "files": [
+    {
+      "path": ".github/copilot-instructions.md",
+      "role": "repository router for diagram guidance",
+      "mode": "whole_file",
+      "sha256_at_inventory": "4aad5558deb455f6b8bc38baf19219935cfc9dcb5c4fa14ab86bd681dc024f91"
+    },
+    {
+      "path": ".github/instructions/mermaid.instructions.md",
+      "role": "Mermaid VS Code workflow guidance",
+      "mode": "whole_file",
+      "sha256_at_inventory": "6a91984bb661cef3f6e10c9922c821d2c3726e7509e3206a6f0ddeb7a7be253a"
+    },
+    {
+      "path": "docs/changes/C01-01-repository-diagram-guidance.md",
+      "role": "change record",
+      "mode": "whole_file",
+      "sha256_at_c01_gate": "7a2379bf8670a4396d1f10db44c94a94c2f1da4d8ebf54a04334e70e30ec1996"
+    },
+    {
+      "path": "docs/changes/manifests/C01-01-repository-diagram-guidance.json",
+      "role": "exact logical patch manifest",
+      "mode": "whole_file",
+      "hash_policy": "self-listed without recursive self-hash"
+    }
+  ],
+  "verification": [
+    "privacy scan for tracked, staged and untracked text",
+    "prohibited extension and secret-pattern scan",
+    "exact manifest/status bijection"
+  ],
+  "known_limits": [
+    "No live Mermaid extension or cloud workflow was executed",
+    "Untracked Git state does not identify the original author"
+  ]
+}
