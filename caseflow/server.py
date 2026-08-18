@@ -32,7 +32,30 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from case_docket.repository import SQLiteRepository
+from case_docket.application import (
+    ApplicationError,
+    ContactService,
+    GetContactQuery,
+    GetContactsContextQuery,
+    ListContactsQuery,
+    SystemClock,
+    UuidProvider,
+)
+from case_docket.repository import SQLiteRepository, SQLiteUnitOfWorkFactory
+
+from caseflow.api_v1 import (
+    API_PREFIX,
+    API_VERSION,
+    RequestValidationError,
+    application_error_envelope,
+    error_envelope,
+    error_status,
+    match_contact_route,
+    parse_assign_contact_role,
+    parse_create_contact,
+    parse_update_contact,
+    success_envelope,
+)
 
 
 APP_DIR = Path(__file__).resolve().parent
@@ -390,6 +413,11 @@ class CaseFlowState:
         self.job_lock = threading.Lock()
         self.active_job: dict | None = None
         self._repository: SQLiteRepository | None = None
+        self._contact_service = ContactService(
+            SQLiteUnitOfWorkFactory(self.database_path),
+            UuidProvider(),
+            SystemClock(),
+        )
         self.config_path = self.root / ".caseflow" / "config.json"
         self.token_path = self.root / ".caseflow" / "secrets" / "google_token.dpapi"
         self.google_secret_path = self.root / ".caseflow" / "secrets" / "google_client_secret.dpapi"
@@ -413,13 +441,24 @@ class CaseFlowState:
                 pass
 
     @property
+    def database_path(self) -> Path:
+        return self.root / ".caseflow" / "varta.sqlite3"
+
+    @property
     def repository(self) -> SQLiteRepository:
         with self.lock:
             if self._repository is None:
-                database_path = self.root / ".caseflow" / "varta.sqlite3"
-                database_path.parent.mkdir(parents=True, exist_ok=True)
-                self._repository = SQLiteRepository(database_path)
+                self.database_path.parent.mkdir(parents=True, exist_ok=True)
+                self._repository = SQLiteRepository(self.database_path)
             return self._repository
+
+    @property
+    def contact_service(self) -> ContactService:
+        return self._contact_service
+
+    def prepare_database(self) -> None:
+        """Complete legacy bootstrap before HTTP threads open short-lived UoWs."""
+        _ = self.repository
 
     def close(self) -> None:
         with self.lock:
@@ -1219,12 +1258,58 @@ class Handler(BaseHTTPRequestHandler):
     def send_error_json(self, status: int, error: Exception | str) -> None:
         self.send_json(status, {"ok": False, "error": str(error)})
 
-    def read_json_body(self) -> dict:
+    def send_contract_success(
+        self,
+        status: int,
+        payload: dict[str, object],
+        *,
+        versioned: bool,
+    ) -> None:
+        body = success_envelope(payload) if versioned else {"ok": True, **payload}
+        self.send_json(status, body)
+
+    def send_application_error(
+        self,
+        error: ApplicationError | RequestValidationError,
+        *,
+        versioned: bool,
+    ) -> None:
+        status = error_status(error)
+        if versioned:
+            self.send_json(status, application_error_envelope(error))
+        else:
+            self.send_error_json(status, error.message)
+
+    def send_versioned_error(
+        self,
+        status: int,
+        code: str,
+        message: str,
+        details: dict[str, object] | None = None,
+    ) -> None:
+        self.send_json(status, error_envelope(code, message, details))
+
+    def _read_json_value(self) -> object:
         size = int(self.headers.get("Content-Length", "0"))
         if size > 2 * 1024 * 1024:
             raise ValueError("JSON-запит завеликий")
         raw = self.rfile.read(size)
         return json.loads(raw.decode("utf-8")) if raw else {}
+
+    def read_json_body(self) -> dict:
+        payload = self._read_json_value()
+        if not isinstance(payload, dict):
+            raise ValueError("JSON-запит має бути object")
+        return payload
+
+    def read_command_body(self) -> object:
+        try:
+            return self._read_json_value()
+        except (json.JSONDecodeError, UnicodeDecodeError, ValueError) as exc:
+            raise RequestValidationError(
+                "Некоректний JSON body",
+                {"field": "body"},
+            ) from exc
 
     def require_csrf(self) -> None:
         if self.headers.get("X-Caseflow-Token") != self.state.csrf_token:
@@ -1232,37 +1317,74 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:
         parsed = urllib.parse.urlparse(self.path)
-        if parsed.path == "/api/status":
-            self.handle_status()
-            return
-        if parsed.path == "/api/preflight":
-            self.handle_preflight()
-            return
-        if parsed.path == "/api/documents/tree":
-            self.handle_document_tree()
-            return
-        if parsed.path == "/api/contacts/context":
-            self.handle_contacts_context()
-            return
-        if parsed.path == "/api/contacts":
-            self.handle_contacts(urllib.parse.parse_qs(parsed.query))
-            return
-        if parsed.path.startswith("/api/contacts/"):
-            self.handle_contact(parsed.path.rsplit("/", 1)[-1])
-            return
-        if parsed.path == "/api/anomalies/latest":
-            self.handle_anomalies_latest()
-            return
-        if parsed.path == "/oauth/google/callback":
-            self.handle_google_callback(urllib.parse.parse_qs(parsed.query))
-            return
-        self.serve_static(parsed.path)
+        versioned = self._is_versioned_path(parsed.path)
+        contact_route = match_contact_route(parsed.path)
+        try:
+            if parsed.path == "/api/status":
+                self.handle_status()
+                return
+            if parsed.path == f"{API_PREFIX}/status":
+                self.handle_api_v1_status()
+                return
+            if parsed.path == "/api/preflight":
+                self.handle_preflight()
+                return
+            if parsed.path == "/api/documents/tree":
+                self.handle_document_tree()
+                return
+            if contact_route is not None:
+                if contact_route.action == "collection":
+                    self.handle_contacts(
+                        urllib.parse.parse_qs(parsed.query),
+                        versioned=contact_route.versioned,
+                    )
+                    return
+                if contact_route.action == "context":
+                    self.handle_contacts_context(versioned=contact_route.versioned)
+                    return
+                if contact_route.action == "detail" and contact_route.contact_id is not None:
+                    self.handle_contact(
+                        contact_route.contact_id,
+                        versioned=contact_route.versioned,
+                    )
+                    return
+                self._send_route_not_found(versioned=contact_route.versioned)
+                return
+            if parsed.path == "/api/anomalies/latest":
+                self.handle_anomalies_latest()
+                return
+            if parsed.path == "/oauth/google/callback":
+                self.handle_google_callback(urllib.parse.parse_qs(parsed.query))
+                return
+            if versioned:
+                self._send_route_not_found(versioned=True)
+                return
+            self.serve_static(parsed.path)
+        except (ApplicationError, RequestValidationError) as exc:
+            self.send_application_error(exc, versioned=versioned)
+        except Exception as exc:  # noqa: BLE001
+            self._send_unexpected_error(exc, versioned=versioned)
 
     def do_POST(self) -> None:
+        route = urllib.parse.urlparse(self.path).path
+        versioned = self._is_versioned_path(route)
+        contact_route = match_contact_route(route)
         try:
             self.require_csrf()
-            route = urllib.parse.urlparse(self.path).path
-            if route == "/api/upload":
+            if contact_route is not None and contact_route.action == "collection":
+                self.handle_contact_create(versioned=contact_route.versioned)
+            elif (
+                contact_route is not None
+                and contact_route.action == "roles"
+                and contact_route.contact_id is not None
+            ):
+                self.handle_contact_role(
+                    contact_route.contact_id,
+                    versioned=contact_route.versioned,
+                )
+            elif contact_route is not None:
+                self._send_route_not_found(versioned=contact_route.versioned)
+            elif route == "/api/upload":
                 self.handle_upload()
             elif route == "/api/documents/status":
                 self.handle_document_status()
@@ -1274,10 +1396,6 @@ class Handler(BaseHTTPRequestHandler):
                 self.handle_anomaly_status()
             elif route == "/api/settings":
                 self.handle_settings()
-            elif route == "/api/contacts":
-                self.handle_contact_create()
-            elif route.startswith("/api/contacts/") and route.endswith("/roles"):
-                self.handle_contact_role(route.split("/")[3])
             elif route == "/api/google/config":
                 self.handle_google_config()
             elif route == "/api/google/login":
@@ -1286,29 +1404,71 @@ class Handler(BaseHTTPRequestHandler):
                 self.handle_google_disconnect()
             elif route == "/api/google/sync":
                 self.handle_google_sync()
+            elif versioned:
+                self._send_route_not_found(versioned=True)
             else:
                 self.send_error_json(404, "Маршрут не знайдено")
+        except (ApplicationError, RequestValidationError) as exc:
+            self.send_application_error(exc, versioned=versioned)
         except BusyError as exc:
-            self.send_error_json(409, exc)
+            if versioned:
+                self.send_versioned_error(409, "busy", "Інша локальна операція ще виконується")
+            else:
+                self.send_error_json(409, exc)
         except PermissionError as exc:
-            self.send_error_json(403, exc)
+            if versioned:
+                self.send_versioned_error(403, "forbidden", "Недійсний локальний токен запиту")
+            else:
+                self.send_error_json(403, exc)
         except Exception as exc:  # noqa: BLE001
-            self.send_error_json(400, exc)
+            self._send_unexpected_error(exc, versioned=versioned)
 
     def do_PATCH(self) -> None:
+        route = urllib.parse.urlparse(self.path).path
+        versioned = self._is_versioned_path(route)
+        contact_route = match_contact_route(route)
         try:
             self.require_csrf()
-            route = urllib.parse.urlparse(self.path).path
-            if route.startswith("/api/contacts/"):
-                self.handle_contact_update(route.rsplit("/", 1)[-1])
+            if (
+                contact_route is not None
+                and contact_route.action == "detail"
+                and contact_route.contact_id is not None
+            ):
+                self.handle_contact_update(
+                    contact_route.contact_id,
+                    versioned=contact_route.versioned,
+                )
+            elif contact_route is not None:
+                self._send_route_not_found(versioned=contact_route.versioned)
+            elif versioned:
+                self._send_route_not_found(versioned=True)
             else:
                 self.send_error_json(404, "Маршрут не знайдено")
+        except (ApplicationError, RequestValidationError) as exc:
+            self.send_application_error(exc, versioned=versioned)
         except PermissionError as exc:
-            self.send_error_json(403, exc)
-        except KeyError as exc:
-            self.send_error_json(404, exc)
+            if versioned:
+                self.send_versioned_error(403, "forbidden", "Недійсний локальний токен запиту")
+            else:
+                self.send_error_json(403, exc)
         except Exception as exc:  # noqa: BLE001
-            self.send_error_json(400, exc)
+            self._send_unexpected_error(exc, versioned=versioned)
+
+    @staticmethod
+    def _is_versioned_path(path: str) -> bool:
+        return path == API_PREFIX or path.startswith(f"{API_PREFIX}/")
+
+    def _send_route_not_found(self, *, versioned: bool) -> None:
+        if versioned:
+            self.send_versioned_error(404, "route_not_found", "Маршрут API не знайдено")
+        else:
+            self.send_error_json(404, "Маршрут не знайдено")
+
+    def _send_unexpected_error(self, error: Exception, *, versioned: bool) -> None:
+        if versioned:
+            self.send_versioned_error(500, "internal_error", "Внутрішня помилка VARTA")
+        else:
+            self.send_error_json(400, error)
 
     def serve_static(self, request_path: str) -> None:
         relative = "index.html" if request_path in {"", "/"} else request_path.lstrip("/")
@@ -1344,7 +1504,7 @@ class Handler(BaseHTTPRequestHandler):
         google = self.state.config.get("google", {})
         with self.state.lock:
             database = self.state.repository.airtable_catalog_counts()
-            database["contacts"] = len(self.state.repository.list_contacts())
+        database["contacts"] = len(self.state.contact_service.list(ListContactsQuery()))
         self.send_json(
             200,
             {
@@ -1383,48 +1543,64 @@ class Handler(BaseHTTPRequestHandler):
     def handle_document_tree(self) -> None:
         self.send_json(200, build_document_tree(self.state.root))
 
-    def handle_contacts(self, query: dict[str, list[str]]) -> None:
-        search = str(query.get("q", [""])[0]).strip()[:200]
-        with self.state.lock:
-            contacts = self.state.repository.list_contacts(search or None)
-        self.send_json(200, {"ok": True, "contacts": contacts, "count": len(contacts)})
+    def handle_contacts(self, query: dict[str, list[str]], *, versioned: bool) -> None:
+        search = str(query.get("q", [""])[0])
+        contacts = self.state.contact_service.list(ListContactsQuery(search or None))
+        self.send_contract_success(
+            200,
+            {
+                "contacts": [contact.to_dict() for contact in contacts],
+                "count": len(contacts),
+            },
+            versioned=versioned,
+        )
 
-    def handle_contact(self, contact_id: str) -> None:
-        with self.state.lock:
-            contact = self.state.repository.get_contact(urllib.parse.unquote(contact_id))
-        if contact is None:
-            self.send_error_json(404, "Контакт не знайдено")
-            return
-        self.send_json(200, {"ok": True, "contact": contact})
+    def handle_contact(self, contact_id: str, *, versioned: bool) -> None:
+        contact = self.state.contact_service.get(
+            GetContactQuery(urllib.parse.unquote(contact_id))
+        )
+        self.send_contract_success(
+            200,
+            {"contact": contact.to_dict()},
+            versioned=versioned,
+        )
 
-    def handle_contacts_context(self) -> None:
-        with self.state.lock:
-            context = self.state.repository.contacts_context()
-        self.send_json(200, {"ok": True, **context})
+    def handle_contacts_context(self, *, versioned: bool) -> None:
+        context = self.state.contact_service.context(GetContactsContextQuery())
+        self.send_contract_success(200, context.to_dict(), versioned=versioned)
 
-    def handle_contact_create(self) -> None:
-        payload = self.read_json_body()
-        with self.state.lock:
-            contact_id = self.state.repository.create_contact(payload)
-            contact = self.state.repository.get_contact(contact_id)
-        self.send_json(201, {"ok": True, "contact": contact})
+    def handle_contact_create(self, *, versioned: bool) -> None:
+        command = parse_create_contact(self.read_command_body())
+        contact = self.state.contact_service.create(command)
+        self.send_contract_success(
+            201,
+            {"contact": contact.to_dict()},
+            versioned=versioned,
+        )
 
-    def handle_contact_update(self, contact_id: str) -> None:
-        payload = self.read_json_body()
-        decoded_id = urllib.parse.unquote(contact_id)
-        with self.state.lock:
-            self.state.repository.update_contact(decoded_id, payload)
-            contact = self.state.repository.get_contact(decoded_id)
-        self.send_json(200, {"ok": True, "contact": contact})
+    def handle_contact_update(self, contact_id: str, *, versioned: bool) -> None:
+        command = parse_update_contact(
+            urllib.parse.unquote(contact_id),
+            self.read_command_body(),
+        )
+        contact = self.state.contact_service.update(command)
+        self.send_contract_success(
+            200,
+            {"contact": contact.to_dict()},
+            versioned=versioned,
+        )
 
-    def handle_contact_role(self, contact_id: str) -> None:
-        payload = self.read_json_body()
-        decoded_id = urllib.parse.unquote(contact_id)
-        payload["contact_id"] = decoded_id
-        with self.state.lock:
-            participant_id = self.state.repository.assign_contact_role(payload)
-            contact = self.state.repository.get_contact(decoded_id)
-        self.send_json(201, {"ok": True, "id": participant_id, "contact": contact})
+    def handle_contact_role(self, contact_id: str, *, versioned: bool) -> None:
+        command = parse_assign_contact_role(
+            urllib.parse.unquote(contact_id),
+            self.read_command_body(),
+        )
+        participant_id, contact = self.state.contact_service.assign_role(command)
+        self.send_contract_success(
+            201,
+            {"id": participant_id, "contact": contact.to_dict()},
+            versioned=versioned,
+        )
 
     def handle_document_status(self) -> None:
         payload = self.read_json_body()
@@ -1522,6 +1698,17 @@ class Handler(BaseHTTPRequestHandler):
                 "destination": str(destination.relative_to(self.state.root)),
                 "saved": saved,
             },
+        )
+
+    def handle_api_v1_status(self) -> None:
+        self.send_json(
+            200,
+            success_envelope(
+                {
+                    "server": {"product": "VARTA", "version": VARTA_VERSION},
+                    "api": {"version": API_VERSION},
+                }
+            ),
         )
 
     def handle_process(self) -> None:
@@ -1725,6 +1912,7 @@ def main() -> int:
     for folder in ["00_INBOX", "01_ОПРАЦЬОВАНО", "02_РОЗПАКОВАНО", "03_РЕЄСТР", "99_ПОТРЕБУЄ_ПЕРЕВІРКИ", "tmp/caseflow_runs", ".caseflow/logs"]:
         (root / folder).mkdir(parents=True, exist_ok=True)
     state = CaseFlowState(root, args.host, args.port)
+    state.prepare_database()
     server = ThreadingHTTPServer((args.host, args.port), Handler)
     server.state = state  # type: ignore[attr-defined]
     pid_path = root / ".caseflow" / "server.pid"

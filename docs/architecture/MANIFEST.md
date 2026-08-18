@@ -22,6 +22,12 @@
 | `open-questions.md` | `ACTIVE` | versioned owner/gate routing |
 | `README.md` | `ACTIVE` | package entrypoint and priority |
 
+## Active implementation contracts
+
+| File | Status | Purpose |
+|---|---|---|
+| `local-api-v1.md` | `ACTIVE` | C03 `/api/v1`, application/UoW boundary, contacts contract і compatibility routes |
+
 ## Supporting legacy/target documents
 
 | File | Purpose |

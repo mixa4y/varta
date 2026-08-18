@@ -43,6 +43,11 @@ presentation -> application -> domain
 [`technical-specification.md`](technical-specification.md) і
 [`open-questions.md`](open-questions.md).
 
+## Implementation contracts
+
+- [`local-api-v1.md`](local-api-v1.md) — versioning, contacts application
+  boundary, stable envelopes і compatibility policy, реалізовані у C03.
+
 ## Legacy detail documents
 
 Data model, reports, naming, matching, signatures та integrations залишаються

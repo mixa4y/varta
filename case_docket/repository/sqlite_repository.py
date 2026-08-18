@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import sqlite3
 import uuid
+from contextlib import nullcontext
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Optional
@@ -58,8 +59,10 @@ class SQLiteRepository(Repository):
         *,
         airtable_schema_path: Path | None = None,
         migrations_path: Path | None = None,
+        auto_commit: bool = True,
     ):
         self.db_path = Path(db_path)
+        self._auto_commit = auto_commit
         self._conn = sqlite3.connect(self.db_path, check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
         self._conn.execute("PRAGMA foreign_keys = ON")
@@ -71,6 +74,20 @@ class SQLiteRepository(Repository):
 
     def close(self) -> None:
         self._conn.close()
+
+    def begin(self) -> None:
+        if self._conn.in_transaction:
+            raise RuntimeError("SQLite transaction already active")
+        self._conn.execute("BEGIN")
+
+    def commit(self) -> None:
+        self._conn.commit()
+
+    def rollback(self) -> None:
+        self._conn.rollback()
+
+    def _write_scope(self):
+        return self._conn if self._auto_commit else nullcontext()
 
     def _check_table(self, table: str) -> None:
         if table not in _KNOWN_TABLES:
@@ -212,7 +229,7 @@ class SQLiteRepository(Repository):
             participant_type = record.get("participant_type")
             if participant_type not in {"person", "organization"}:
                 raise ValueError("contacts.participant_type має бути person або organization")
-        with self._conn:
+        with self._write_scope():
             self._conn.execute(
                 f"INSERT INTO {table} ({', '.join(values)}) "
                 f"VALUES ({', '.join('?' for _ in values)})",
@@ -254,7 +271,7 @@ class SQLiteRepository(Repository):
             if key in columns and key not in _SYSTEM_COLUMNS:
                 updates[key] = self._sqlite_value(value)
         assignments = ", ".join(f"{column} = ?" for column in updates)
-        with self._conn:
+        with self._write_scope():
             cursor = self._conn.execute(
                 f"UPDATE {table} SET {assignments} WHERE id = ?",
                 [*updates.values(), record_id],
@@ -362,7 +379,7 @@ class SQLiteRepository(Repository):
         if any(not record.get(field) for field in required):
             raise ValueError("case_participants потребує contact_id, case_id і role")
         participant_id = str(record.get("id") or uuid.uuid4())
-        now = datetime.now(timezone.utc).isoformat()
+        now = str(record.get("created_at") or datetime.now(timezone.utc).isoformat())
         values = {
             "id": participant_id,
             "contact_id": record["contact_id"],
@@ -375,7 +392,7 @@ class SQLiteRepository(Repository):
             "updated_at": now,
             "legacy_payload": "{}",
         }
-        with self._conn:
+        with self._write_scope():
             self._conn.execute(
                 f"INSERT INTO case_participants ({', '.join(values)}) "
                 f"VALUES ({', '.join('?' for _ in values)})",
@@ -462,7 +479,7 @@ class SQLiteRepository(Repository):
         entity_id: Optional[str],
         details: Optional[dict[str, Any]] = None,
     ) -> None:
-        with self._conn:
+        with self._write_scope():
             self._record_audit_event(action, entity_table, entity_id, details)
 
     def _record_audit_event(

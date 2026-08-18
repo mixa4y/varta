@@ -3,5 +3,13 @@
 from .base import Repository
 from .migrations import MigrationError, MigrationRunner
 from .sqlite_repository import SQLiteRepository
+from .sqlite_uow import SQLiteUnitOfWork, SQLiteUnitOfWorkFactory
 
-__all__ = ["MigrationError", "MigrationRunner", "Repository", "SQLiteRepository"]
+__all__ = [
+    "MigrationError",
+    "MigrationRunner",
+    "Repository",
+    "SQLiteRepository",
+    "SQLiteUnitOfWork",
+    "SQLiteUnitOfWorkFactory",
+]

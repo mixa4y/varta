@@ -33,7 +33,8 @@ async function api(path,options={}){
   if(options.body&&!(options.body instanceof FormData)){headers["Content-Type"]="application/json";options.body=JSON.stringify(options.body)}
   const response=await fetch(path,{...options,headers});
   const payload=await response.json();
-  if(!response.ok||payload.ok===false)throw new Error(payload.error||`HTTP ${response.status}`);
+  const errorMessage=typeof payload.error==="object"?payload.error?.message:payload.error;
+  if(!response.ok||payload.ok===false)throw new Error(errorMessage||`HTTP ${response.status}`);
   return payload;
 }
 
@@ -76,7 +77,7 @@ function renderGoogle(google){
 
 async function loadContactContext(){
   try{
-    contactContext=await api("/api/contacts/context");
+    contactContext=await api("/api/v1/contacts/context");
     renderContactRoleOptions();
   }catch(error){toast(error.message,true)}
 }
@@ -84,7 +85,7 @@ async function loadContactContext(){
 async function loadContacts(){
   const query=$("#contact-query").value.trim();
   try{
-    const result=await api(`/api/contacts${query?`?q=${encodeURIComponent(query)}`:""}`);
+    const result=await api(`/api/v1/contacts${query?`?q=${encodeURIComponent(query)}`:""}`);
     contactsCache=result.contacts||[];
     renderContactList();
     if(selectedContactId){
@@ -190,8 +191,8 @@ async function saveContact(event){
   $("#contact-save-state").textContent="Збереження…";
   try{
     const result=selectedContactId
-      ?await api(`/api/contacts/${encodeURIComponent(selectedContactId)}`,{method:"PATCH",body:payload})
-      :await api("/api/contacts",{method:"POST",body:payload});
+      ?await api(`/api/v1/contacts/${encodeURIComponent(selectedContactId)}`,{method:"PATCH",body:payload})
+      :await api("/api/v1/contacts",{method:"POST",body:payload});
     selectedContactId=result.contact.id;
     $("#contact-save-state").textContent="Збережено";
     toast("Контакт збережено");
@@ -227,7 +228,7 @@ async function addContactRole(){
   if(!caseId||!role){toast("Оберіть справу та роль",true);return}
   const button=$("#contact-role-add");button.disabled=true;
   try{
-    const result=await api(`/api/contacts/${encodeURIComponent(selectedContactId)}/roles`,{method:"POST",body:{case_id:caseId,proceeding_id:$("#contact-role-proceeding").value||null,role}});
+    const result=await api(`/api/v1/contacts/${encodeURIComponent(selectedContactId)}/roles`,{method:"POST",body:{case_id:caseId,proceeding_id:$("#contact-role-proceeding").value||null,role}});
     const index=contactsCache.findIndex(item=>item.id===selectedContactId);
     if(index>=0)contactsCache[index]=result.contact;
     fillContactForm(result.contact);renderContactList();toast("Роль додано");
