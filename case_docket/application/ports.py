@@ -37,7 +37,7 @@ class UnitOfWork(Protocol):
 
 
 class UnitOfWorkFactory(Protocol):
-    def __call__(self) -> UnitOfWork: ...
+    def __call__(self, *, write: bool = False) -> UnitOfWork: ...
 
 
 @dataclass(frozen=True, slots=True)

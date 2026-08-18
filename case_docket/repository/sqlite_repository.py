@@ -3,10 +3,10 @@ from __future__ import annotations
 import json
 import sqlite3
 import uuid
-from contextlib import nullcontext
+from contextlib import contextmanager
 from datetime import date, datetime, timezone
 from pathlib import Path
-from typing import Any, Iterable, Optional
+from typing import Any, Iterable, Iterator, Optional
 
 from case_docket.airtable import (
     AirtableImportSummary,
@@ -16,7 +16,12 @@ from case_docket.airtable import (
 from case_docket.models.contact import Contact
 
 from .base import Repository
-from .migrations import MigrationRunner
+from .migrations import MigrationRunner, SchemaCompatibility
+from .sqlite_connection import (
+    SQLiteConnectionFactory,
+    SQLiteConnectionPolicy,
+    raise_bounded_busy,
+)
 
 
 _KNOWN_TABLES = {
@@ -60,34 +65,88 @@ class SQLiteRepository(Repository):
         airtable_schema_path: Path | None = None,
         migrations_path: Path | None = None,
         auto_commit: bool = True,
+        connection_policy: SQLiteConnectionPolicy | None = None,
+        initialize: bool = True,
     ):
         self.db_path = Path(db_path)
         self._auto_commit = auto_commit
-        self._conn = sqlite3.connect(self.db_path, check_same_thread=False)
-        self._conn.row_factory = sqlite3.Row
-        self._conn.execute("PRAGMA foreign_keys = ON")
-        self._conn.execute("PRAGMA journal_mode = WAL")
-        self._prepare_legacy_tables()
-        MigrationRunner(self._conn, migrations_path).migrate()
-        install_airtable_catalog(self._conn, airtable_schema_path)
-        self._restore_legacy_records()
+        self._connection_policy = connection_policy or SQLiteConnectionPolicy()
+        self._migrations_path = migrations_path
+        self._conn = SQLiteConnectionFactory(
+            self.db_path,
+            self._connection_policy,
+        ).connect()
+        try:
+            runner = MigrationRunner(self._conn, migrations_path)
+            if initialize:
+                self._prepare_legacy_tables()
+                runner.migrate()
+                install_airtable_catalog(self._conn, airtable_schema_path)
+                self._restore_legacy_records()
+            else:
+                runner.assert_supported(require_current=True)
+        except Exception:
+            self._conn.close()
+            raise
 
     def close(self) -> None:
+        if self._conn.in_transaction:
+            self._conn.rollback()
         self._conn.close()
 
-    def begin(self) -> None:
+    def begin(self, *, write: bool = True) -> None:
         if self._conn.in_transaction:
             raise RuntimeError("SQLite transaction already active")
-        self._conn.execute("BEGIN")
+        mode = "IMMEDIATE" if write else "DEFERRED"
+        try:
+            self._conn.execute(f"BEGIN {mode}")
+        except sqlite3.OperationalError as exc:
+            raise_bounded_busy(
+                exc,
+                operation=f"BEGIN {mode}",
+                policy=self._connection_policy,
+            )
 
     def commit(self) -> None:
-        self._conn.commit()
+        try:
+            self._conn.commit()
+        except sqlite3.OperationalError as exc:
+            raise_bounded_busy(
+                exc,
+                operation="COMMIT",
+                policy=self._connection_policy,
+            )
 
     def rollback(self) -> None:
         self._conn.rollback()
 
+    def schema_compatibility(self) -> SchemaCompatibility:
+        return MigrationRunner(self._conn, self._migrations_path).assert_supported(
+            require_current=True
+        )
+
+    @contextmanager
+    def _transaction_scope(self, *, write: bool) -> Iterator[None]:
+        self.begin(write=write)
+        try:
+            yield
+        except Exception:
+            self.rollback()
+            raise
+        else:
+            try:
+                self.commit()
+            except Exception:
+                self.rollback()
+                raise
+
+    @contextmanager
     def _write_scope(self):
-        return self._conn if self._auto_commit else nullcontext()
+        if not self._auto_commit:
+            yield
+            return
+        with self._transaction_scope(write=True):
+            yield
 
     def _check_table(self, table: str) -> None:
         if table not in _KNOWN_TABLES:
@@ -110,19 +169,20 @@ class SQLiteRepository(Repository):
     def _prepare_legacy_tables(self) -> None:
         if self._table_exists("schema_migrations"):
             return
-        for table in _LEGACY_CONFLICT_TABLES:
-            if not self._table_exists(table):
-                continue
-            columns = self._table_columns(table)
-            if "payload" not in columns or "legacy_payload" in columns:
-                continue
-            legacy_table = f"legacy_generic_{table}"
-            if self._table_exists(legacy_table):
-                raise RuntimeError(
-                    f"Одночасно існують {table} і {legacy_table}; автоматичну migration зупинено"
-                )
-            self._conn.execute(f"ALTER TABLE {table} RENAME TO {legacy_table}")
-        self._conn.commit()
+        with self._transaction_scope(write=True):
+            for table in _LEGACY_CONFLICT_TABLES:
+                if not self._table_exists(table):
+                    continue
+                columns = self._table_columns(table)
+                if "payload" not in columns or "legacy_payload" in columns:
+                    continue
+                legacy_table = f"legacy_generic_{table}"
+                if self._table_exists(legacy_table):
+                    raise RuntimeError(
+                        f"Одночасно існують {table} і {legacy_table}; "
+                        "автоматичну migration зупинено"
+                    )
+                self._conn.execute(f"ALTER TABLE {table} RENAME TO {legacy_table}")
 
     def _restore_legacy_records(self) -> None:
         restored: dict[str, int] = {}
@@ -140,7 +200,7 @@ class SQLiteRepository(Repository):
             ),
             "actors": (),
         }
-        with self._conn:
+        with self._transaction_scope(write=True):
             for table, copied_columns in table_columns.items():
                 legacy_table = f"legacy_generic_{table}"
                 if not self._table_exists(legacy_table):

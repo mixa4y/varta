@@ -56,7 +56,7 @@ class ContactService:
             representative_or_contact_person=command.representative_or_contact_person,
             notes=command.notes,
         )
-        with self._unit_of_work_factory() as unit_of_work:
+        with self._unit_of_work_factory(write=True) as unit_of_work:
             unit_of_work.contacts.add(contact)
             result = unit_of_work.contacts.get(contact.id)
             if result is None:
@@ -71,7 +71,7 @@ class ContactService:
                 "Невідомі поля контакту",
                 {"fields": sorted(unknown)},
             )
-        with self._unit_of_work_factory() as unit_of_work:
+        with self._unit_of_work_factory(write=True) as unit_of_work:
             current = unit_of_work.contacts.get(self._require_id(command.contact_id))
             if current is None:
                 raise NotFoundError(
@@ -118,7 +118,7 @@ class ContactService:
             active=command.active,
             notes=command.notes,
         )
-        with self._unit_of_work_factory() as unit_of_work:
+        with self._unit_of_work_factory(write=True) as unit_of_work:
             if unit_of_work.contacts.get(contact_id) is None:
                 raise NotFoundError(
                     "Контакт не знайдено",

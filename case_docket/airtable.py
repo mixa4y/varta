@@ -5,10 +5,11 @@ import json
 import sqlite3
 import sys
 import uuid
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Iterable, Literal
+from typing import Any, Callable, Iterable, Iterator, Literal
 
 
 _SCHEMA_CANDIDATES = (
@@ -26,6 +27,24 @@ _LOCAL_ID_NAMESPACE = uuid.UUID("c098a362-4a6d-4cca-9474-7953f665c299")
 
 class AirtableMappingError(ValueError):
     pass
+
+
+@contextmanager
+def _transaction_if_needed(connection: sqlite3.Connection) -> Iterator[None]:
+    """Own a short transaction only when the caller did not provide a UoW."""
+
+    owns_transaction = not connection.in_transaction
+    if owns_transaction:
+        connection.execute("BEGIN IMMEDIATE")
+    try:
+        yield
+    except Exception:
+        if owns_transaction and connection.in_transaction:
+            connection.rollback()
+        raise
+    else:
+        if owns_transaction and connection.in_transaction:
+            connection.commit()
 
 
 @dataclass(frozen=True)
@@ -330,7 +349,7 @@ def install_airtable_catalog(
     source_sha256 = hashlib.sha256(raw).hexdigest()
     now = _now()
 
-    with connection:
+    with _transaction_if_needed(connection):
         connection.execute(
             """
             INSERT OR IGNORE INTO airtable_schema_snapshots(
@@ -434,7 +453,7 @@ def import_airtable_snapshot(
         raise AirtableMappingError("Airtable snapshot має бути object із таблицями")
 
     prepared: list[tuple[dict[str, Any], str, dict[str, Any]]] = []
-    with connection:
+    with _transaction_if_needed(connection):
         for table_key, raw_records in records_by_table.items():
             table = table_by_key.get(str(table_key))
             if table is None:

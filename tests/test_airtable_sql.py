@@ -150,7 +150,7 @@ def test_sql_catalog_maps_every_airtable_field(tmp_path: Path) -> None:
         "SELECT COUNT(*) FROM airtable_field_mappings WHERE sql_target = ''"
     ).fetchone()[0]
     assert unmapped == 0
-    assert repo._conn.execute("SELECT COUNT(*) FROM schema_migrations").fetchone()[0] == 2
+    assert repo._conn.execute("SELECT COUNT(*) FROM schema_migrations").fetchone()[0] == 6
     repo.close()
 
 

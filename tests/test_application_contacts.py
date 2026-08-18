@@ -131,10 +131,12 @@ class FakeUnitOfWorkFactory:
     def __init__(self):
         self.contacts = MemoryContacts()
         self.created: list[FakeUnitOfWork] = []
+        self.write_modes: list[bool] = []
 
-    def __call__(self) -> FakeUnitOfWork:
+    def __call__(self, *, write: bool = False) -> FakeUnitOfWork:
         unit_of_work = FakeUnitOfWork(self.contacts)
         self.created.append(unit_of_work)
+        self.write_modes.append(write)
         return unit_of_work
 
 
@@ -172,6 +174,7 @@ def test_contact_commands_use_fake_ports_and_commit() -> None:
     assert with_role.roles[0].role == "Синтетична роль"
     assert factory.contacts.role_times == [FixedClock.value]
     assert all(unit.committed for unit in factory.created)
+    assert factory.write_modes == [True, True, True]
 
 
 def test_contact_queries_use_fake_ports_without_committing() -> None:
@@ -186,6 +189,7 @@ def test_contact_queries_use_fake_ports_without_committing() -> None:
     assert listed == (fetched,)
     assert context.roles == ("Синтетична роль",)
     assert all(not unit.committed and unit.rolled_back for unit in factory.created)
+    assert factory.write_modes == [False, False, False]
 
 
 def test_domain_validation_happens_before_opening_unit_of_work() -> None:

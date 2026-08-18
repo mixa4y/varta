@@ -109,7 +109,10 @@ editable database.
 ## Що вже реально реалізовано
 
 - Python 3.12 package, versioned SQLite migrations і checksum runner;
-- migrations `0001`/`0002`, foreign keys, WAL і append-only audit constraints;
+- immutable migrations `0001`/`0002` та additive scoped indexes `0003`–`0006`;
+- per-operation thread-owned SQLite connections, explicit read/write UoW,
+  verified foreign keys/WAL/busy/checkpoint policy та schema floor/ceiling;
+- DB-only online backup/restore primitive з integrity/FK/schema verification;
 - SQLite repository/API/UI vertical slice для контактів;
 - DDL та JSON contracts для case profile і Evidence Map domain;
 - local `ThreadingHTTPServer`, static UI, loopback restriction, mutating token,
@@ -130,11 +133,13 @@ editable database.
 Отже статус лишається `DDL/CONTRACT DONE`, `REPOSITORY API PARTIAL`,
 `APPLICATION FLOW PARTIAL`.
 
-## Затверджений migration path, ще не реалізований
+## Затверджений migration path і поточний implementation state
 
-1. `C03`: application services, ports, Unit of Work і `/api/v1`.
-2. `C04`: connection/concurrency/migration/online-backup lifecycle.
-3. `C05`: managed storage й immutable-original finalize/reconciliation.
+1. `C03`: `IMPLEMENTED` — application services, ports, Unit of Work і `/api/v1`.
+2. `C04`: `IMPLEMENTED IN CURRENT WORKTREE` — connection/concurrency,
+   migration compatibility та DB-only online-backup lifecycle; Git checkpoint
+   залишається окремою явно дозволеною дією.
+3. `C05`: next package — managed storage й immutable-original finalize/reconciliation.
 4. `C06`: authoritative file/folder/ZIP intake до SQLite read-back.
 5. `C07`/`C08`: multi-case bootstrap та evidence-domain services.
 6. `C09`: read-only `.caseflow`/XLSX inventory/import/reconciliation.

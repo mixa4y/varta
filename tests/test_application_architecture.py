@@ -75,3 +75,53 @@ def test_c03_contract_document_is_registered() -> None:
     index = (ROOT / "docs" / "INDEX.md").read_text(encoding="utf-8")
     assert "`local-api-v1.md`" in manifest
     assert "architecture/local-api-v1.md" in index
+
+
+def test_runtime_state_does_not_keep_a_shared_sqlite_connection() -> None:
+    path = ROOT / "caseflow" / "server.py"
+    source = path.read_text(encoding="utf-8")
+    tree = ast.parse(source, filename=str(path))
+    state = next(
+        node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == "CaseFlowState"
+    )
+    state_source = ast.get_source_segment(source, state) or ""
+
+    assert "self._repository" not in state_source
+    assert "check_same_thread=False" not in (
+        ROOT / "case_docket" / "repository" / "sqlite_repository.py"
+    ).read_text(encoding="utf-8")
+    assert "self._database_factory.prepare()" in state_source
+    assert "initialize=False" in state_source
+
+
+def test_workers_have_no_direct_sqlite_or_repository_access() -> None:
+    worker_paths = (
+        ROOT / "caseflow" / "caseflow_process.py",
+        ROOT / "caseflow" / "anomaly_detector.py",
+    )
+    forbidden_imports = ("sqlite3", "case_docket.repository")
+    forbidden_source = ("SQLiteRepository", "varta.sqlite3", "schema_migrations")
+
+    for path in worker_paths:
+        imports = _imports(path)
+        source = path.read_text(encoding="utf-8")
+        assert not any(
+            imported.startswith(forbidden_imports) for imported in imports
+        ), path.relative_to(ROOT)
+        assert not any(marker in source for marker in forbidden_source), path.relative_to(ROOT)
+
+
+def test_c04_sqlite_contract_is_registered_and_keeps_recovery_boundary() -> None:
+    contract = ROOT / "docs" / "architecture" / "sqlite-lifecycle.md"
+    text = contract.read_text(encoding="utf-8")
+    manifest = (ROOT / "docs" / "architecture" / "MANIFEST.md").read_text(
+        encoding="utf-8"
+    )
+    index = (ROOT / "docs" / "INDEX.md").read_text(encoding="utf-8")
+
+    assert "| Status | `ACTIVE` |" in text
+    assert "floor `2`, ceiling `6`" in text
+    assert "DB-only" in text
+    assert "filesystem originals" in text
+    assert "`sqlite-lifecycle.md` | `ACTIVE`" in manifest
+    assert "architecture/sqlite-lifecycle.md" in index

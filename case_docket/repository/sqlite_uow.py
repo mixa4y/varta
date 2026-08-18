@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import sqlite3
-from dataclasses import dataclass
+import threading
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Mapping, Self
@@ -17,6 +18,7 @@ from case_docket.application.errors import ConflictError, NotFoundError, Validat
 from case_docket.application.ports import ContactRepositoryPort
 from case_docket.models.contact import CaseParticipant, Contact
 
+from .sqlite_connection import SQLiteConnectionPolicy
 from .sqlite_repository import SQLiteRepository
 
 
@@ -157,25 +159,47 @@ class SQLiteContactRepository(ContactRepositoryPort):
 class SQLiteUnitOfWork:
     """Short-lived connection and explicit transaction for one application operation."""
 
-    def __init__(self, database_path: Path):
+    def __init__(
+        self,
+        database_path: Path,
+        *,
+        write: bool = False,
+        connection_policy: SQLiteConnectionPolicy | None = None,
+        migrations_path: Path | None = None,
+        airtable_schema_path: Path | None = None,
+        initialize: bool = True,
+    ):
         self._database_path = database_path
+        self._write = write
+        self._connection_policy = connection_policy or SQLiteConnectionPolicy()
+        self._migrations_path = migrations_path
+        self._airtable_schema_path = airtable_schema_path
+        self._initialize = initialize
         self._repository: SQLiteRepository | None = None
         self._contacts: SQLiteContactRepository | None = None
         self._finished = False
+        self._entered = False
 
     @property
     def contacts(self) -> ContactRepositoryPort:
-        if self._contacts is None:
+        if self._contacts is None or self._finished:
             raise RuntimeError("Unit of Work is not active")
         return self._contacts
 
     def __enter__(self) -> Self:
-        if self._repository is not None:
+        if self._entered:
             raise RuntimeError("Unit of Work cannot be entered twice")
-        self._database_path.parent.mkdir(parents=True, exist_ok=True)
-        repository = SQLiteRepository(self._database_path, auto_commit=False)
+        self._entered = True
+        repository = SQLiteRepository(
+            self._database_path,
+            auto_commit=False,
+            connection_policy=self._connection_policy,
+            migrations_path=self._migrations_path,
+            airtable_schema_path=self._airtable_schema_path,
+            initialize=self._initialize,
+        )
         try:
-            repository.begin()
+            repository.begin(write=self._write)
         except Exception:
             repository.close()
             raise
@@ -205,14 +229,46 @@ class SQLiteUnitOfWork:
         self._finished = True
 
     def _active_repository(self) -> SQLiteRepository:
-        if self._repository is None:
+        if self._repository is None or self._finished:
             raise RuntimeError("Unit of Work is not active")
         return self._repository
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(slots=True)
 class SQLiteUnitOfWorkFactory:
     database_path: Path
+    connection_policy: SQLiteConnectionPolicy = SQLiteConnectionPolicy()
+    migrations_path: Path | None = None
+    airtable_schema_path: Path | None = None
+    _initialized: bool = field(default=False, init=False, repr=False)
+    _prepare_lock: threading.Lock = field(
+        default_factory=threading.Lock,
+        init=False,
+        repr=False,
+    )
 
-    def __call__(self) -> SQLiteUnitOfWork:
-        return SQLiteUnitOfWork(self.database_path)
+    def prepare(self) -> None:
+        if self._initialized:
+            return
+        with self._prepare_lock:
+            if self._initialized:
+                return
+            repository = SQLiteRepository(
+                self.database_path,
+                connection_policy=self.connection_policy,
+                migrations_path=self.migrations_path,
+                airtable_schema_path=self.airtable_schema_path,
+            )
+            repository.close()
+            self._initialized = True
+
+    def __call__(self, *, write: bool = False) -> SQLiteUnitOfWork:
+        self.prepare()
+        return SQLiteUnitOfWork(
+            self.database_path,
+            write=write,
+            connection_policy=self.connection_policy,
+            migrations_path=self.migrations_path,
+            airtable_schema_path=self.airtable_schema_path,
+            initialize=False,
+        )

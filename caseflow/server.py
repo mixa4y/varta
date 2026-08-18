@@ -412,9 +412,9 @@ class CaseFlowState:
         self.lock = threading.RLock()
         self.job_lock = threading.Lock()
         self.active_job: dict | None = None
-        self._repository: SQLiteRepository | None = None
+        self._database_factory = SQLiteUnitOfWorkFactory(self.database_path)
         self._contact_service = ContactService(
-            SQLiteUnitOfWorkFactory(self.database_path),
+            self._database_factory,
             UuidProvider(),
             SystemClock(),
         )
@@ -445,26 +445,33 @@ class CaseFlowState:
         return self.root / ".caseflow" / "varta.sqlite3"
 
     @property
-    def repository(self) -> SQLiteRepository:
-        with self.lock:
-            if self._repository is None:
-                self.database_path.parent.mkdir(parents=True, exist_ok=True)
-                self._repository = SQLiteRepository(self.database_path)
-            return self._repository
-
-    @property
     def contact_service(self) -> ContactService:
         return self._contact_service
 
     def prepare_database(self) -> None:
         """Complete legacy bootstrap before HTTP threads open short-lived UoWs."""
-        _ = self.repository
+        self._database_factory.prepare()
+
+    def database_summary(self) -> dict[str, int]:
+        """Read status through a short-lived thread-owned repository connection."""
+
+        self._database_factory.prepare()
+        repository = SQLiteRepository(
+            self.database_path,
+            connection_policy=self._database_factory.connection_policy,
+            initialize=False,
+        )
+        try:
+            repository.begin(write=False)
+            try:
+                return repository.airtable_catalog_counts()
+            finally:
+                repository.rollback()
+        finally:
+            repository.close()
 
     def close(self) -> None:
-        with self.lock:
-            if self._repository is not None:
-                self._repository.close()
-                self._repository = None
+        """Connections are operation-scoped; no shared SQLite handle remains to close."""
 
     def save_config(self) -> None:
         write_json(self.config_path, self.config)
@@ -1502,8 +1509,7 @@ class Handler(BaseHTTPRequestHandler):
         last_run = read_json(runs[0], None) if runs else None
         anomaly_report = read_json(self.state.root / "tmp" / "caseflow_anomalies" / "latest.json", None)
         google = self.state.config.get("google", {})
-        with self.state.lock:
-            database = self.state.repository.airtable_catalog_counts()
+        database = self.state.database_summary()
         database["contacts"] = len(self.state.contact_service.list(ListContactsQuery()))
         self.send_json(
             200,
