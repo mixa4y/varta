@@ -131,9 +131,10 @@ API — до наскрізного application flow:
 - migration `0002` створює `claims`, `evidence_relations`,
   `source_references`, `processing_runs` та інші Evidence Map tables, але
   repository/application services для них ще не реалізовані;
-- DDL ще не охоплює повний intake batch flow, а наявні domain constraints не
-  замінюють application-level invariants і наскрізні integration tests;
-- немає інтегрованого immutable storage service для оригіналів;
+- DDL ще не охоплює повний intake batch flow, а C05 storage foundation не
+  замінює C06 application-level file/folder/ZIP та inventory flow;
+- C05 реалізував окремий immutable storage service, streaming SHA-256,
+  no-overwrite finalize і DB/filesystem reconciliation без intake UI;
 - case number bootstrap і `manual_review_required` описані контрактом, але
   не реалізовані наскрізно;
 - Evidence Map ще не генерується детерміновано із SQLite;
@@ -497,6 +498,10 @@ constraints реально спрацьовують, audit append-only, restore 
 ### 7.5. Етап A3 — immutable storage та intake
 
 **Мета:** реалізувати перший справжній source-of-truth vertical slice.
+
+C05 завершує storage transaction boundary для одного файла. Enumeration
+file/folder/archive, `import_batch` та restart inventory завершує C06; тому
+сукупний етап A3 лишається `PARTIAL`, хоча C05 foundation перевірений.
 
 Потік:
 

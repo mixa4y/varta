@@ -30,6 +30,7 @@ from .sqlite_connection import (
     inspect_connection_settings,
 )
 from .sqlite_repository import SQLiteRepository
+from .sqlite_storage import SQLiteManagedFileRepository
 from .sqlite_uow import SQLiteUnitOfWork, SQLiteUnitOfWorkFactory
 
 __all__ = [
@@ -47,6 +48,7 @@ __all__ = [
     "SQLiteConnectionSettings",
     "SQLiteIntegrityError",
     "SQLiteLifecycleError",
+    "SQLiteManagedFileRepository",
     "SQLiteRepository",
     "SQLiteSnapshotResult",
     "SQLiteUnitOfWork",

@@ -22,3 +22,7 @@ class NotFoundError(ApplicationError):
 
 class ConflictError(ApplicationError):
     code = "conflict"
+
+
+class StorageIntegrityError(ApplicationError):
+    code = "storage_integrity_error"

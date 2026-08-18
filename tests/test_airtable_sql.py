@@ -7,7 +7,12 @@ from pathlib import Path
 import pytest
 
 from case_docket.airtable import AIRTABLE_SCHEMA_PATH, load_airtable_schema
-from case_docket.repository import MigrationError, MigrationRunner, SQLiteRepository
+from case_docket.repository import (
+    APPLICATION_SCHEMA_CEILING,
+    MigrationError,
+    MigrationRunner,
+    SQLiteRepository,
+)
 
 
 def _snapshot() -> dict[str, list[dict[str, object]]]:
@@ -150,7 +155,10 @@ def test_sql_catalog_maps_every_airtable_field(tmp_path: Path) -> None:
         "SELECT COUNT(*) FROM airtable_field_mappings WHERE sql_target = ''"
     ).fetchone()[0]
     assert unmapped == 0
-    assert repo._conn.execute("SELECT COUNT(*) FROM schema_migrations").fetchone()[0] == 6
+    assert (
+        repo._conn.execute("SELECT COUNT(*) FROM schema_migrations").fetchone()[0]
+        == APPLICATION_SCHEMA_CEILING
+    )
     repo.close()
 
 

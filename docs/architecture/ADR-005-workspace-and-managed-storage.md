@@ -3,7 +3,7 @@
 | Metadata | Value |
 |---|---|
 | Status | `APPROVED` |
-| Version | `v1.0` |
+| Version | `v1.1` |
 | Decision date | `2026-08-18` |
 | Owner | `C02` |
 
@@ -26,14 +26,17 @@ Browser session має нуль або одну active case; це presentation p
 
 ```text
 <workspace>/.varta/
+├── layout.json
 ├── database/
 │   └── varta.sqlite3
-├── originals/
+├── originals/v1/
+├── staging/v1/
 ├── working/
 ├── derived/
 ├── reports/
 ├── exports/
 ├── logs/
+├── backups/
 ├── quarantine/
 └── temp/
 ```
@@ -42,14 +45,19 @@ Zone rules:
 
 - `originals` — immutable, content-verified copies; ніколи не
   overwrite/rename in place;
+- `staging` — same-volume partial copy та recovery manifest до verified
+  finalize; не source of truth;
 - `working` — per-run staging, не evidence і не source of truth;
 - `derived` — registered reproducible artifacts із source/run provenance;
 - `reports`/`exports` — projections, не editable authority;
 - `quarantine` — керований статус обробки, не твердження про шкідливість;
 - `temp` — disposable only after recorded operation/reconciliation;
 - `logs` — local operational data без secrets та з privacy minimization.
+- `backups` — target для coordinated snapshots C15, не доказ backup сам по
+  собі.
 
-SQLite зберігає лише relative managed paths. Physical addressing originals
+`layout.json` фіксує layout contract/version і zones. SQLite зберігає лише
+relative managed paths. Physical addressing originals
 використовує opaque `file_id`/storage key; literal source name, source path і
 людиночитне транслітероване managed name є metadata/representation. Same-name
 different-bytes і same-bytes different-provenance не перезаписують один
@@ -82,7 +90,8 @@ operations потребують staged finalize/reconciliation, бо SQLite і f
 ## Вплив на міграцію
 
 - C02 затверджує target layout, але не переносить жодного runtime файла;
-- `C05` реалізує safe managed-storage primitives і zones;
+- `C05` реалізує safe managed-storage primitives, zones, recovery manifests
+  та SQLite reconciliation metadata без legacy move/intake UI;
 - `C07` реалізує multi-case bootstrap/active-case contract;
 - `C09` виконує read-only `.caseflow` inventory/import/reconciliation;
 - `C15` доводить coordinated backup/restore та update path;

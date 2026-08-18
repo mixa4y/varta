@@ -2,8 +2,8 @@
 
 | Metadata | Value |
 |---|---|
-| Status | `APPROVED TARGET` |
-| Version | `v1.0` |
+| Status | `ACTIVE` |
+| Version | `v1.1` |
 | Date | `2026-08-18` |
 | Decision | `ADR-005` |
 
@@ -12,10 +12,13 @@
 ```text
 <workspace>/
 └── .varta/
+    ├── layout.json
     ├── database/
     │   └── varta.sqlite3
     ├── originals/
-    │   └── <storage_partition>/<file_id>/
+    │   └── v1/<storage_partition>/<file_id>/original.bin
+    ├── staging/
+    │   └── v1/<file_id>.part + <file_id>.json
     ├── working/
     │   └── <processing_run_id>/
     ├── derived/
@@ -25,6 +28,7 @@
     ├── exports/
     │   └── <export_id>/
     ├── logs/
+    ├── backups/
     ├── quarantine/
     └── temp/
 ```
@@ -40,6 +44,12 @@
 в SQLite; physical path будується з opaque storage key/`file_id`. Застосунок
 не overwrite/rename-ить оригінал.
 
+### `staging`
+
+Same-volume partial bytes і versioned recovery manifest. Entry не є accepted
+original до finalized read-only object, повторної hash/size verification та
+SQLite state `verified`.
+
 ### `working`
 
 Per-run staging. Це не evidence/source of truth; cleanup можливий лише після
@@ -54,6 +64,11 @@ OCR, normalized text, page images, transcripts та інші registered artifact
 
 Відтворювані projections. Export не змінює internal state і не приймає edits
 назад без explicit import use case.
+
+### `backups`
+
+Zone зарезервована для coordinated DB/filesystem snapshots C15. Сам факт
+наявності каталогу не означає, що backup або restore виконано.
 
 ### `quarantine`, `temp`, `logs`
 
@@ -71,10 +86,10 @@ content. `temp` disposable лише за safe cleanup contract. Logs локал�
 
 ## Current compatibility state
 
-Чинний code path `<workspace>/.caseflow/varta.sqlite3` не змінено C02. `C05`
-реалізує target zones; `C09` робить read-only legacy reconciliation; `C15`
-доводить migration/backup/restore. Цей target document не є доказом, що
-physical migration уже виконано.
+Чинний server code path `<workspace>/.caseflow/varta.sqlite3` не переміщено.
+C05 реалізує окремий `.varta` storage service/layout і synthetic recovery
+gate; C06 підключає intake, C09 робить read-only legacy reconciliation, C15
+доводить migration/backup/restore. Жодного in-place `.caseflow` rename немає.
 
 ## Open decisions
 

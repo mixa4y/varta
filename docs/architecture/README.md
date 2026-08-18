@@ -47,6 +47,10 @@ presentation -> application -> domain
 
 - [`local-api-v1.md`](local-api-v1.md) — versioning, contacts application
   boundary, stable envelopes і compatibility policy, реалізовані у C03.
+- [`sqlite-lifecycle.md`](sqlite-lifecycle.md) — C04 per-operation UoW,
+  migration compatibility і DB-only recovery foundation.
+- [`managed-storage.md`](managed-storage.md) — C05 layout v1, streaming
+  immutable originals, collision policy та DB/filesystem reconciliation.
 
 ## Legacy detail documents
 

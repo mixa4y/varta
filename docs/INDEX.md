@@ -10,19 +10,20 @@
 6. `architecture/open-questions.md` — versioned owner/gate routing.
 7. `architecture/local-api-v1.md` — versioned local API/application contract C03.
 8. `architecture/sqlite-lifecycle.md` — C04 connection/UoW, schema й DB recovery contract.
-9. `action-algorithm.md` — порядок оцінки, рішень, реалізації та приймання.
-10. `interactive/varta-action-map.html` — інтерактивне подання етапів `A0`–`A12`.
-11. `chat-roadmap.md` — канонічні work packages `C01`–`C16`/`P01`–`P04`.
-12. `interactive/varta-chat-roadmap.html` — статичне/live companion-подання.
-13. `roadmap-controller.md` — execution/Git checkpoint contract.
-14. `blueprints/evidence-map-blueprint.md` — універсальна специфікація мапи.
-15. `airtable-sql-migration.md` — повне відображення Airtable у SQLite.
-16. `source-inventory.md` — що перенесено й що свідомо виключено.
-17. `../config/schemas/case-profile.schema.json` — контракт профілю справи.
-18. `../config/schemas/map-data.schema.json` — контракт snapshot мапи.
-19. `../templates/case/case-profile.example.json` — порожній профіль.
-20. `../templates/evidence-map/map-data.example.json` — порожній snapshot.
-21. `../caseflow/static/legal-case-map.html` — дизайн офлайн-в’юхи.
+9. `architecture/managed-storage.md` — C05 immutable-original/storage/recovery contract.
+10. `action-algorithm.md` — порядок оцінки, рішень, реалізації та приймання.
+11. `interactive/varta-action-map.html` — інтерактивне подання етапів `A0`–`A12`.
+12. `chat-roadmap.md` — канонічні work packages `C01`–`C16`/`P01`–`P04`.
+13. `interactive/varta-chat-roadmap.html` — статичне/live companion-подання.
+14. `roadmap-controller.md` — execution/Git checkpoint contract.
+15. `blueprints/evidence-map-blueprint.md` — універсальна специфікація мапи.
+16. `airtable-sql-migration.md` — повне відображення Airtable у SQLite.
+17. `source-inventory.md` — що перенесено й що свідомо виключено.
+18. `../config/schemas/case-profile.schema.json` — контракт профілю справи.
+19. `../config/schemas/map-data.schema.json` — контракт snapshot мапи.
+20. `../templates/case/case-profile.example.json` — порожній профіль.
+21. `../templates/evidence-map/map-data.example.json` — порожній snapshot.
+22. `../caseflow/static/legal-case-map.html` — дизайн офлайн-в’юхи.
 
 ## Імпортовані матеріали для звірки
 
@@ -50,3 +51,5 @@ detail drafts. Лише файли зі статусом `APPROVED`/`ACTIVE` у 
   transition evidence package C03.
 - `changes/C04-sqlite-lifecycle-recovery.md` — connection/migration/recovery
   implementation record і transition evidence package C04.
+- `changes/C05-managed-storage-immutable-originals.md` — immutable-original,
+  collision/crash/reconciliation implementation record C05.

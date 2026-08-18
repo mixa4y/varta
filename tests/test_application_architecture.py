@@ -19,7 +19,7 @@ def _imports(path: Path) -> set[str]:
 
 
 def test_domain_and_application_do_not_import_outward_adapters() -> None:
-    forbidden = ("case_docket.repository", "caseflow", "sqlite3")
+    forbidden = ("case_docket.repository", "case_docket.storage", "caseflow", "sqlite3")
     paths = [*((ROOT / "case_docket" / "application").glob("*.py"))]
     paths.extend((ROOT / "case_docket" / "models").glob("*.py"))
 
@@ -125,3 +125,20 @@ def test_c04_sqlite_contract_is_registered_and_keeps_recovery_boundary() -> None
     assert "filesystem originals" in text
     assert "`sqlite-lifecycle.md` | `ACTIVE`" in manifest
     assert "architecture/sqlite-lifecycle.md" in index
+
+
+def test_c05_managed_storage_contract_is_registered_and_keeps_intake_boundary() -> None:
+    contract = ROOT / "docs" / "architecture" / "managed-storage.md"
+    text = contract.read_text(encoding="utf-8")
+    manifest = (ROOT / "docs" / "architecture" / "MANIFEST.md").read_text(
+        encoding="utf-8"
+    )
+    index = (ROOT / "docs" / "INDEX.md").read_text(encoding="utf-8")
+
+    assert "| Status | `ACTIVE` |" in text
+    assert "Layout version | `1`" in text
+    assert "literal source provenance" in text
+    assert "duplicate_of_file_ids" in text
+    assert "не підключений до upload/HTTP UI" in text
+    assert "`managed-storage.md` | `ACTIVE`" in manifest
+    assert "architecture/managed-storage.md" in index

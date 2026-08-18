@@ -56,6 +56,10 @@ Application schema range C04: floor `2`, ceiling `6`. Fresh/upgrade bootstrap
 завжди доводить DB до ceiling до writable application operation. Valid known
 prefix нижче floor може бути migration input, але не normal application mode.
 
+C05 additive migration `0007_intake_managed_storage` підняла поточний
+application ceiling до `7`, не змінюючи byte-for-byte migrations `0001`–`0006`
+або C04 transaction/compatibility policy.
+
 Застосовані `0001`/`0002` залишаються byte-for-byte immutable. C04 додає лише
 forward-only indexes із явним logical scope:
 

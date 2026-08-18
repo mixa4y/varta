@@ -15,11 +15,12 @@ from case_docket.application.dto import (
     ProceedingOptionDTO,
 )
 from case_docket.application.errors import ConflictError, NotFoundError, ValidationError
-from case_docket.application.ports import ContactRepositoryPort
+from case_docket.application.ports import ContactRepositoryPort, ManagedFileRepositoryPort
 from case_docket.models.contact import CaseParticipant, Contact
 
 from .sqlite_connection import SQLiteConnectionPolicy
 from .sqlite_repository import SQLiteRepository
+from .sqlite_storage import SQLiteManagedFileRepository
 
 
 class SQLiteContactRepository(ContactRepositoryPort):
@@ -177,6 +178,7 @@ class SQLiteUnitOfWork:
         self._initialize = initialize
         self._repository: SQLiteRepository | None = None
         self._contacts: SQLiteContactRepository | None = None
+        self._files: SQLiteManagedFileRepository | None = None
         self._finished = False
         self._entered = False
 
@@ -185,6 +187,12 @@ class SQLiteUnitOfWork:
         if self._contacts is None or self._finished:
             raise RuntimeError("Unit of Work is not active")
         return self._contacts
+
+    @property
+    def files(self) -> ManagedFileRepositoryPort:
+        if self._files is None or self._finished:
+            raise RuntimeError("Unit of Work is not active")
+        return self._files
 
     def __enter__(self) -> Self:
         if self._entered:
@@ -205,6 +213,7 @@ class SQLiteUnitOfWork:
             raise
         self._repository = repository
         self._contacts = SQLiteContactRepository(repository)
+        self._files = SQLiteManagedFileRepository(repository)
         self._finished = False
         return self
 
@@ -217,6 +226,7 @@ class SQLiteUnitOfWork:
                 self._repository.close()
             self._repository = None
             self._contacts = None
+            self._files = None
 
     def commit(self) -> None:
         repository = self._active_repository()

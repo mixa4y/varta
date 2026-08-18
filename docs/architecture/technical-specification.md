@@ -66,8 +66,9 @@ artifacts. Вони не стають другою editable database. Усі mut
 
 Один workspace містить одну DB і багато справ. UI має нуль або одну active
 case за раз, але кожен command/query/job отримує context ID явно. Цільовий
-runtime root — `<workspace>/.varta/` із zones `database`, `originals`,
-`working`, `derived`, `reports`, `exports`, `logs`, `quarantine`, `temp`.
+runtime root — `<workspace>/.varta/` із versioned `layout.json` та zones
+`database`, `originals`, `staging`, `working`, `derived`, `reports`, `exports`,
+`logs`, `backups`, `quarantine`, `temp`.
 
 Originals не перезаписуються й не перейменовуються. Literal source name/path,
 managed display name і physical storage key є різними полями. `.caseflow`

@@ -40,6 +40,14 @@
 
 Фізичний або логічний файловий об'єкт: `id`, `import_batch_id`, `original_name`, `source_relative_path`, `storage_relative_path`, `size_bytes`, `extension`, `media_type`, `sha256`, `created_time_source`, `modified_time_source`, `imported_at`, `status`.
 
+### `managed_storage_records`
+
+Однозначний C05 link між `file_objects` і versioned managed layout:
+`file_id`, `layout_version`, opaque `storage_key`, relative
+`storage_reference`/`staging_reference`, state, source timestamps,
+finalized/verified timestamps і explicit error. Literal/managed names та
+bytes/hash залишаються у `file_objects`; однаковий hash не є primary key.
+
 ### `documents`
 
 Логічний документ, який може мати кілька файлів або версій: `id`, `case_id`, `document_type`, `title`, `document_date`, `external_reference`, `review_status`.

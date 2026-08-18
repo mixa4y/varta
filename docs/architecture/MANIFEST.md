@@ -28,6 +28,7 @@
 |---|---|---|
 | `local-api-v1.md` | `ACTIVE` | C03 `/api/v1`, application/UoW boundary, contacts contract і compatibility routes |
 | `sqlite-lifecycle.md` | `ACTIVE` | C04 connection/UoW policy, schema range, migrations і DB-only recovery foundation |
+| `managed-storage.md` | `ACTIVE` | C05 layout v1, immutable originals, streaming SHA-256 і reconciliation contract |
 
 ## Supporting legacy/target documents
 

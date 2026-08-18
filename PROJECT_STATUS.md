@@ -109,10 +109,13 @@ editable database.
 ## Що вже реально реалізовано
 
 - Python 3.12 package, versioned SQLite migrations і checksum runner;
-- immutable migrations `0001`/`0002` та additive scoped indexes `0003`–`0006`;
+- immutable migrations `0001`/`0002`, additive scoped indexes `0003`–`0006`
+  та C05 storage metadata migration `0007`;
 - per-operation thread-owned SQLite connections, explicit read/write UoW,
   verified foreign keys/WAL/busy/checkpoint policy та schema floor/ceiling;
 - DB-only online backup/restore primitive з integrity/FK/schema verification;
+- managed storage layout v1, streaming SHA-256, immutable original finalize,
+  duplicate signal і DB/filesystem crash reconciliation для одного source file;
 - SQLite repository/API/UI vertical slice для контактів;
 - DDL та JSON contracts для case profile і Evidence Map domain;
 - local `ThreadingHTTPServer`, static UI, loopback restriction, mutating token,
@@ -139,18 +142,34 @@ editable database.
 2. `C04`: `IMPLEMENTED IN CURRENT WORKTREE` — connection/concurrency,
    migration compatibility та DB-only online-backup lifecycle; Git checkpoint
    залишається окремою явно дозволеною дією.
-3. `C05`: next package — managed storage й immutable-original finalize/reconciliation.
-4. `C06`: authoritative file/folder/ZIP intake до SQLite read-back.
+3. `C05`: `IMPLEMENTED IN CURRENT WORKTREE` — managed storage,
+   immutable-original finalize/reconciliation; Git checkpoint окремий.
+4. `C06`: next package — authoritative file/folder/ZIP intake до SQLite read-back.
 5. `C07`/`C08`: multi-case bootstrap та evidence-domain services.
 6. `C09`: read-only `.caseflow`/XLSX inventory/import/reconciliation.
 7. `C10`: durable jobs та isolated workers.
 8. `C11`–`C14`: deterministic projections, UI workflow і sealed export.
 9. `C15`/`C16`: recovery, Windows delivery, privacy/performance/release gates.
 
-Поточний runtime path `<workspace>/.caseflow/varta.sqlite3` залишається фактом
-legacy implementation. Approved target —
-`<workspace>/.varta/database/varta.sqlite3`; C02 не переміщує й не
-перейменовує жодного runtime файла.
+Поточний server runtime path `<workspace>/.caseflow/varta.sqlite3` залишається
+legacy implementation. C05 library реалізує target
+`<workspace>/.varta/database/varta.sqlite3` + versioned managed zones, але не
+переміщує legacy state і не підключає upload UI до C06. Жодного in-place rename
+або видалення runtime файла немає.
+
+## C05 implementation evidence
+
+C05 працює лише через application ports/UoW та `case_docket.storage` adapter.
+Synthetic verification охоплює literal Unicode names, actual Windows path
+понад 260 символів, reserved/traversal/reparse negatives, same-name/different-
+bytes, duplicate bytes, case-insensitive managed-name collision, readonly/
+locked/disk-full, no-overwrite collision і interruptions до/після finalize.
+Recovery відтворює SQLite link із валідного manifest без ручного rename.
+
+Фінальні локальні gates: `173 passed`, clean Ruff, mypy для 46 source files,
+compileall, `git diff --check`, offline wheel та isolated installed-package
+storage/schema smoke. Жодного commit/push/publication/release або доступу до
+case materials C05 не виконував.
 
 ## Versioned open decisions
 
