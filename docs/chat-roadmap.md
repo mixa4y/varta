@@ -3,9 +3,9 @@
 **Тип документа:** канонічна декомпозиція робіт на самодостатні задачі для
 окремих чатів Codex у проєкті VARTA
 
-**Версія:** 1.1
+**Версія:** 1.2
 
-**Дата базової оцінки:** 11.08.2026
+**Дата базової оцінки:** 18.08.2026
 
 **Статус:** `ACTIVE`
 
@@ -46,15 +46,15 @@ Notion не входить до runtime, core, інтеграцій або дж�
 
 ### 2.1. Перевірений живий baseline
 
-На момент складання roadmap підтверджено:
+На старті C02 controller підтвердив:
 
 ```text
 branch                  codex/stabilize-baseline
-HEAD                    bc51a0095adb664c9bebd98764c101976f75e575
+HEAD                    c3a5b122894e81aff2d82078df7e38e5659d3733
 tracked working changes 0
 staged diff files       0
-untracked files         14 (roadmap/controller та окремий .github scope)
-pytest                  94 passed in 9.80s
+untracked files         0
+pytest                  94 passed (C01 evidence)
 roadmap tests           12 passed (Git checkpoint state-machine subset)
 local index             HTTP 200, text/html, VARTA marker present
 SQLite runtime          database created in a synthetic workspace
@@ -62,11 +62,10 @@ restart persistence     synthetic contact survived a full server restart
 temporary smoke data    removed after verification
 ```
 
-Це працездатний локальний working tree, але новий roadmap/controller ще не є
-відтворюваним Git snapshot: усі 14 поточних entries untracked і staged index
-порожній. Поточна задача не виконувала `git add`, commit або push. Каталог
-`.github/` не можна автоматично приписувати roadmap без окремої класифікації;
-перший checkpoint C01 має показати exact staged manifest перед публікацією.
+Commit `c3a5b12` є відтворюваним C01 baseline: roadmap/controller і два
+класифіковані `.github` guidance-файли tracked, working tree чистий. C02
+почався тільки після окремого `GITHUB SYNCED`. C02 не виконує `git add`,
+commit, push, publication, release або remote changes.
 
 ### 2.2. Реально наявні компоненти
 
@@ -100,17 +99,19 @@ temporary smoke data    removed after verification
 - manual review і частина operational state зберігаються в JSON;
 - немає доведеного consistent backup/restore для SQLite разом із файлами;
 - Windows package/update path ще не доведений на clean controlled snapshot;
-- `ADR-001` і технічна специфікація досі містять `DRAFT`/open UI decision,
-  хоча local web UI тепер явно обраний.
+- `ADR-001`–`ADR-007` і technical specification тепер approved, але target
+  application/storage/security/worker boundaries ще не перенесено в код.
 
 ## 3. Як використовувати roadmap
 
-### 3.1. Один work package — один новий чат
+### 3.1. Один work package — один постійний чат
 
-Новий чат отримує тільки один основний package `Cxx`. Він не починає наступний
-етап через те, що залишився час або контекст. Якщо виявлено blocker, чат
-документує його, виконує всі безпечні перевірки у своєму scope і передає
-handoff, не маскуючи `PARTIAL` як `DONE`.
+Для кожного package `Cxx` controller створює рівно один постійний Codex
+task/chat. Повторний запуск після blocker, помилки або interruption, а також
+GitHub checkpoint є новими turns у цьому самому чаті й не створюють дублікати.
+Чат не починає наступний package через те, що залишився час або контекст. Якщо
+виявлено blocker, він документує його, виконує всі безпечні перевірки у своєму
+scope і передає handoff, не маскуючи `PARTIAL` як `DONE`.
 
 ### 3.2. Обов'язковий старт кожного чату
 
@@ -166,7 +167,7 @@ TECH RUN
 `VARTA_GIT_RESULT`: repository повторно підтверджено як `PRIVATE`, commit є на
 `origin`, branch має префікс `codex/`, а Draft PR існує. Локальний commit без
 push, push без перевірки remote або PR без підтвердженого commit не є synced.
-Controller не покладається лише на звіт Git task: він read-only повторно
+Controller не покладається лише на звіт Git turn: він read-only повторно
 звіряє local HEAD, `ls-remote`, private repository metadata і Draft PR head SHA.
 
 ### 3.5. Статуси
@@ -184,14 +185,23 @@ Controller не покладається лише на звіт Git task: він
 Для живого режиму запустити `START_ROADMAP.cmd` у корені `D:\VARTA` і
 відкрити `http://127.0.0.1:8766/`. У кожному package з'являються кнопки:
 
-- **Стартувати task** — створити окремий Codex thread із темою package та
-  одразу почати його виконання;
+- **Створити чат і почати Cxx** — для першої спроби створити єдиний Codex
+  thread package; якщо Task ID вже існує, **Продовжити в цьому чаті** запускає
+  новий turn у ньому без нового чату;
 - **Зупинити turn** — штатно перервати активне виконання;
 - **Скопіювати повний prompt** — отримати canonical machine prompt;
 - **Скопіювати Task ID** — звірити створений task у Codex project history.
-- **GitHub checkpoint** — після `TECH PASS` створити окремий Git task для
-  privacy/ownership audit, exact staging, commit, push і Draft PR;
+- **GitHub checkpoint у цьому чаті** — після `TECH PASS` запустити новий turn у
+  постійному package chat для privacy/ownership audit, exact staging, commit,
+  push і Draft PR;
 - **Зупинити Git turn** — штатно перервати Git checkpoint без підміни status.
+
+Над картками постійно показуються активний package, повний Task ID, поточна
+фаза, повідомлення, журнал контрольних подій та відсоток. Відсоток означає
+підтверджені checkpoints, а не прогноз часу: agent може звітувати лише `1`–`99`
+у package-scoped `VARTA_PROGRESS`, а `100%` controller виставляє тільки після
+валідного `VARTA_STAGE_RESULT` або `VARTA_GIT_RESULT`. Loopback UI оновлює ці
+дані щосекунди.
 
 Planning status (`READY/PARTIAL/PLANNED/BLOCKED_BY_DECISION`) не
 перезаписується execution status. Окремо відображаються `not_started`,
@@ -204,16 +214,16 @@ Planning status (`READY/PARTIAL/PLANNED/BLOCKED_BY_DECISION`) не
 розблоковується лише тому, що Codex завершив генерацію: потрібен валідний
 structured result, фактичні tests і `outcome=passed`; після цього prerequisite
 вважається виконаним лише за `GITHUB SYNCED`. Одночасно в спільному `D:\VARTA`
-запускається лише один stage або Git task. Детальний operation/security
+запускається лише один stage або Git turn. Детальний operation/security
 contract: `docs/roadmap-controller.md`.
 
 ## 4. Карта чатів і залежностей
 
 | ID    | Тема нового чату                                             | Product stage          | Поточний стан         | Prerequisite                          |
 | ----- | ------------------------------------------------------------ | ---------------------- | --------------------- | ------------------------------------- |
-| `C01` | Підготувати поточні напрацювання до контрольованого baseline | `A0`                   | `READY`               | —                                     |
-| `C02` | Затвердити цільову local-web архітектуру та ADR-пакет        | `A1`                   | `PARTIAL`             | `C01`                                 |
-| `C03` | Створити application layer і versioned API boundary          | `A1` , foundation `A8` | `BLOCKED_BY_DECISION` | `C02`                                 |
+| `C01` | Підготувати поточні напрацювання до контрольованого baseline | `A0`                   | `DONE`                | —                                     |
+| `C02` | Затвердити цільову local-web архітектуру та ADR-пакет        | `A1`                   | `DONE`                | `C01`                                 |
+| `C03` | Створити application layer і versioned API boundary          | `A1` , foundation `A8` | `READY`               | `C02`                                 |
 | `C04` | Завершити SQLite lifecycle, Unit of Work і migration gates   | `A2`                   | `PARTIAL`             | `C03`                                 |
 | `C05` | Реалізувати managed storage та immutable originals           | `A3`                   | `PARTIAL`             | `C02` , `C04`                         |
 | `C06` | Реалізувати intake vertical slice до SQLite                  | `A3`                   | `PARTIAL`             | `C05`                                 |
@@ -245,7 +255,7 @@ C01 -> C02 -> C03 -> C04 -> C05 -> C06 -> C07 -> C08
 
 **Тема нового чату:** `VARTA C01 — стабілізація поточного working baseline`
 
-**Статус:** `READY`
+**Статус:** `DONE` — C01 Git baseline `c3a5b12` синхронізовано до старту C02.
 
 **Мета:** перетворити працездатний, але змішаний working tree на повністю
 інвентаризований набір логічних patches, не втративши жодної наявної зміни.
@@ -286,8 +296,9 @@ C01 -> C02 -> C03 -> C04 -> C05 -> C06 -> C07 -> C08
 8. Створити або оновити change records для кожного логічного patch і таблицю
    exact files/tests/evidence.
 9. Після технічного `PASS` зупинитися на перевіреному staging plan. Лише окреме
-   натискання **GitHub checkpoint** запускає інший task, який має показати exact
-   staged snapshot, виконати commit/push у `codex/*` і створити Draft PR.
+   натискання **GitHub checkpoint** запускає новий turn у цьому самому C01
+   task; він має показати exact staged snapshot, виконати commit/push у
+   `codex/*` і створити Draft PR.
 
 ### Який результат отримаємо
 
@@ -309,7 +320,7 @@ C01 -> C02 -> C03 -> C04 -> C05 -> C06 -> C07 -> C08
 - ручна звірка: кожен status path присутній рівно в одному patch manifest.
 
 **Transition gate:** `TECH PASS`, коли inventory повний, gates зелені, privacy
-findings пояснені, а Git task не мусить вгадувати походження змін. `C02`
+findings пояснені, а Git turn не мусить вгадувати походження змін. `C02`
 розблоковується тільки після окремого `GITHUB SYNCED` для C01.
 
 **Стартовий запит для нового чату:**
@@ -323,43 +334,44 @@ findings пояснені, а Git task не мусить вгадувати по
 
 **Тема нового чату:** `VARTA C02 — local web, source of truth і ключові ADR`
 
-**Статус:** `PARTIAL` — local web UI і відсутність Notion уже визначені
-користувачем, але legacy drafts ще не синхронізовані.
+**Статус:** `DONE` — architecture/spec/status package синхронізовано
+18.08.2026; product code у C02 не рефакторився.
 
-### Що є на цей момент
+### Що підтверджено C02
 
-- Python + SQLite + local filesystem уже обрані базовою архітектурою;
-- local server фактично працює тільки на `127.0.0.1`/`localhost`;
-- технічна специфікація ще називає UI open question;
-- `ADR-001` має статус `DRAFT`;
-- `action-algorithm.md` фіксує SQLite authority, thin UI boundary та optional
-  integrations, але workspace, backup/restore і `.caseflow` -> `.varta`
-  transition залишаються `PROPOSED`;
-- no application layer означає, що значна реалізація до ADR створить churn.
+- `ADR-001`–`ADR-007` мають `APPROVED` і повний decision format;
+- embedded local web UI працює лише на explicit loopback; Notion поза
+  продуктом/documentation workflow/source of truth;
+- SQLite є єдиним writable structured source of truth, managed filesystem —
+  authority для registered bytes;
+- UI/HTTP/CLI/workers спрямовані через application services;
+- one multi-case DB, zero/one active UI case і `.varta` target затверджені;
+- connection model — short-lived UoW per operation, без shared worker DB;
+- поточний код ще має legacy direct paths; це чесно залишено C03+.
 
-### Що треба зробити
+### Виконаний scope
 
-1. Оновити/затвердити `ADR-001`: modular local-first Python application,
+1. Оновлено/затверджено `ADR-001`: modular local-first Python application,
    embedded local HTTP API, browser UI, SQLite, managed filesystem і isolated
    workers; Notion не входить до системи.
-2. Зафіксувати `ADR-002`: SQLite — єдине writable structured source of truth;
+2. Зафіксовано `ADR-002`: SQLite — єдине writable structured source of truth;
    XLSX/JSON/HTML — import/export/projection artifacts.
-3. Зафіксувати `ADR-003`: forward-only versioned migrations, checksum,
+3. Зафіксовано `ADR-003`: forward-only versioned migrations, checksum,
    consistent backup/restore замість destructive down migrations.
-4. Зафіксувати `ADR-004`: opaque internal IDs, external references окремо,
+4. Зафіксовано `ADR-004`: opaque internal IDs, external references окремо,
    many-to-many cardinalities і stable identity незалежно від шляхів/імен.
-5. Зафіксувати `ADR-005`: одна локальна БД може містити багато справ; UI має
+5. Зафіксовано `ADR-005`: одна локальна БД може містити багато справ; UI має
    одну active case; managed storage zones; контрольований `.caseflow` ->
    `.varta` transition.
-6. Додати ADR local HTTP security boundary: loopback only, Host/Origin checks,
+6. Додано `ADR-006` local HTTP security boundary: loopback only, Host/Origin checks,
    CSRF token, CSP, no remote assets by default, no LAN mode без нового ADR.
-7. Вирішити SQLite connection model: Unit of Work/connection per operation або
-   single serialized writer; workers не отримують shared connection.
-8. Визначити першу archive policy, encryption decision, target corpus scale і
-   recovery objectives або явно залишити їх versioned open questions із
-   власником/наступним gate.
-9. Синхронізувати technical specification, architecture decision log,
-   `PROJECT_STATUS.md` і цей roadmap без проголошення коду завершеним.
+7. `ADR-007` затвердив Unit of Work/connection per operation; global shared
+   connection і direct worker repository відхилені.
+8. `OQ-C02-001`–`004` версіонують archive/encryption/scale/recovery details із
+   owner `C06`/`C15`/`C16` і concrete closing gates.
+9. Синхронізовано technical specification, architecture decision log,
+   `PROJECT_STATUS.md`, action algorithm і обидва roadmap companion без
+   проголошення коду завершеним.
 
 ### Який результат отримаємо
 
@@ -380,8 +392,9 @@ findings пояснені, а Git task не мусить вгадувати по
 - усі open questions мають owner stage, а не залишаються безстроковими;
 - docs links і Markdown lint/static checks проходять.
 
-**Transition gate:** `PASS`, коли `C03` може створити application contracts без
-прихованих рішень про UI, DB, IDs, workspace чи storage.
+**Transition gate:** `PASS` — `C03` може створити application contracts без
+прихованих рішень про UI, DB, IDs, workspace, storage, connection чи workers.
+Controller dependency переходить далі лише після окремого `GITHUB SYNCED`.
 
 **Стартовий запит:**
 
@@ -394,7 +407,8 @@ findings пояснені, а Git task не мусить вгадувати по
 
 **Тема нового чату:** `VARTA C03 — application services, ports і local API v1`
 
-**Статус:** `BLOCKED_BY_DECISION` до `C02`
+**Статус:** `READY` після C02 architecture gate; controller ще вимагає
+окремий C02 `GITHUB SYNCED`.
 
 ### Що є на цей момент
 
@@ -1176,8 +1190,8 @@ release.
 ## 6. Окремі processor-чати після C10
 
 Ці задачі не блокують core critical path, якщо Evidence Map може працювати з
-synthetic/manual data. Кожна відкривається окремим чатом і використовує тільки
-затверджений plugin/job contract.
+synthetic/manual data. Кожний `Pxx` так само має рівно один постійний чат і
+використовує тільки затверджений plugin/job contract.
 
 ### P01 — OCR і text extraction
 

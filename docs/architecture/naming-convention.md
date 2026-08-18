@@ -51,5 +51,9 @@
 
 ## Open questions
 
-- Який формат UUID або локальних ключів використовувати?
-- Чи потрібні україномовні display labels у конфігурації окремо від code identifiers?
+| Question | Owner stage | Closing gate |
+|---|---|---|
+| Чи потрібні україномовні display labels у конфігурації окремо від code identifiers? | `C03`, `C12` | API contract + UI PASS |
+
+Identity format більше не open: `ADR-004` затвердив opaque canonical UUID
+strings; людські назви/paths ніколи не є internal ID.

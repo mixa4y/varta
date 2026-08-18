@@ -321,7 +321,7 @@
 
   <section class="vam-header" aria-labelledby="vam-title">
     <h2 id="vam-title">VARTA — карта переходів</h2>
-    <div class="text-muted">Версія карти 1.2 · синхронізовано з алгоритмом від 11.08.2026 · live baseline: 82 passed · статус документа ACTIVE</div>
+    <div class="text-muted">Версія карти 1.3 · синхронізовано з алгоритмом від 18.08.2026 · C01 baseline: 94 passed · статус документа ACTIVE</div>
     <div class="vam-legend text-small" aria-label="Позначення статусів">
       <span class="vam-legend-item"><span class="vam-marker" data-status="done" aria-hidden="true"></span>DONE · gate пройдено</span>
       <span class="vam-legend-item"><span class="vam-marker" data-status="verify" aria-hidden="true"></span>VERIFY · повторно підтвердити</span>
@@ -352,19 +352,19 @@
     </div>
 
     <div class="vam-step">
-      <div class="vam-rail" aria-hidden="true"><span class="vam-marker" data-status="partial"></span></div>
+      <div class="vam-rail" aria-hidden="true"><span class="vam-marker" data-status="done"></span></div>
       <details data-step="A1">
         <summary>
-          <span class="vam-summary-main"><span class="vam-code">A1</span><span class="vam-title">Погодити архітектурні рішення</span><span class="viz-badge">PARTIAL</span></span>
+          <span class="vam-summary-main"><span class="vam-code">A1</span><span class="vam-title">Погодити архітектурні рішення</span><span class="viz-badge">DONE</span></span>
           <i class="vam-chevron" data-lucide="chevron-down" aria-hidden="true"></i>
         </summary>
         <div class="card vam-detail">
           <div class="vam-detail-grid">
-            <section class="vam-detail-section"><h3>Що зробити</h3><ul><li>SQLite authority, versioned migrations та opaque IDs уже встановлені.</li><li>Описати XLSX як compatibility adapter.</li><li>Погодити workspace model.</li><li>Погодити backup/restore та перехід <code>.caseflow</code> → <code>.varta</code>.</li></ul></section>
-            <section class="vam-detail-section"><h3>Перевірка</h3><ul><li>ADR містять проблему, варіанти, рішення, наслідки й ризики.</li><li>Немає суперечностей із <code>AGENTS.md</code> і blueprint.</li><li>Для data changes описано migration та rollback.</li><li>Відхилені варіанти зафіксовані.</li></ul></section>
-            <section class="vam-detail-section"><h3>Gate переходу</h3><ul><li><code>ADR-001</code> підтверджено або замінено.</li><li>Repository, SQL migrations, IDs і workspace мають <code>APPROVED</code> рішення.</li><li>Є чітка межа legacy compatibility.</li></ul></section>
+            <section class="vam-detail-section"><h3>Результат</h3><ul><li><code>ADR-001</code>–<code>ADR-007</code> мають <code>APPROVED</code>.</li><li>Local web, no Notion, SQLite/filesystem authority, IDs, workspace, security, UoW і workers зафіксовані.</li><li>Legacy XLSX/JSON/HTML класифіковані як adapters/projections.</li><li><code>.caseflow</code> переходить до <code>.varta</code> лише через reconciliation.</li></ul></section>
+            <section class="vam-detail-section"><h3>Перевірка</h3><ul><li>Кожен ADR має context, decision, rejected alternatives, consequences і migration impact.</li><li>Technical spec, decision log, status і roadmap синхронізовані.</li><li>Browser UI не має прямої repository/SQLite dependency.</li><li>Кожне відкрите рішення має owner stage і closing gate.</li></ul></section>
+            <section class="vam-detail-section"><h3>Gate переходу</h3><ul><li>C03 може визначити commands, queries, DTOs, ports і Unit of Work без прихованого вибору.</li><li>Implementation status не підмінено architecture approval.</li><li>GitHub synchronization залишається окремим controller gate.</li></ul></section>
           </div>
-          <div class="vam-dependency text-small text-muted">Залежність: A0 · repository/migrations розблоковані, workspace і backup/restore ще відкриті</div>
+          <div class="vam-dependency text-small text-muted">Залежність: A0 · architecture gate пройдено · наступний implementation package: C03/A1 foundation</div>
         </div>
       </details>
     </div>

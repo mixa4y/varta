@@ -2,9 +2,9 @@
 
 | Metadata | Value |
 |---|---|
-| Status | `DRAFT` |
-| Version | `v0.1` |
-| Date | `2026-07-24` |
+| Status | `DRAFT DETAIL` |
+| Version | `v0.2` |
+| Date | `2026-08-18` |
 
 ## Призначення
 
@@ -17,6 +17,10 @@
 - Час зберігається у форматі ISO 8601 із часовою зоною, де вона відома.
 - Невідоме значення не підмінюється порожнім рядком або вигаданим фактом.
 - Автоматичні результати та підтвердження користувача зберігаються окремо.
+- Внутрішні IDs є opaque canonical UUID strings; зовнішні references та
+  display/path values не використовуються як primary identity (`ADR-004`).
+- Membership, що допускає кілька справ/проваджень, моделюється link tables, а
+  не одним прихованим foreign key або списком у text.
 
 ## Сутності
 
@@ -78,7 +82,8 @@
 
 ## Важливі зв'язки
 
-- `case` має багато `proceedings`, `documents`, `events`.
+- `case` має багато `proceedings`; documents/events можуть бути пов'язані зі
+  справами та провадженнями через explicit many-to-many links.
 - `import_batch` має багато `files`.
 - `document` пов'язаний із файлами через `document_files`.
 - `document` може мати багато `attachments`, `signatures` і relations.
@@ -88,10 +93,16 @@
 
 - Усі первинні ключі генеруються застосунком.
 - SHA-256 зберігається у нормалізованому lowercase hexadecimal форматі.
+- Native v1 IDs використовують UUIDv4; stable import mappings можуть
+  використовувати persisted mapping/namespaced UUIDv5, але API трактує ID як
+  opaque string.
 
 ## Open questions
 
-- UUID чи інший формат локальних ідентифікаторів?
-- Чи потрібна історичність змін рівня temporal tables?
-- Які персональні поля справді необхідні?
-- Як моделювати сторінки, OCR-фрагменти й координати тексту?
+| Question | Owner stage | Closing gate |
+|---|---|---|
+| Чи потрібна історичність beyond append-only audit/review history? | `C08` | `C08 PASS` |
+| Які персональні поля справді необхідні? | `C08`, `C16` | model gate + final privacy gate |
+| Як моделювати сторінки, OCR-фрагменти й координати тексту? | `P01` | `P01 PASS` |
+
+Формат identity/cardinality більше не open; його закриває `ADR-004`.

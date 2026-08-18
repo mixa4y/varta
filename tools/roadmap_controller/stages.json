@@ -7,7 +7,7 @@
       "group": "core",
       "title": "Підготувати поточні напрацювання до контрольованого baseline",
       "topic": "VARTA C01 — стабілізація поточного working baseline",
-      "planningStatus": "READY",
+      "planningStatus": "DONE",
       "dependencies": [],
       "prompt": "Виконай тільки package C01 з docs/chat-roadmap.md. Інвентаризуй і стабілізуй поточний dirty working tree VARTA без видалення, reset, commit або push. Результат — exact logical patch manifests, quality/privacy gates, runtime smoke і handoff для C02."
     },
@@ -17,7 +17,7 @@
       "group": "core",
       "title": "Затвердити цільову local-web архітектуру та ADR-пакет",
       "topic": "VARTA C02 — local web, source of truth і ключові ADR",
-      "planningStatus": "PARTIAL",
+      "planningStatus": "DONE",
       "dependencies": ["C01"],
       "prompt": "Виконай тільки C02. Формалізуй архітектуру VARTA: без Notion, local web UI на loopback, SQLite + managed filesystem як source of truth, application-service boundary і isolated workers. Синхронізуй ADR/spec/status. Не починай refactor коду."
     },
@@ -27,7 +27,7 @@
       "group": "core",
       "title": "Створити application layer і versioned API boundary",
       "topic": "VARTA C03 — application services, ports і local API v1",
-      "planningStatus": "BLOCKED_BY_DECISION",
+      "planningStatus": "READY",
       "dependencies": ["C02"],
       "prompt": "Виконай C03 після gate C02. Створи мінімальний application layer, ports/Unit of Work та /api/v1 contract; перенеси один існуючий vertical slice без зміни UX. Додай architecture, unit, integration і HTTP tests. Не мігруй intake або Evidence Map."
     },

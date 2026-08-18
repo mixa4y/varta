@@ -1,123 +1,178 @@
 # VARTA project status
 
-**Статус:** `DRAFT`
+**Статус:** `ACTIVE`
 
-**Версія baseline:** `0.1.0`
+**Версія продуктового baseline:** `0.1.0`
+
+**Дата синхронізації:** `18.08.2026`
 
 **Канонічний root:** `D:\VARTA`
 
 **Гілка:** `codex/stabilize-baseline`
 
-## Live baseline 11.08.2026
+## Контрольований Git baseline для C02
 
-- старий baseline `0c263f7b83a05cdd7eae5635350740f50ab51dbe` збережено як base;
-- 38 погоджених шляхів розділено на шість P0 commits: migrations/repository,
-  Airtable mapping/import, contacts model/API/UI, Evidence Map DDL/contract,
-  Windows packaging/typing і документація/status;
-- сторонній streaming multipart change зафіксовано окремим двофайловим
-  `HOLD-1` commit, а не домішано до Windows або contacts patch;
-- фінальний clean checkout: `82 passed`, Ruff clean, mypy clean для 26 source
-  files, compileall і `git diff --check` пройдені;
-- wheel містить обидві SQL migrations, Airtable schema, static UI і version
-  manifest; installed-wheel smoke бачить 9 Airtable tables і 2 migrations;
-- з clean checkout зібрано й запущено `VARTA.exe`; API створив SQLite,
-  застосував migrations `0001`/`0002` і підтвердив таблицю `claims`;
-- push, PR або release не виконувалися.
+Controller до початку package зафіксував:
 
-На початку аудиту було 27 змінених tracked-файлів, 10 untracked і
-розходження документації `MM`/`AM`. Застарілий staging очищено без зміни
-working content. Два пізніше створені сторонні файли `docs/chat-roadmap.md` і
-`docs/interactive/varta-chat-roadmap.html` не входять до baseline commits і
-залишаються окремою незмішаною роботою.
+| Field | Value |
+|---|---|
+| HEAD | `c3a5b122894e81aff2d82078df7e38e5659d3733` |
+| Branch | `codex/stabilize-baseline` |
+| Tracked/staged/untracked status | empty |
+| Status SHA-256 | `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855` |
+| Captured | `2026-08-18T08:49:29+00:00` |
 
-Migration checksum канонізує line endings до LF перед SHA-256. Однаковий SQL
-у LF source і CRLF Windows checkout має один checksum; фактична зміна SQL
-залишається забороненою після застосування migration.
+Commit `c3a5b12` містить стабілізований C01 roadmap/controller scope поверх
+попереднього product baseline `bc51a00`. C01 evidence: `94 passed`, clean
+Ruff/mypy/compileall, package-data proof, synthetic HTTP/SQLite restart smoke
+і privacy scan. C02 не виконує commit, push, publication, release або remote
+changes.
 
-Це підтверджений відтворюваний baseline і готова локальна серія Git patches.
-Exact scopes та перевірки зафіксовано в `docs/action-algorithm.md`; публікація
-залишається окремою дією.
+На continuation turn цього самого C02-чату controller повторно зафіксував
+`HEAD c3a5b12`, ту саму branch і 36 dirty status entries зі SHA-256
+`19bae2a50f3b31fe2ad70ca9f9c89014a3b2f1cbf1d2d508ce6febb052bf51e6` о
+`2026-08-18T10:11:18+00:00`. Це checkpoint незавершеного C02 разом із
+паралельними roadmap-controller changes, а не новий clean dependency baseline.
 
-## Єдине робоче місце
+## C02: рішення та реалізація — окремі стани
 
-Усі нові зміни вносяться тільки в цей репозиторій. Вихідні каталоги
-CaseFlow і CMSD залишаються незмінними джерелами для звірки до завершення
-міграції.
+| Рівень | Стан після C02 |
+|---|---|
+| Architecture decisions | `APPROVED`: `ADR-001`–`ADR-007` |
+| Technical specification | `APPROVED v1.0`, синхронізована з ADR |
+| Local web choice | `DECIDED`: embedded browser UI, explicit loopback only |
+| Notion | `EXCLUDED`: не runtime, docs workflow, integration або source of truth |
+| Structured source of truth | `DECIDED`: тільки SQLite writable; XLSX/JSON/HTML — adapters/projections |
+| Binary authority | `DECIDED`: registered bytes у managed filesystem |
+| Application boundary | `DECIDED`, implementation `PENDING C03/C12` |
+| SQLite connection model | `DECIDED`: short-lived UoW/connection per application operation |
+| Worker boundary | `DECIDED`, durable implementation `PENDING C10` |
+| Workspace/storage | `DECIDED`: one multi-case DB, zero/one active UI case, `.varta` target |
+| Current legacy code | `UNCHANGED BY C02`; direct server/repository/filesystem paths ще існують |
 
-## Зовнішній офлайн-комплект
+C02 є architecture/documentation package. `APPROVED` не означає, що
+application layer, managed storage, migration або security refactor уже
+реалізовано.
 
-`D:\CMSD\offline_bundle` має статус `CURRENT_SUPPORT_ASSET`. Це не окремий
-варіант вихідного коду, а відновлений офлайн-комплект для Python 3.12,
-PDF/OCR/STT, 7-Zip, FFmpeg, Tesseract і локальної Whisper-моделі. Його не
-можна видаляти або замінювати без перевіреної повної копії та повторної
-offline-валидації.
+## C02 verification evidence
 
-## Що вже консолідовано
+| Gate | Result |
+|---|---|
+| C02 architecture-doc tests | `8 passed` |
+| Roadmap/controller contract suite | `15 passed`; combined targeted suite `23 passed` |
+| Full pytest | `105 passed` |
+| Ruff | `All checks passed` for `case_docket`, `caseflow`, `tests`, controller tools |
+| mypy | `Success: no issues found in 26 source files` |
+| compileall | passed for `case_docket`, `caseflow`, `tests`, controller tools |
+| JSON / inline JavaScript syntax | passed for stage catalog and both interactive maps |
+| ADR completeness / links / open-question owners | passed in C02 tests |
+| UI dependency scan | no browser asset imports repository/SQLite |
+| Terminology/source-of-truth scan | 14 canonical docs; 6 stale-pattern classes absent |
+| Git whitespace | `git diff --check` passed |
+| C02 privacy scan | 32 owned paths; zero high-risk findings; only triaged support path `D:\CMSD\offline_bundle` |
 
-- CMSD domain models, dictionaries, repository, audit і naming;
-- локальний сервер, intake pipeline та anomaly detector CaseFlow;
-- основна HTML/CSS/JavaScript в’юха;
-- універсальна privacy-safe Evidence Map view;
-- повторно використовувані скрипти аналізу, staging та extraction;
-- Windows build/install/update tooling;
-- архітектурні документи, правила workspace і універсальний blueprint;
-- case profile, schemas та шаблони snapshot;
-- тести обох вихідних кодових баз.
+Окремі verification launches не виконали повний test body через environment:
+WindowsApps `python.exe` був недоступний, один `--basetemp` мав неіснуючий
+parent, а default `%TEMP%\pytest-of-mixa4y` був недоступний sandbox. Runs
+повторено через `D:\VARTA\.venv\Scripts\python.exe` з explicit repo-local
+basetemp; наведені вище фінальні результати зелені, temp видалено.
 
-## SQLite та модель Airtable
+Під час C02 окремо з'явилися сторонні для цього package зміни у
+`tools/roadmap_controller/server.py`, `tests/test_roadmap_controller.py`,
+`tools/roadmap_controller/browser_smoke.cjs`, `docs/roadmap-controller.md` та
+live-progress hunks у `docs/interactive/varta-chat-roadmap.html`. C02 не
+редагував і не відкидав controller/test/browser-smoke/docs paths; у mixed HTML
+C02 володіє лише version/status summary, `DONE`/`READY`, stats і C01–C03
+content-hunks.
+Full suite пройшов на фактичному combined working tree; exact C02 scope
+відділено hunk-level і перевірено regression-testом.
 
-SQLite і файлове сховище затверджені як локальне writable джерело істини.
-Airtable залишається джерелом одноразового або повторюваного імпорту, а не
-паралельною робочою базою.
+## Target architecture
 
-До versioned SQLite migration перенесено повну структуру історичної Airtable
-base: 9 таблиць, 127 полів, 38 record-link зв'язків і 12 computed fields.
-Зв'язки подані нормалізованими foreign key та many-to-many таблицями;
-формули й lookup-залежності збережені у каталозі схеми та SQL views. Додано
-двопрохідний idempotent importer, який зберігає Airtable record IDs, raw JSON
-і явно показує unresolved links.
+```text
+browser on loopback
+  -> versioned local HTTP presentation adapter
+  -> application services + Unit of Work
+  -> domain/ports
+  -> SQLite + managed filesystem
+  -> durable supervisor -> isolated workers -> validated result finalize
+```
 
-Модель контактів уже доступна через SQLite repository, локальний HTTP API та
-детальну картку у в'юсі. Поточний acceptance run використовує лише вигадані
-дані. Реальні записи з Airtable не імпортовано автоматично й не включено до
-Git.
+Authoritative state — узгоджена пара SQLite + managed filesystem. SQLite є
+єдиним writable structured source of truth; originals є immutable registered
+bytes. `map-data.json`, XLSX, JSON, HTML, reports і exports не є другою
+editable database.
+
+Повний пакет: `docs/architecture/architecture-decision-log.md` та
+`docs/architecture/technical-specification.md`.
+
+## Що вже реально реалізовано
+
+- Python 3.12 package, versioned SQLite migrations і checksum runner;
+- migrations `0001`/`0002`, foreign keys, WAL і append-only audit constraints;
+- SQLite repository/API/UI vertical slice для контактів;
+- DDL та JSON contracts для case profile і Evidence Map domain;
+- local `ThreadingHTTPServer`, static UI, loopback restriction, mutating token,
+  CSP та path checks як partial security baseline;
+- upload/legacy processing, anomaly detector і plugin scaffolds;
+- Windows build/install/update tooling як migration material;
+- roadmap controller і synthetic tests.
 
 ## Evidence Map: точна межа реалізації
 
 | Рівень | Стан |
 |---|---|
-| Versioned DDL | `DONE`: migration `0002_evidence_map_domain.sql` створює case profiles, file objects, processing runs, source references, claims, evidence relations, review decisions, amounts та export records |
-| JSON contracts | `DONE`: case profile і Evidence Map schema `1.1.0`, templates та negative tests синхронізовані |
-| Repository API | `PARTIAL`: migration виконується, але окремих services/CRUD для claims, evidence relations, source references, review decisions та exports ще немає |
-| Application flow | `PARTIAL`: наявна HTML-в’юха використовує snapshot/embedded JSON; детермінований SQLite → Evidence Map generator ще не реалізовано |
+| Versioned DDL | `DONE` для migrations `0001`/`0002` |
+| JSON contracts | `DONE`: case profile/Evidence Map schema `1.1.0` |
+| Repository API | `PARTIAL`: немає повних services для claims/relations/sources/review/exports |
+| Application flow | `PARTIAL`: немає детермінованого SQLite -> projection/UI/export flow |
 
-Тому існування таблиць не описується як завершений Evidence Map flow:
-фактичний статус — `DDL/CONTRACT DONE`, `REPOSITORY API PARTIAL`,
+Отже статус лишається `DDL/CONTRACT DONE`, `REPOSITORY API PARTIAL`,
 `APPLICATION FLOW PARTIAL`.
 
-## Межа даних
+## Затверджений migration path, ще не реалізований
 
-Git містить код, правила, схеми, порожні або вигадані приклади й дизайн.
-Матеріали справ, реєстри, підписи, runtime state, secrets та generated maps
-залишаються поза Git.
+1. `C03`: application services, ports, Unit of Work і `/api/v1`.
+2. `C04`: connection/concurrency/migration/online-backup lifecycle.
+3. `C05`: managed storage й immutable-original finalize/reconciliation.
+4. `C06`: authoritative file/folder/ZIP intake до SQLite read-back.
+5. `C07`/`C08`: multi-case bootstrap та evidence-domain services.
+6. `C09`: read-only `.caseflow`/XLSX inventory/import/reconciliation.
+7. `C10`: durable jobs та isolated workers.
+8. `C11`–`C14`: deterministic projections, UI workflow і sealed export.
+9. `C15`/`C16`: recovery, Windows delivery, privacy/performance/release gates.
 
-## Сумісність першого baseline
+Поточний runtime path `<workspace>/.caseflow/varta.sqlite3` залишається фактом
+legacy implementation. Approved target —
+`<workspace>/.varta/database/varta.sqlite3`; C02 не переміщує й не
+перейменовує жодного runtime файла.
 
-Усередині репозиторію поки збережено Python namespace `caseflow`, назви
-сумісних PowerShell-файлів `*_caseflow.ps1` і runtime-каталог `.caseflow`.
-Це свідомий перехідний шар, а не назва нового продукту. Product manifest,
-EXE, UI та GitHub-репозиторій використовують назву VARTA.
+## Versioned open decisions
 
-## Що ще не погоджено
+| ID | Owner | Gate |
+|---|---|---|
+| `OQ-C02-001` archive variants beyond required file/folder/ZIP | `C06` | `C06 PASS` |
+| `OQ-C02-002` application encryption at rest/key recovery | `C15` | `C15 PASS` |
+| `OQ-C02-003` target corpus/performance profile | `C16` | `C16 TECH PASS` |
+| `OQ-C02-004` numeric RPO/RTO/retention | `C15` | `C15 PASS` |
 
-1. контракт XLSX import/export adapter поверх SQLite;
-2. міграція runtime-каталогу `.caseflow` до `.varta`;
-3. repository/application services і повний generator Evidence Map із SQLite;
-4. release packaging та автоматичне оновлення;
-5. режим одного workspace для однієї або багатьох справ;
-6. процедура контрольованого імпорту авторизованих реальних записів;
-7. увімкнення суворих style/modernization правил Ruff після окремого
-   форматувального diff; baseline перевіряє error-level правила.
+Деталі та чинні обмеження: `docs/architecture/open-questions.md`. Ці питання
+не приховують вибір UI, DB, IDs, workspace, storage або connection model і не
+блокують design application contracts у C03.
 
-Ці пункти не маскуються як завершені. Їх погоджуємо по одному за порядком у
-`docs/INDEX.md`.
+## Privacy та зовнішні джерела
+
+Git містить код, правила, schemas, порожні/вигадані examples і design.
+Матеріали справ, XLSX/PDF/DOCX/P7S, contacts, bank data, OAuth/DPAPI/secrets,
+runtime DB/logs і generated case maps залишаються поза Git.
+
+Старі CaseFlow/CMSD каталоги й protected case roots залишаються read-only.
+`D:\CMSD\offline_bundle` залишається захищеним support asset; C02 його не
+читає, не копіює й не змінює.
+
+## Transition
+
+Architecture gate C02 дає C03 достатні рішення для commands, queries, DTOs,
+ports, Unit of Work і versioned local API. Фактичне розблокування наступного
+controller package після `TECH PASS` потребує окремого `GITHUB SYNCED`; цей
+статус не є дозволом на commit/push і не виконує їх автоматично.

@@ -1,47 +1,58 @@
-# CSMD Documentation Manifest
+# VARTA architecture documentation manifest
 
 | Metadata | Value |
 |---|---|
-| Status | `DRAFT` |
-| Version | `v0.1` |
-| Date | `2026-07-24` |
+| Status | `ACTIVE` |
+| Version | `v1.0` |
+| Date | `2026-08-18` |
 
-Цей пакет є початковим узгодженим набором проєктної документації CSMD. Усі документи мають статус чернетки та потребують окремого затвердження.
+## Approved C02 decision package
 
-## Файли
+| File | Status | Purpose |
+|---|---|---|
+| `ADR-001-system-architecture.md` | `APPROVED` | local-first modular application, local web і dependency direction |
+| `ADR-002-source-of-truth.md` | `APPROVED` | SQLite/managed-filesystem authority та projection roles |
+| `ADR-003-migrations-backup-and-restore.md` | `APPROVED` | forward-only migrations і recovery model |
+| `ADR-004-identity-and-cardinality.md` | `APPROVED` | opaque IDs, external references, many-to-many |
+| `ADR-005-workspace-and-managed-storage.md` | `APPROVED` | multi-case workspace, zones і `.caseflow` transition |
+| `ADR-006-local-http-security.md` | `APPROVED` | loopback Host/Origin/CSRF/CSP boundary |
+| `ADR-007-sqlite-uow-and-workers.md` | `APPROVED` | per-operation UoW і isolated worker finalize |
+| `technical-specification.md` | `APPROVED` | synchronized product/acceptance contract |
+| `architecture-decision-log.md` | `ACTIVE` | ADR status registry |
+| `open-questions.md` | `ACTIVE` | versioned owner/gate routing |
+| `README.md` | `ACTIVE` | package entrypoint and priority |
+
+## Supporting legacy/target documents
 
 | File | Purpose |
 |---|---|
-| `README.md` | Опис системи, межі та принципи роботи |
-| `ADR-001-system-architecture.md` | Рішення про local-first архітектуру |
-| `technical-specification.md` | Початкове технічне завдання |
 | `data-model.md` | Концептуальна модель даних SQLite |
-| `external-integrations-schema.json` | Чернетка конфігурації зовнішніх інтеграцій; Airtable вимкнено |
+| `external-integrations-schema.json` | Конфігурація optional integrations; Airtable disabled |
 | `document-types.yaml` | Початковий класифікатор типів документів |
 | `status-codes.yaml` | Канонічні машинні статуси та результати |
-| `folder-structure.md` | Структура локального сховища даних |
+| `folder-structure.md` | Деталізація target managed zones |
 | `naming-convention.md` | Правила назв файлів, каталогів та ідентифікаторів |
-| `signature-verification-requirements.md` | Вимоги до перевірки КЕП та ключових контейнерів |
-| `matching-rules.md` | Рівні й результати зіставлення документів |
-| `attachment-validation-rules.md` | Правила перевірки заявлених і фактичних додатків |
-| `anonymized-example-packages.md` | Знеособлені приклади пакетів для тестів |
-| `expected-reports.md` | Очікувані звіти та їх мінімальний склад |
-| `python-project-structure.md` | Рекомендована структура Python-репозиторію |
-| `integrations-api.md` | Контракти адаптерів зовнішніх систем без конкретних API |
-| `architecture-decision-log.md` | Реєстр архітектурних рішень |
+| `signature-verification-requirements.md` | Вимоги до КЕП та key boundaries |
+| `matching-rules.md` | Рівні й результати document matching |
+| `attachment-validation-rules.md` | Заявлені та фактичні додатки |
+| `anonymized-example-packages.md` | Privacy-safe fixture policy |
+| `expected-reports.md` | Мінімальний склад reports |
+| `python-project-structure.md` | Target dependency/package direction |
+| `integrations-api.md` | Optional adapter contracts |
 
 ## Пріоритет джерел
 
-1. Поточна явна команда користувача.
+1. Поточна явна команда користувача та `AGENTS.md`.
 2. `APPROVED` ADR.
-3. Чинне технічне завдання.
-4. Модель даних та затверджені контракти.
-5. Поточний репозиторій.
-6. Довідкові матеріали.
-7. Чернетки та архівні матеріали.
+3. `APPROVED` technical specification.
+4. Versioned schema/API/profile/export contracts.
+5. Канонічні VARTA status/roadmap documents.
+6. Перевірений код і тести як implementation evidence.
+7. Успадковані drafts і read-only migration materials.
 
-## Відкриті питання
+## Governance
 
-- Хто затверджує документи та змінює статус із `DRAFT` на `APPROVED`?
-- Який механізм версіонування документації буде канонічним?
-- Чи потрібні контрольні SHA-256 для самого пакета документації?
+Архітектурну зміну оформлюють новим ADR; старе рішення отримує
+`SUPERSEDED`. Implementation changes мають records у `docs/changes/`.
+Open decisions зберігають stable ID, owner stage й closing gate у
+`open-questions.md`; безвласних open questions бути не повинно.

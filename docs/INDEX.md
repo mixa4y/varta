@@ -5,29 +5,28 @@
 1. `../README.md` — назва, межа продукту, структура й запуск.
 2. `../PROJECT_STATUS.md` — підтверджений поточний стан і відкриті рішення.
 3. `../AGENTS.md` — правила роботи в репозиторії та privacy boundary.
-4. `action-algorithm.md` — порядок оцінки, рішень, реалізації та приймання.
-5. `interactive/varta-action-map.html` — інтерактивне подання етапів `A0`–`A12`.
-6. `blueprints/evidence-map-blueprint.md` — універсальна специфікація мапи.
-7. `airtable-sql-migration.md` — повне відображення Airtable у SQLite.
-8. `source-inventory.md` — що перенесено й що свідомо виключено.
-9. `../config/schemas/case-profile.schema.json` — контракт профілю справи.
-10. `../config/schemas/map-data.schema.json` — контракт snapshot мапи.
-11. `../templates/case/case-profile.example.json` — порожній профіль.
-12. `../templates/evidence-map/map-data.example.json` — порожній snapshot.
-13. `../caseflow/static/legal-case-map.html` — дизайн офлайн-в’юхи.
-
-## Поза baseline 0.1.0
-
-Пара `chat-roadmap.md` / `interactive/varta-chat-roadmap.html` була створена
-паралельно іншою задачею. Вона не входить до baseline commits, не є частиною
-цього канонічного індексу й потребує окремого content/provenance review.
+4. `architecture/architecture-decision-log.md` — approved ADR-реєстр C02.
+5. `architecture/technical-specification.md` — approved target/acceptance spec.
+6. `architecture/open-questions.md` — versioned owner/gate routing.
+7. `action-algorithm.md` — порядок оцінки, рішень, реалізації та приймання.
+8. `interactive/varta-action-map.html` — інтерактивне подання етапів `A0`–`A12`.
+9. `chat-roadmap.md` — канонічні work packages `C01`–`C16`/`P01`–`P04`.
+10. `interactive/varta-chat-roadmap.html` — статичне/live companion-подання.
+11. `roadmap-controller.md` — execution/Git checkpoint contract.
+12. `blueprints/evidence-map-blueprint.md` — універсальна специфікація мапи.
+13. `airtable-sql-migration.md` — повне відображення Airtable у SQLite.
+14. `source-inventory.md` — що перенесено й що свідомо виключено.
+15. `../config/schemas/case-profile.schema.json` — контракт профілю справи.
+16. `../config/schemas/map-data.schema.json` — контракт snapshot мапи.
+17. `../templates/case/case-profile.example.json` — порожній профіль.
+18. `../templates/evidence-map/map-data.example.json` — порожній snapshot.
+19. `../caseflow/static/legal-case-map.html` — дизайн офлайн-в’юхи.
 
 ## Імпортовані матеріали для звірки
 
-Каталог `architecture/` містить успадкований пакет проєктної документації
-CMSD. Його файли не стають автоматично погодженими лише через перенесення.
-Якщо правило суперечить канонічним документам вище, до окремого рішення діє
-канонічний baseline VARTA.
+Каталог `architecture/` містить approved C02 ADR/spec package та успадковані
+detail drafts. Лише файли зі статусом `APPROVED`/`ACTIVE` у manifest входять
+до чинної architecture boundary. За суперечності draft поступається ADR.
 
 ## Порядок спільного перегляду
 

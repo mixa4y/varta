@@ -35,12 +35,21 @@ VARTA/
 Репозиторій не містить PDF/DOCX/P7S, реєстрів XLSX, персональних даних,
 OAuth-токенів, локальних індексів або згенерованої мапи конкретної справи.
 
-## Локальна база даних
+## Локальна архітектура та джерело істини
 
-SQLite і файлове сховище є джерелом істини. Під час першого запуску VARTA
-застосовує versioned SQL migrations і створює базу
-`<workspace>\.caseflow\varta.sqlite3`. Перехідна назва `.caseflow` збережена
-для сумісності та не визначає назву продукту.
+VARTA використовує embedded browser UI тільки на loopback. UI викликає
+application services через versioned local HTTP API; цільова dependency
+boundary не дозволяє UI або workers напряму працювати з repository.
+
+Authoritative state — SQLite + managed filesystem. SQLite є єдиним writable
+structured source of truth, а managed filesystem зберігає registered bytes та
+immutable originals. XLSX/JSON/HTML є import/export/projection artifacts.
+
+Чинний baseline під час першого запуску застосовує versioned SQL migrations і
+створює `<workspace>\.caseflow\varta.sqlite3`. Це legacy compatibility fact.
+Approved target — `<workspace>\.varta\database\varta.sqlite3` та managed
+storage zones; перехід відбудеться лише через read-only inventory,
+reconciliation і explicit migration, без silent rename або видалення.
 
 Історична Airtable-модель перенесена повністю: 9 таблиць, 127 полів,
 38 зв'язків і 12 computed fields. Вона збережена як privacy-safe schema
@@ -107,5 +116,6 @@ version manifest входять до доставки. Push, PR і release не 
 
 Поточний baseline навмисно зберігає внутрішні назви Python-пакета `caseflow`
 і runtime-каталогу `.caseflow` для сумісності. Користувацький продукт,
-manifest, EXE та в’юха вже називаються VARTA. Міграція внутрішніх назв —
-окреме рішення після перевірки першого консолідованого стану.
+manifest, EXE та в’юха вже називаються VARTA. Target migration затверджено
+`ADR-005`, але її реалізація належить наступним packages і не виконувалась у
+C02. Повний decision package: `docs/architecture/architecture-decision-log.md`.

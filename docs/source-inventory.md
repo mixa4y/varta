@@ -44,18 +44,25 @@
 - `.caseflow` runtime indices, tokens, secrets and logs;
 - scripts tied only to a numbered historical batch.
 
-## Known consolidation gaps
+## Approved decisions with pending implementation
 
 The first baseline preserves working internals before deeper refactoring.
-The following items require a deliberate review in later steps:
+C02 approved the target boundaries; the following items remain implementation
+work and must not be described as undecided architecture:
 
-1. reconcile the draft CMSD repository with the XLSX-based CaseFlow pipeline;
-2. decide whether `.caseflow` remains a compatibility name or migrates to
-   `.varta`;
+1. route the CMSD repository and XLSX-based CaseFlow pipeline through
+   application services (`C03`, `C06`, `C09`);
+2. migrate read-only `.caseflow` compatibility state to the approved `.varta`
+   target only after inventory/reconciliation (`C05`, `C09`, `C15`);
 3. replace the case-specific evidence-map generator with the generic profile
    contract;
-4. align document/event case and proceeding cardinalities with the approved
-   domain model;
+4. implement approved opaque IDs and many-to-many document/event proceeding
+   cardinalities (`C07`, `C08`);
 5. decide when compatibility script/module names containing `caseflow` migrate
    to native VARTA names;
-6. choose the authoritative workspace layout for one or multiple cases.
+6. implement the approved one-workspace/one-DB/many-case layout and explicit
+   active-case context (`C05`, `C07`).
+
+Approved decisions are recorded in `architecture/ADR-001`–`ADR-007`; open
+archive/encryption/scale/recovery details have owner stages in
+`architecture/open-questions.md`.

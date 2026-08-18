@@ -95,7 +95,7 @@
 
     .stats {
       display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
       gap: 0.65rem;
       margin: 0.4rem 0 1rem;
     }
@@ -249,6 +249,7 @@
       box-shadow: 0 0 0 0.32rem var(--bg);
     }
 
+    .step[data-status="done"] .dot { background: var(--green); box-shadow: 0 0 0 0.32rem var(--bg), 0 0 0.8rem rgb(67 224 141 / 45%); }
     .step[data-status="ready"] .dot { background: var(--green); }
     .step[data-status="partial"] .dot { background: var(--yellow); }
     .step[data-status="blocked"] .dot { background: var(--red); }
@@ -295,6 +296,7 @@
       white-space: nowrap;
     }
 
+    .step[data-status="done"] .status,
     .step[data-status="ready"] .status { color: var(--green); }
     .step[data-status="partial"] .status { color: var(--yellow); }
     .step[data-status="blocked"] .status { color: var(--red); }
@@ -459,8 +461,9 @@
   </nav>
 
   <header>
-    <h1>VARTA: roadmap окремих чатів</h1>
+    <h1>VARTA: пакети C01–C16 у Codex</h1>
     <p class="decision">Ціль: local web UI на loopback → application services → SQLite і managed filesystem → локальні workers → відтворювані Evidence Map, reports та sealed exports. Notion не входить до системи.</p>
+    <p class="small muted">Версія 1.2 · синхронізовано 18.08.2026 · C02 architecture decisions approved; implementation лишається у наступних packages.</p>
   </header>
 
   <section id="controller-panel" class="controller-panel" data-state="offline" aria-live="polite">
@@ -474,9 +477,10 @@
   <p class="path small"><b>Двофазний gate:</b> технічний <code>PASS</code> ще нічого не публікує. Після нього окрема підтверджена кнопка запускає Git audit → exact staging → commit → push у <code>codex/*</code> → Draft PR. Наступний залежний stage відкривається лише після статусу <code>GITHUB SYNCED</code>; merge, tag і release залишаються окремими ручними рішеннями.</p>
 
   <section class="stats" aria-label="Поточний стан work packages">
+    <div class="stat small" data-tone="ready"><span>Gate завершено</span><b>2</b></div>
     <div class="stat small" data-tone="ready"><span>Можна почати зараз</span><b>1</b></div>
-    <div class="stat small" data-tone="partial"><span>Є часткова реалізація</span><b>9</b></div>
-    <div class="stat small" data-tone="blocked"><span>Заблоковано рішенням</span><b>2</b></div>
+    <div class="stat small" data-tone="partial"><span>Є часткова реалізація</span><b>8</b></div>
+    <div class="stat small" data-tone="blocked"><span>Заблоковано рішенням</span><b>1</b></div>
     <div class="stat small" data-tone="planned"><span>Очікують prerequisites</span><b>4</b></div>
   </section>
 
@@ -490,16 +494,16 @@
 
   <h2 class="phase">Фаза I — стабілізація й рішення</h2>
   <div class="roadmap">
-    <article class="step" data-stage-id="C01" data-status="ready">
+    <article class="step" data-stage-id="C01" data-status="done">
       <div class="rail"><span class="dot"></span></div>
       <details open>
-        <summary><span class="id">C01</span><span class="title"><b>Стабілізація поточного working baseline</b><small>Підготувати напрацювання до наступного етапу</small></span><span class="status">READY</span></summary>
+        <summary><span class="id">C01</span><span class="title"><b>Стабілізація поточного working baseline</b><small>Підготувати напрацювання до наступного етапу</small></span><span class="status">DONE</span></summary>
         <div class="body">
           <div class="meta small"><span>Product stage: A0</span><span>Prerequisite: немає</span><span>Новий чат: VARTA C01 — стабілізація поточного working baseline</span></div>
           <div class="grid">
-            <section><h3>Що є</h3><ul><li>Branch <code>codex/stabilize-baseline</code>, HEAD <code>bc51a00…</code>, 0 tracked changes, 0 staged і 14 untracked entries.</li><li>Roadmap/controller та окремий <code>.github/</code> scope ще не класифіковані для exact staging.</li><li>12 targeted controller tests і повний suite <code>94 passed</code>; gates повторюються перед checkpoint.</li></ul></section>
-            <section><h3>Що зробити</h3><ol><li>Повний inventory diff/staged/untracked.</li><li>Розкласти файли й hunks на logical patches.</li><li>Перевірити package data, quality й privacy gates.</li><li>Повторити runtime smoke; підготувати change records і handoff.</li></ol></section>
-            <section><h3>Результат</h3><p>Відтворюваний, пояснений baseline без втрати користувацьких змін і без автоматичного commit/push.</p></section>
+            <section><h3>Що є</h3><ul><li>Branch <code>codex/stabilize-baseline</code>, HEAD <code>c3a5b12…</code> на старті C02.</li><li>Roadmap/controller і <code>.github</code> guidance класифіковані та tracked.</li><li>12 targeted controller tests і повний suite <code>94 passed</code>.</li></ul></section>
+            <section><h3>Виконано</h3><ol><li>Повний inventory diff/staged/untracked.</li><li>Logical patch manifests і exact scopes.</li><li>Package data, quality й privacy gates.</li><li>Runtime restart smoke, change records і handoff.</li></ol></section>
+            <section><h3>Результат</h3><p>Відтворюваний C01 baseline синхронізовано; C02 стартував із clean tree.</p></section>
             <section><h3>Перевірка</h3><ul><li>pytest, Ruff, mypy, compileall.</li><li>working/cached diff check і privacy scan.</li><li>HTTP 200, SQLite write/read після restart.</li></ul></section>
           </div>
           <div class="gate"><b>Gate:</b> кожна зміна має власника patch; усі checks зелені; наступний чат не мусить вгадувати походження state.</div>
@@ -508,28 +512,28 @@
       </details>
     </article>
 
-    <article class="step" data-stage-id="C02" data-status="partial">
+    <article class="step" data-stage-id="C02" data-status="done">
       <div class="rail"><span class="dot"></span></div>
       <details>
-        <summary><span class="id">C02</span><span class="title"><b>Local web, source of truth і ключові ADR</b><small>Формалізувати цільову архітектуру до refactor</small></span><span class="status">PARTIAL</span></summary>
+        <summary><span class="id">C02</span><span class="title"><b>Local web, source of truth і ключові ADR</b><small>Формалізувати цільову архітектуру до refactor</small></span><span class="status">DONE</span></summary>
         <div class="body">
           <div class="meta small"><span>Product stage: A1</span><span>Prerequisite: C01</span><span>Notion: поза системою</span></div>
           <div class="grid">
-            <section><h3>Що є</h3><ul><li>Python + SQLite + filesystem і loopback web UI вже обрані.</li><li>ADR-001 та UI decision у legacy spec ще DRAFT/open.</li><li>Workspace, backup і <code>.caseflow</code> transition не затверджені.</li></ul></section>
-            <section><h3>Що зробити</h3><ol><li>Затвердити local-web architecture.</li><li>ADR для SQLite authority, migrations/restore, IDs, workspace/storage.</li><li>ADR local HTTP security: loopback, Host/Origin, CSRF, CSP.</li><li>Синхронізувати spec/status без реалізації коду.</li></ol></section>
-            <section><h3>Результат</h3><p>Одна dependency direction і повний набір рішень для application layer, data lifecycle та UI.</p></section>
-            <section><h3>Перевірка</h3><ul><li>Кожен ADR має alternatives/consequences.</li><li>Немає суперечностей щодо source of truth/UI.</li><li>Кожне open question має owner stage.</li></ul></section>
+            <section><h3>Що є</h3><ul><li><code>ADR-001</code>–<code>ADR-007</code> approved.</li><li>Local web/loopback, no Notion і SQLite + managed-filesystem authority формалізовані.</li><li>Workspace, <code>.caseflow</code> transition, UoW та isolated workers мають target contracts.</li></ul></section>
+            <section><h3>Виконано</h3><ol><li>Затверджено local-web architecture й source-of-truth roles.</li><li>Зафіксовано migrations/restore, IDs, workspace/storage.</li><li>Зафіксовано Host/Origin/CSRF/CSP і connection/worker boundaries.</li><li>Spec/status/roadmap синхронізовано без refactor коду.</li></ol></section>
+            <section><h3>Результат</h3><p>Одна dependency direction і повний набір рішень для C03 application contracts.</p></section>
+            <section><h3>Перевірка</h3><ul><li>Кожен ADR має context/decision/rejected alternatives/consequences/migration impact.</li><li>Немає суперечностей щодо source of truth/UI.</li><li>Кожне open decision має owner stage і closing gate.</li></ul></section>
           </div>
-          <div class="gate"><b>Gate:</b> C03 може визначити contracts без прихованого вибору DB, UI, IDs, workspace чи backup.</div>
+          <div class="gate"><b>Gate:</b> PASS — C03 може визначити contracts без прихованого вибору DB, UI, IDs, workspace, storage, connection чи workers. GitHub sync лишається окремим gate.</div>
           <div class="prompt-wrap"><button type="button" class="copy-prompt">Скопіювати стартовий запит</button><pre class="prompt">Виконай тільки C02. Формалізуй архітектуру VARTA: без Notion, local web UI на loopback, SQLite + managed filesystem як source of truth, application-service boundary і isolated workers. Синхронізуй ADR/spec/status. Не починай refactor коду.</pre></div>
         </div>
       </details>
     </article>
 
-    <article class="step" data-stage-id="C03" data-status="blocked">
+    <article class="step" data-stage-id="C03" data-status="ready">
       <div class="rail"><span class="dot"></span></div>
       <details>
-        <summary><span class="id">C03</span><span class="title"><b>Application services, ports і local API v1</b><small>Відділити use cases від HTTP, SQLite та UI</small></span><span class="status">BLOCKED</span></summary>
+        <summary><span class="id">C03</span><span class="title"><b>Application services, ports і local API v1</b><small>Відділити use cases від HTTP, SQLite та UI</small></span><span class="status">READY</span></summary>
         <div class="body">
           <div class="meta small"><span>Product stage: A1 / A8 foundation</span><span>Prerequisite: C02</span></div>
           <div class="grid">

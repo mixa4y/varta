@@ -2,9 +2,9 @@
 
 **Тип документа:** канонічний порядок аналізу, реалізації та приймання змін
 
-**Версія:** 1.2
+**Версія:** 1.3
 
-**Дата оцінки:** 11.08.2026
+**Дата оцінки:** 18.08.2026
 
 **Статус:** `ACTIVE` — рішення погоджуються й реалізуються покроково
 
@@ -73,19 +73,17 @@ VARTA.exe    packaged API/SQLite smoke passed; 2 migrations applied
 ZIP або RAR. Числові шаблони справ і проваджень у тестах є явно вигаданими
 fixtures, а не матеріалами реальної справи.
 
-На початку аудиту робоче дерево містило 27 змінених tracked-файлів,
-10 untracked-файлів і розходження staged/working документації (`MM`/`AM`).
-Застарілий staging чотирьох документів очищено без зміни working content.
-Відносно base `0c263f7b83a05cdd7eae5635350740f50ab51dbe` 38 погоджених шляхів
-розділено на шість P0 commits; multipart зміни у двох спільних файлах винесено
-в окремий `HOLD-1` commit. Гілка `codex/stabilize-baseline` відтворює цей стан
-без unstaged tracked-змін.
+Початковий P0 tree було розділено на предметні commits і перевірено з clean
+checkout. C01 потім окремо стабілізував roadmap/controller scope та
+repository-guidance scope. На старті C02 controller зафіксував чистий
+`codex/stabilize-baseline` на
+`c3a5b122894e81aff2d82078df7e38e5659d3733`: tracked/staged/untracked status
+empty. `docs/chat-roadmap.md`, його interactive companion і controller тепер є
+tracked C01 baseline, а не паралельними untracked файлами.
 
-Кожний staged patch перевірено зі своїм clean checkout. Фінальний checkout
-пройшов 82 тести, wheel install smoke і packaged EXE smoke. Два пізніше
-створені сторонні untracked-файли — `docs/chat-roadmap.md` і
-`docs/interactive/varta-chat-roadmap.html` — не належать до цього P0 scope й
-не включені до жодного baseline commit.
+C01 evidence: 94 tests, Ruff, mypy, compileall, wheel/install proof,
+synthetic HTTP/SQLite restart smoke і privacy scan passed. C02 змінює лише
+architecture/spec/status/tests і не виконує product refactor.
 
 ### 3.2. Що вже реально існує
 
@@ -125,7 +123,8 @@ API — до наскрізного application flow:
 
 ### 3.4. Що ще не є завершеною системою
 
-- `ADR-001` досі має статус `DRAFT`;
+- `ADR-001`–`ADR-007` затверджені C02, але implementation boundaries ще не
+  перенесено повністю в код;
 - CaseFlow pipeline та SQLite repository ще не утворюють один application
   flow для intake та Evidence Map;
 - XLSX/`.caseflow` ще потребують контрольованого read-only adapter до SQLite;
@@ -140,8 +139,8 @@ API — до наскрізного application flow:
 - Evidence Map ще не генерується детерміновано із SQLite;
 - sealed export не має повного generator/manifest/validation flow;
 - немає перевіреного backup-and-restore release gate;
-- `.caseflow` залишається compatibility runtime, а `.varta` ще не введено
-  безпечною міграцією.
+- `.caseflow` залишається compatibility runtime; target `.varta` затверджено,
+  але safe migration ще не реалізовано.
 
 ### 3.5. Головний архітектурний ризик
 
@@ -195,16 +194,21 @@ case_docket core    -> draft SQLite repository
 |---|---|---|---|
 | `D-01` | Repository authority | SQLite є єдиним writable source of truth; XLSX — import/export compatibility adapter | `ESTABLISHED` |
 | `D-02` | Міграції | Явні versioned `.sql` files, checksum, transaction і Python migration runner; без ORM у першому vertical slice | `ESTABLISHED` |
-| `D-03` | Workspace | Одна локальна БД може містити багато справ; UI працює з однією active case за раз | `PROPOSED` |
+| `D-03` | Workspace | Одна локальна БД може містити багато справ; UI працює з нулем/однією active case за раз | `APPROVED` (`ADR-005`) |
 | `D-04` | Ідентичність | Внутрішні opaque IDs не залежать від номера справи, імені чи шляху; external references зберігаються окремо | `ESTABLISHED` |
 | `D-05` | Фізичне сховище | Оригінал адресується через `file_id`; користувацька назва є metadata/managed view | `ESTABLISHED` |
-| `D-06` | Legacy state | Спочатку read-only importer `.caseflow`/XLSX, потім контрольована міграція до `.varta`; без мовчазного перейменування | `PROPOSED` |
+| `D-06` | Legacy state | Спочатку read-only importer `.caseflow`/XLSX, потім контрольована міграція до `.varta`; без мовчазного перейменування | `APPROVED` (`ADR-005`) |
 | `D-07` | UI boundary | Local UI викликає application services; не читає SQLite та не реалізує domain rules напряму | `ESTABLISHED` |
-| `D-08` | Rollback | Для data migrations rollback означає перевірене відновлення узгодженої backup-копії, а не destructive down migration | `PROPOSED` |
+| `D-08` | Rollback | Для data migrations rollback означає перевірене відновлення узгодженої backup-копії, а не destructive down migration | `APPROVED` (`ADR-003`) |
+| `D-09` | Primary UI | Embedded browser UI працює тільки на explicit loopback; CLI є adapter | `APPROVED` (`ADR-001`) |
+| `D-10` | Local HTTP security | Host/Origin/CSRF/CSP, no remote assets, no LAN без нового ADR | `APPROVED` (`ADR-006`) |
+| `D-11` | SQLite/worker lifecycle | Short-lived UoW/connection per operation; workers без shared/direct repository connection | `APPROVED` (`ADR-007`) |
+| `D-12` | Notion | Поза runtime, docs workflow, integrations і source of truth | `APPROVED` (`ADR-001`) |
 
-`PROPOSED` не означає автоматичного затвердження. `ESTABLISHED` позначає
-рішення, яке вже прямо погоджене, реалізоване й підтверджене тестами; це не
-змінює статусу інших рядків автоматично.
+`APPROVED` позначає чинну architecture boundary, але не проголошує її
+реалізованою. `ESTABLISHED` позначає рішення, яке також має current
+implementation evidence. Versioned archive/encryption/scale/recovery details
+мають owner/gate у `architecture/open-questions.md`.
 
 ## 6. Алгоритм виконання кожної окремої зміни
 
@@ -388,7 +392,7 @@ Commit, push, release або зовнішня публікація викону�
 | Етап | Результат | Поточний стан | Залежність |
 |---|---|---|---|
 | `A0` | Підтверджений консолідований baseline | `DONE` | — |
-| `A1` | Погоджені ADR для repository, IDs, workspace і migrations | `PARTIAL` | `A0` |
+| `A1` | Погоджені ADR для local web, repository, IDs, workspace, migrations і workers | `DONE` | `A0` |
 | `A2` | Versioned SQLite schema та migration runner | `DDL/RUNNER DONE`, delivery gate `PARTIAL` | `A1` |
 | `A3` | Immutable storage та intake vertical slice | `PARTIAL` | `A2` |
 | `A4` | Визначення/підтвердження справи з першого документа | `READY` після `A3` | `A3` |
@@ -422,16 +426,24 @@ Commit, push, release або зовнішня публікація викону�
 
 **Мета:** перетворити критичні open questions на версійовані рішення.
 
-Мінімальний набір:
+Затверджений набір C02:
 
-- `ADR-001`: підтвердити або замінити local-first архітектуру;
+- `ADR-001`: local-first modular architecture, embedded local web, no Notion;
 - `ADR-002`: SQLite authority і роль XLSX adapter;
 - `ADR-003`: schema migrations, backup та restore;
 - `ADR-004`: identifier strategy і cardinalities;
-- `ADR-005`: workspace, immutable storage та `.caseflow`/`.varta` transition.
+- `ADR-005`: workspace, immutable storage та `.caseflow`/`.varta` transition;
+- `ADR-006`: loopback Host/Origin/CSRF/CSP security boundary;
+- `ADR-007`: per-operation SQLite UoW та isolated workers.
 
-**Критерій завершення:** кожне рішення має статус `APPROVED` або явно
-відхилений варіант; суперечності між blueprint і architecture drafts усунено.
+Archive variants, encryption, target corpus scale і numeric recovery
+objectives мають stable IDs, owner stages і closing gates у
+`architecture/open-questions.md`; вони не блокують C03 contracts.
+
+**Критерій завершення:** `DONE` — усі сім ADR мають `APPROVED`, context,
+decision, rejected alternatives, consequences і migration impact;
+technical spec/status/roadmap синхронізовані, а C03 не мусить приховано
+обирати UI, DB, IDs, workspace, storage, connection або worker boundary.
 
 ### 7.4. Етап A2 — SQLite schema та migrations
 
