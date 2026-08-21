@@ -3,7 +3,7 @@
 | Metadata | Value |
 |---|---|
 | Status | `APPROVED` |
-| Version | `v1.0` |
+| Version | `v1.1` |
 | Decision date | `2026-08-18` |
 | Architecture gate | `C02 PASS`; implementation remains staged in `C03`–`C16` |
 
@@ -119,8 +119,9 @@ error. Помилка одного entry не приховує успішні. O
 у managed storage без зміни source bytes; SHA-256 перевіряється повторно без
 модифікації файла.
 
-Перший required contract: file, folder і ZIP. Інші/nested/encrypted archive
-capabilities закриває `OQ-C02-001` у `C06`.
+Перший required contract: file, folder і top-level ZIP. `OQ-C02-001` закрито
+у C06: nested ZIP зберігається без recursive expansion, encrypted member
+failed, інші archive formats потребують explicit adapter/capability.
 
 ## Processing and review
 
@@ -162,14 +163,14 @@ Evidence Map, inventory, timeline й reports генеруються з applicati
 - Performance targets не вигадуються; `C16` версіонує corpus profile й вимірює
   його до release gate (`OQ-C02-003`).
 
-## Versioned open decisions
+## Versioned decision register
 
-| ID | Owner | Closing gate | Current constraint |
-|---|---|---|---|
-| `OQ-C02-001` archive variants | `C06` | `C06 PASS` | required file/folder/ZIP only; extra capability explicit |
-| `OQ-C02-002` encryption at rest | `C15` | `C15 PASS` | no encryption claim; Windows account/ACL boundary |
-| `OQ-C02-003` target corpus scale | `C16` | `C16 TECH PASS` | version acceptance profile before measuring |
-| `OQ-C02-004` RPO/RTO/retention | `C15` | `C15 PASS` | consistent completed backup/restore contract only |
+| ID | Status | Owner | Closing gate | Current constraint/decision |
+|---|---|---|---|---|
+| `OQ-C02-001` archive variants | `CLOSED C06` | `C06` | `C06 PASS` | top-level ZIP only; nested stored/not expanded; encrypted/duplicate/corrupt/traversal explicit; extra formats require adapter |
+| `OQ-C02-002` encryption at rest | `OPEN` | `C15` | `C15 PASS` | no encryption claim; Windows account/ACL boundary |
+| `OQ-C02-003` target corpus scale | `OPEN` | `C16` | `C16 TECH PASS` | version acceptance profile before measuring |
+| `OQ-C02-004` RPO/RTO/retention | `OPEN` | `C15` | `C15 PASS` | consistent completed backup/restore contract only |
 
 Повний routing legacy questions: [`open-questions.md`](open-questions.md).
 

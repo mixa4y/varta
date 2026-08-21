@@ -139,6 +139,45 @@ def test_c05_managed_storage_contract_is_registered_and_keeps_intake_boundary() 
     assert "Layout version | `1`" in text
     assert "literal source provenance" in text
     assert "duplicate_of_file_ids" in text
-    assert "не підключений до upload/HTTP UI" in text
+    assert "C06 підключає service до versioned multipart API" in text
+    assert "legacy `/api/upload` лишається compatibility path" in text
     assert "`managed-storage.md` | `ACTIVE`" in manifest
     assert "architecture/managed-storage.md" in index
+
+
+def test_c06_intake_contract_is_registered_and_http_adapter_stays_thin() -> None:
+    contract = ROOT / "docs" / "architecture" / "intake-v1.md"
+    text = contract.read_text(encoding="utf-8")
+    manifest = (ROOT / "docs" / "architecture" / "MANIFEST.md").read_text(
+        encoding="utf-8"
+    )
+    index = (ROOT / "docs" / "INDEX.md").read_text(encoding="utf-8")
+
+    assert "| Status | `ACTIVE` |" in text
+    assert "`0008_intake_batches`" in text
+    assert "top-level ZIP" in text
+    assert "encrypted_archive_member" in text
+    assert "authority: \"sqlite\"" in text
+    assert "`intake-v1.md` | `ACTIVE`" in manifest
+    assert "architecture/intake-v1.md" in index
+
+    path = ROOT / "caseflow" / "server.py"
+    source = path.read_text(encoding="utf-8")
+    tree = ast.parse(source, filename=str(path))
+    handler = next(
+        node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == "Handler"
+    )
+    names = {"handle_intake_upload", "handle_intake_inventory", "handle_intake_batch"}
+    methods = [
+        node for node in handler.body if isinstance(node, ast.FunctionDef) and node.name in names
+    ]
+    assert {method.name for method in methods} == names
+    for method in methods:
+        method_source = ast.get_source_segment(source, method) or ""
+        assert "intake_service" in method_source
+        assert ".repository" not in method_source
+        assert "SQLite" not in method_source
+        assert ".xlsx" not in method_source.casefold()
+
+    pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    assert 'varta-intake = "case_docket.intake_cli:main"' in pyproject

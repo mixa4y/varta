@@ -122,8 +122,8 @@ literal name до managed target.
 
 Source root, кожен source component, managed root і registered object
 перевіряються через `lstat`; symlink/reparse-point escape не follow-иться.
-Archive extraction тут не реалізовано: C06 мусить викликати той самий validator
-до створення будь-якого entry.
+Archive extraction тут не реалізовано: C06 intake adapter викликає той самий
+validator до materialization будь-якого ZIP member.
 
 ## Crash recovery і reconciliation
 
@@ -147,7 +147,8 @@ original лише через ім'я або розташування.
 
 ## Поточні обмеження
 
-- C05 service не підключений до upload/HTTP UI; це свідома межа до C06/C12.
+- C06 підключає service до versioned multipart API, CLI та SQLite inventory;
+  legacy `/api/upload` лишається compatibility path, а повний intake UI — C12.
 - V1 зберігає окремі bytes для duplicate provenance records; retention/dedup
   потребує окремого ADR і migration gate.
 - Read-only attribute не замінює Windows ACL, BitLocker або threat model;

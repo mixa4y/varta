@@ -37,11 +37,16 @@ from case_docket.application import (
     ContactService,
     GetContactQuery,
     GetContactsContextQuery,
+    IntakeCommand,
+    IntakeService,
     ListContactsQuery,
+    ListIntakeInventoryQuery,
     SystemClock,
     UuidProvider,
 )
-from case_docket.repository import SQLiteRepository, SQLiteUnitOfWorkFactory
+from case_docket.repository import SQLiteRepository
+from case_docket.runtime import build_intake_runtime
+from case_docket.storage import UnsafePathError, validate_archive_member_path
 
 from caseflow.api_v1 import (
     API_PREFIX,
@@ -51,8 +56,10 @@ from caseflow.api_v1 import (
     error_envelope,
     error_status,
     match_contact_route,
+    match_intake_route,
     parse_assign_contact_role,
     parse_create_contact,
+    parse_idempotency_key,
     parse_update_contact,
     success_envelope,
 )
@@ -412,7 +419,8 @@ class CaseFlowState:
         self.lock = threading.RLock()
         self.job_lock = threading.Lock()
         self.active_job: dict | None = None
-        self._database_factory = SQLiteUnitOfWorkFactory(self.database_path)
+        self._intake_runtime = build_intake_runtime(self.root)
+        self._database_factory = self._intake_runtime.unit_of_work_factory
         self._contact_service = ContactService(
             self._database_factory,
             UuidProvider(),
@@ -442,11 +450,19 @@ class CaseFlowState:
 
     @property
     def database_path(self) -> Path:
-        return self.root / ".caseflow" / "varta.sqlite3"
+        return self._intake_runtime.database_path
 
     @property
     def contact_service(self) -> ContactService:
         return self._contact_service
+
+    @property
+    def intake_service(self) -> IntakeService:
+        return self._intake_runtime.intake_service
+
+    @property
+    def intake_upload_root(self) -> Path:
+        return self._intake_runtime.filesystem.layout.zone("temp") / "http-intake"
 
     def prepare_database(self) -> None:
         """Complete legacy bootstrap before HTTP threads open short-lived UoWs."""
@@ -1326,6 +1342,7 @@ class Handler(BaseHTTPRequestHandler):
         parsed = urllib.parse.urlparse(self.path)
         versioned = self._is_versioned_path(parsed.path)
         contact_route = match_contact_route(parsed.path)
+        intake_route = match_intake_route(parsed.path)
         try:
             if parsed.path == "/api/status":
                 self.handle_status()
@@ -1338,6 +1355,15 @@ class Handler(BaseHTTPRequestHandler):
                 return
             if parsed.path == "/api/documents/tree":
                 self.handle_document_tree()
+                return
+            if intake_route is not None:
+                if intake_route.action == "inventory":
+                    self.handle_intake_inventory(urllib.parse.parse_qs(parsed.query))
+                    return
+                if intake_route.action == "detail" and intake_route.batch_id is not None:
+                    self.handle_intake_batch(intake_route.batch_id)
+                    return
+                self._send_route_not_found(versioned=True)
                 return
             if contact_route is not None:
                 if contact_route.action == "collection":
@@ -1376,9 +1402,14 @@ class Handler(BaseHTTPRequestHandler):
         route = urllib.parse.urlparse(self.path).path
         versioned = self._is_versioned_path(route)
         contact_route = match_contact_route(route)
+        intake_route = match_intake_route(route)
         try:
             self.require_csrf()
-            if contact_route is not None and contact_route.action == "collection":
+            if intake_route is not None and intake_route.action == "collection":
+                self.handle_intake_upload()
+            elif intake_route is not None:
+                self._send_route_not_found(versioned=True)
+            elif contact_route is not None and contact_route.action == "collection":
                 self.handle_contact_create(versioned=contact_route.versioned)
             elif (
                 contact_route is not None
@@ -1608,6 +1639,117 @@ class Handler(BaseHTTPRequestHandler):
             versioned=versioned,
         )
 
+    def handle_intake_inventory(self, query: dict[str, list[str]]) -> None:
+        batch_id = str(query.get("batchId", [""])[0]).strip() or None
+        inventory = self.state.intake_service.inventory(
+            ListIntakeInventoryQuery(batch_id=batch_id)
+        )
+        self.send_json(200, success_envelope({"inventory": inventory.to_dict()}))
+
+    def handle_intake_batch(self, batch_id: str) -> None:
+        inventory = self.state.intake_service.inventory(
+            ListIntakeInventoryQuery(batch_id=urllib.parse.unquote(batch_id))
+        )
+        self.send_json(
+            200,
+            success_envelope({"batch": inventory.batches[0].to_dict()}),
+        )
+
+    def handle_intake_upload(self) -> None:
+        idempotency_key = parse_idempotency_key(self.headers.get("Idempotency-Key"))
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+        except ValueError as exc:
+            raise RequestValidationError(
+                "Content-Length має бути цілим числом",
+                {"header": "Content-Length"},
+            ) from exc
+        if length <= 0 or length > MAX_UPLOAD_BYTES:
+            raise RequestValidationError(
+                "Некоректний або завеликий intake upload",
+                {"field": "body"},
+            )
+        upload_root = self.state.intake_upload_root
+        upload_root.mkdir(parents=True, exist_ok=True)
+        try:
+            with tempfile.TemporaryDirectory(prefix="request_", dir=upload_root) as temporary:
+                request_root = Path(temporary)
+                fields, uploads = parse_multipart_form(
+                    self.rfile,
+                    self.headers.get("Content-Type", ""),
+                    length,
+                    request_root,
+                )
+                if fields:
+                    raise RequestValidationError(
+                        "Intake multipart не приймає текстових fields",
+                        {"fields": sorted(fields)},
+                    )
+                payload_root = request_root / "payload"
+                payload_root.mkdir()
+                accepted_names: set[str] = set()
+                sources: list[tuple[Path, str]] = []
+                for item in uploads:
+                    if item.get("field") != "files" or not item.get("filename"):
+                        raise RequestValidationError(
+                            "Кожна upload part має бути files із filename",
+                            {"field": "files"},
+                        )
+                    raw_name = str(item["filename"])
+                    try:
+                        components = validate_archive_member_path(raw_name)
+                    except UnsafePathError as exc:
+                        raise RequestValidationError(
+                            "Upload filename порушує Windows/path policy",
+                            {"field": "files"},
+                        ) from exc
+                    relative = "/".join(components)
+                    collision_key = relative.casefold()
+                    if collision_key in accepted_names:
+                        raise RequestValidationError(
+                            "Upload містить case-insensitive duplicate path",
+                            {"field": "files"},
+                        )
+                    accepted_names.add(collision_key)
+                    target = payload_root.joinpath(*components)
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    Path(item["path"]).replace(target)
+                    sources.append((target, relative))
+                if not sources:
+                    raise RequestValidationError(
+                        "Intake upload не містить файлів",
+                        {"field": "files"},
+                    )
+
+                request_id = hashlib.sha256(idempotency_key.encode("utf-8")).hexdigest()[:32]
+                if len(sources) == 1 and "/" not in sources[0][1]:
+                    input_path = sources[0][0]
+                    source_uri = (
+                        f"upload://request/{request_id}/"
+                        f"{urllib.parse.quote(sources[0][1], safe='/')}"
+                    )
+                else:
+                    input_path = payload_root
+                    source_uri = f"upload://request/{request_id}"
+                batch = self.state.intake_service.intake(
+                    IntakeCommand(
+                        source=input_path,
+                        source_uri=source_uri,
+                        idempotency_key=idempotency_key,
+                    )
+                )
+        except RequestValidationError:
+            raise
+        except ValueError as exc:
+            raise RequestValidationError(
+                "Некоректний multipart intake upload",
+                {"field": "body"},
+            ) from exc
+        self.send_json(
+            200 if batch.replayed else 201,
+            success_envelope({"batch": batch.to_dict()}),
+        )
+
     def handle_document_status(self) -> None:
         payload = self.read_json_body()
         doc_id = str(payload.get("docId", "")).strip()
@@ -1713,6 +1855,10 @@ class Handler(BaseHTTPRequestHandler):
                 {
                     "server": {"product": "VARTA", "version": VARTA_VERSION},
                     "api": {"version": API_VERSION},
+                    "capabilities": {
+                        "intake": ["file", "folder", "zip"],
+                        "inventoryAuthority": "sqlite",
+                    },
                 }
             ),
         )

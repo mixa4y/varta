@@ -45,11 +45,17 @@ Authoritative state — SQLite + managed filesystem. SQLite є єдиним writ
 structured source of truth, а managed filesystem зберігає registered bytes та
 immutable originals. XLSX/JSON/HTML є import/export/projection artifacts.
 
-Чинний baseline під час першого запуску застосовує versioned SQL migrations і
-створює `<workspace>\.caseflow\varta.sqlite3`. Це legacy compatibility fact.
-Approved target — `<workspace>\.varta\database\varta.sqlite3` та managed
-storage zones; перехід відбудеться лише через read-only inventory,
-reconciliation і explicit migration, без silent rename або видалення.
+Fresh C06 runtime під час першого запуску застосовує migrations `0001`–`0008`
+і створює `<workspace>\.varta\database\varta.sqlite3` разом із managed storage
+zones. Якщо існує лише legacy `<workspace>\.caseflow\varta.sqlite3`, VARTA
+використовує й additively upgrades його in place без copy/move. Якщо існують
+обидві DB, запуск fail-иться explicit до reconciliation C09/C15, без silent
+authority choice, rename або видалення.
+
+File/folder/top-level-ZIP intake проходить application service, C05 immutable
+storage і SQLite batch/entry history. Inventory після restart читається тільки
+з SQLite; XLSX/JSON/HTML лишаються adapters/projections. Детальний status,
+idempotency й archive contract — `docs/architecture/intake-v1.md`.
 
 Історична Airtable-модель перенесена повністю: 9 таблиць, 127 полів,
 38 зв'язків і 12 computed fields. Вона збережена як privacy-safe schema
@@ -100,9 +106,11 @@ py -3.12 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -e .
 .\.venv\Scripts\python.exe -m pytest -q
 .\.venv\Scripts\varta.exe --root D:\Cases\example --open
+.\.venv\Scripts\varta-intake.exe --workspace D:\Cases\example add D:\Input\synthetic.txt --idempotency-key synthetic-001
+.\.venv\Scripts\varta-intake.exe --workspace D:\Cases\example inventory
 ```
 
-Перевірений live baseline на 11.08.2026: `82 passed`, Ruff clean, mypy clean
+Історичний clean baseline на 11.08.2026: `82 passed`, Ruff clean, mypy clean
 для 26 source files і compileall passed. Результат повторено з clean checkout
 гілки `codex/stabilize-baseline`, де 38 погоджених шляхів розділено на шість
 предметних P0 commits, а streaming multipart change винесено в окремий
@@ -114,8 +122,8 @@ version manifest входять до доставки. Push, PR і release не 
 Розділ **Контакти** підтримує пошук, створення, редагування повної картки та
 призначення ролі у справі або провадженні.
 
-Поточний baseline навмисно зберігає внутрішні назви Python-пакета `caseflow`
-і runtime-каталогу `.caseflow` для сумісності. Користувацький продукт,
-manifest, EXE та в’юха вже називаються VARTA. Target migration затверджено
-`ADR-005`, але її реалізація належить наступним packages і не виконувалась у
-C02. Повний decision package: `docs/architecture/architecture-decision-log.md`.
+Поточний baseline навмисно зберігає внутрішню назву Python-пакета `caseflow`
+і підтримує existing legacy `.caseflow` DB in place до reconciliation.
+Користувацький продукт, manifest, EXE та в’юха називаються VARTA; fresh
+structured/file authority уже використовує `.varta`. Повний decision package:
+`docs/architecture/architecture-decision-log.md`.

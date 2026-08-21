@@ -15,6 +15,7 @@ dependencies = [
 
 [project.scripts]
 varta = "caseflow.server:main"
+varta-intake = "case_docket.intake_cli:main"
 
 [project.optional-dependencies]
 dev = [

@@ -22,6 +22,7 @@ API_VERSION = "v1"
 API_PREFIX = f"/api/{API_VERSION}"
 CONTACTS_V1_PREFIX = f"{API_PREFIX}/contacts"
 CONTACTS_COMPATIBILITY_PREFIX = "/api/contacts"
+INTAKE_V1_PREFIX = f"{API_PREFIX}/intake"
 
 _CONTACT_FIELDS = {
     "full_name",
@@ -67,6 +68,12 @@ class ContactRoute:
     contact_id: str | None = None
 
 
+@dataclass(frozen=True, slots=True)
+class IntakeRoute:
+    action: Literal["collection", "inventory", "detail"]
+    batch_id: str | None = None
+
+
 def match_contact_route(path: str) -> ContactRoute | None:
     for prefix, versioned in (
         (CONTACTS_V1_PREFIX, True),
@@ -84,6 +91,33 @@ def match_contact_route(path: str) -> ContactRoute | None:
         if "/" not in tail and tail:
             return ContactRoute("detail", versioned, tail)
     return None
+
+
+def match_intake_route(path: str) -> IntakeRoute | None:
+    if path == INTAKE_V1_PREFIX:
+        return IntakeRoute("collection")
+    if path == f"{INTAKE_V1_PREFIX}/inventory":
+        return IntakeRoute("inventory")
+    prefix = f"{INTAKE_V1_PREFIX}/batches/"
+    if path.startswith(prefix):
+        batch_id = path[len(prefix) :]
+        if batch_id and "/" not in batch_id:
+            return IntakeRoute("detail", batch_id)
+    return None
+
+
+def parse_idempotency_key(value: object) -> str:
+    if not isinstance(value, str) or not value or value != value.strip():
+        raise RequestValidationError(
+            "Idempotency-Key має бути непорожнім без outer whitespace",
+            {"header": "Idempotency-Key"},
+        )
+    if len(value) > 200 or any(ord(character) < 32 for character in value):
+        raise RequestValidationError(
+            "Idempotency-Key має непідтримуваний формат",
+            {"header": "Idempotency-Key"},
+        )
+    return value
 
 
 def parse_create_contact(payload: object) -> CreateContactCommand:

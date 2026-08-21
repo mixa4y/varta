@@ -9,7 +9,7 @@ from pathlib import Path
 
 
 APPLICATION_SCHEMA_FLOOR = 2
-APPLICATION_SCHEMA_CEILING = 7
+APPLICATION_SCHEMA_CEILING = 8
 
 _MIGRATION_NAME = re.compile(r"^(?P<version>\d{4})_(?P<name>[a-z0-9_]+)\.sql$")
 _SCOPED_MIGRATION_START = 3

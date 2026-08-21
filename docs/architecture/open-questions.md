@@ -16,7 +16,6 @@ owner stage і gate закриття. Нове питання додається
 
 | ID | Відкрите рішення | Чинне обмеження до рішення | Owner stage | Must close before |
 |---|---|---|---|---|
-| `OQ-C02-001` | Додаткові archive formats, nested/encrypted archive policy | `C06` зобов'язаний підтримати file/folder/ZIP; інші формати лише через explicit capability/adapter; source archive незмінний | `C06` | `C06 PASS` |
 | `OQ-C02-002` | Application-level encryption at rest і key-recovery model | Не заявляти encryption at rest; покладатися на Windows account/ACL і чинне secret storage; plaintext workspace не можна видавати за encrypted | `C15` | `C15 PASS` |
 | `OQ-C02-003` | Цільовий corpus/volume/performance profile | Не вигадувати числа; `C16` спершу версіонує acceptance profile, потім вимірює intake/query/UI/worker/export/backup | `C16` | `C16 TECH PASS` |
 | `OQ-C02-004` | Числові RPO/RTO, backup retention і media policy | Діє `ADR-003`: тільки consistent completed backup і restore у new/empty target; жодної обіцянки RPO/RTO без тесту | `C15` | `C15 PASS` |
@@ -30,7 +29,7 @@ owner stage і gate закриття. Нове питання додається
 | application package, DI/config і API types | `C03` | `C03 PASS` |
 | SQLite busy/transaction/online-backup details | `C04` | `C04 PASS`; architecture fixed by `ADR-003`/`ADR-007` |
 | storage collisions, retention of working/derived | `C05`, `C15` | respective PASS |
-| archive parsing and intake statuses | `C06` | `C06 PASS`; see `OQ-C02-001` |
+| archive parsing and intake statuses | `C06` | `C06 PASS`; closed in `intake-v1.md` |
 | case bootstrap and active-case persistence | `C07` | `C07 PASS`; workspace model fixed by `ADR-005` |
 | evidence cardinalities, history and personal-data minimization | `C08`, `C16` | `C08 PASS` for model; `C16` privacy gate |
 | legacy adapters and external-data classes | `C09`, `C16` | `C09 PASS` plus final privacy gate |
@@ -41,6 +40,12 @@ owner stage і gate закриття. Нове питання додається
 | OCR/text coordinates | `P01` | `P01 PASS` |
 | КЕП formats/tools/protocol retention and attachment parsing | `P02` | `P02 PASS` |
 | matching libraries/threshold calibration | `P04` | `P04 PASS` |
+
+## Closed by C06
+
+| ID | Owner | Closing gate | Рішення |
+|---|---|---|---|
+| `OQ-C02-001` | `C06` | `C06 PASS` | C06 v1 supports file/folder/top-level ZIP. Nested ZIP is stored but not expanded; encrypted member is explicit failed; duplicate member path is explicit skipped; corrupt/traversal is explicit failed; all other archive formats require a separately versioned adapter/capability. Source archive remains read-only. See `intake-v1.md`. |
 
 ## Closed by C02
 

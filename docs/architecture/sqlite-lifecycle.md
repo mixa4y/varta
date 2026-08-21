@@ -57,8 +57,9 @@ Application schema range C04: floor `2`, ceiling `6`. Fresh/upgrade bootstrap
 prefix нижче floor може бути migration input, але не normal application mode.
 
 C05 additive migration `0007_intake_managed_storage` підняла поточний
-application ceiling до `7`, не змінюючи byte-for-byte migrations `0001`–`0006`
-або C04 transaction/compatibility policy.
+application ceiling до `7`. C06 additive migration `0008_intake_batches`
+підняла current ceiling до `8`; обидві не змінюють byte-for-byte migrations
+`0001`–`0006` або C04 transaction/compatibility policy.
 
 Застосовані `0001`/`0002` залишаються byte-for-byte immutable. C04 додає лише
 forward-only indexes із явним logical scope:
@@ -71,6 +72,8 @@ forward-only indexes із явним logical scope:
 | `0004_intake_indexes` | intake | processing/file/signature lookup indexes |
 | `0005_case_indexes` | case | profile/candidate/membership lookup indexes |
 | `0006_evidence_indexes` | evidence | reverse evidence-basis/review indexes |
+| `0007_intake_managed_storage` | intake | immutable original metadata/recovery state |
+| `0008_intake_batches` | intake | intake contexts, batches, entries та append-only status histories |
 
 Runner вимагає безперервний packaged catalog, canonical UTF-8/LF checksum,
 transaction на одну migration та scope prefix для additive tail. Перед apply

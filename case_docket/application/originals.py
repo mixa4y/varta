@@ -35,6 +35,7 @@ class AcceptOriginalCommand:
     source_relative_path: str
     managed_name: str | None = None
     kind: str = "unknown"
+    provenance_relative_path: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -94,6 +95,7 @@ class OriginalStorageService:
             file_id=file_id,
             source_root=command.source_root,
             source_relative_path=command.source_relative_path,
+            provenance_relative_path=command.provenance_relative_path,
             managed_name=command.managed_name,
             kind=command.kind,
             created_at=created_at,

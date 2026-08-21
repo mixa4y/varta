@@ -29,6 +29,7 @@ from .sqlite_connection import (
     checkpoint_wal,
     inspect_connection_settings,
 )
+from .sqlite_intake import SQLiteIntakeRepository
 from .sqlite_repository import SQLiteRepository
 from .sqlite_storage import SQLiteManagedFileRepository
 from .sqlite_uow import SQLiteUnitOfWork, SQLiteUnitOfWorkFactory
@@ -47,6 +48,7 @@ __all__ = [
     "SQLiteConnectionPolicy",
     "SQLiteConnectionSettings",
     "SQLiteIntegrityError",
+    "SQLiteIntakeRepository",
     "SQLiteLifecycleError",
     "SQLiteManagedFileRepository",
     "SQLiteRepository",

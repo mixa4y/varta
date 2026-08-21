@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Mapping, Protocol, Self
+from typing import ContextManager, Mapping, Protocol, Self
 
 from case_docket.models.contact import CaseParticipant, Contact
 
@@ -103,6 +103,7 @@ class StoragePort(Protocol):
         file_id: str,
         source_root: Path,
         source_relative_path: str,
+        provenance_relative_path: str | None,
         managed_name: str | None,
         kind: str,
         created_at: datetime,
@@ -163,6 +164,175 @@ class ManagedFileRepositoryPort(Protocol):
         occurred_at: datetime,
         last_error: str | None = None,
     ) -> None: ...
+
+
+@dataclass(frozen=True, slots=True)
+class IntakeContextRecord:
+    context_id: str
+    status: str
+    created_at: datetime
+    updated_at: datetime
+    completed_at: datetime | None = None
+    last_error_code: str | None = None
+    last_error_message: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ImportBatchRecord:
+    batch_id: str
+    context_id: str
+    idempotency_key: str
+    request_fingerprint: str
+    source_uri: str
+    requested_kind: str
+    detected_kind: str | None
+    status: str
+    created_at: datetime
+    updated_at: datetime
+    completed_at: datetime | None = None
+    last_error_code: str | None = None
+    last_error_message: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class IntakeEntryRecord:
+    entry_id: str
+    batch_id: str
+    ordinal: int
+    source_uri: str
+    source_relative_path: str
+    literal_name: str
+    entry_kind: str
+    status: str
+    size_bytes: int | None
+    source_created_at: str | None
+    source_modified_at: str | None
+    extension: str | None
+    media_type: str | None
+    type_hint: str | None
+    file_id: str | None
+    duplicate_of_file_ids: tuple[str, ...]
+    warning_code: str | None
+    warning_message: str | None
+    error_code: str | None
+    error_message: str | None
+    sha256: str | None
+    storage_reference: str | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class IntakeRepositoryPort(Protocol):
+    def create_batch(
+        self,
+        context: IntakeContextRecord,
+        batch: ImportBatchRecord,
+    ) -> None: ...
+
+    def get_batch(self, batch_id: str) -> ImportBatchRecord | None: ...
+
+    def get_batch_by_idempotency_key(self, key: str) -> ImportBatchRecord | None: ...
+
+    def list_batches(self) -> tuple[ImportBatchRecord, ...]: ...
+
+    def set_detected_kind(
+        self,
+        batch_id: str,
+        *,
+        detected_kind: str,
+        occurred_at: datetime,
+    ) -> None: ...
+
+    def set_batch_status(
+        self,
+        batch_id: str,
+        *,
+        status: str,
+        occurred_at: datetime,
+        error_code: str | None = None,
+        error_message: str | None = None,
+    ) -> None: ...
+
+    def add_entry(self, entry: IntakeEntryRecord) -> None: ...
+
+    def transition_entry(
+        self,
+        entry_id: str,
+        *,
+        status: str,
+        occurred_at: datetime,
+        file_id: str | None = None,
+        duplicate_of_file_ids: tuple[str, ...] = (),
+        warning_code: str | None = None,
+        warning_message: str | None = None,
+        error_code: str | None = None,
+        error_message: str | None = None,
+    ) -> None: ...
+
+    def list_entries(self, batch_id: str) -> tuple[IntakeEntryRecord, ...]: ...
+
+
+class IntakeUnitOfWork(Protocol):
+    @property
+    def intake(self) -> IntakeRepositoryPort: ...
+
+    def __enter__(self) -> Self: ...
+
+    def __exit__(self, exc_type: object, exc: object, traceback: object) -> None: ...
+
+    def commit(self) -> None: ...
+
+    def rollback(self) -> None: ...
+
+
+class IntakeUnitOfWorkFactory(Protocol):
+    def __call__(self, *, write: bool = False) -> IntakeUnitOfWork: ...
+
+
+@dataclass(frozen=True, slots=True)
+class IntakeSourceEntry:
+    ordinal: int
+    source_uri: str
+    source_relative_path: str
+    literal_name: str
+    entry_kind: str
+    size_bytes: int | None
+    source_created_at: str | None
+    source_modified_at: str | None
+    extension: str | None
+    media_type: str | None
+    type_hint: str | None
+    terminal_status: str | None = None
+    error_code: str | None = None
+    error_message: str | None = None
+    materialization_token: object | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class IntakeSourceDiscovery:
+    detected_kind: str | None
+    entries: tuple[IntakeSourceEntry, ...]
+    error_code: str | None = None
+    error_message: str | None = None
+    verification_token: object | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class MaterializedIntakeEntry:
+    source_root: Path
+    source_relative_path: str
+    provenance_relative_path: str
+
+
+class IntakeSourcePort(Protocol):
+    def discover(self, source: Path, source_uri: str) -> IntakeSourceDiscovery: ...
+
+    def materialize(
+        self,
+        entry: IntakeSourceEntry,
+    ) -> ContextManager[MaterializedIntakeEntry]: ...
+
+    def source_is_unchanged(self, discovery: IntakeSourceDiscovery) -> bool: ...
 
 
 @dataclass(frozen=True, slots=True)

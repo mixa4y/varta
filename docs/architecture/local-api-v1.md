@@ -6,6 +6,7 @@
 | Version | `v1.0` |
 | Date | `2026-08-18` |
 | Owner | `C03` |
+| Additive intake extension | `C06`, contract `intake-v1.md` |
 
 ## Призначення і межа
 
@@ -29,7 +30,7 @@ processors, workspace detection і повний security hardening залиша�
 - видалення compatibility routes можливе лише окремою міграцією після
   підтвердження відсутності callers.
 
-## Endpoints C03
+## Versioned endpoints implemented through C06
 
 | Method | Path | Application operation | Success |
 |---|---|---|---|
@@ -40,6 +41,14 @@ processors, workspace detection і повний security hardening залиша�
 | `POST` | `/api/v1/contacts` | `CreateContactCommand` | `201` |
 | `PATCH` | `/api/v1/contacts/{contact_id}` | `UpdateContactCommand` | `200` |
 | `POST` | `/api/v1/contacts/{contact_id}/roles` | `AssignContactRoleCommand` | `201` |
+| `POST` | `/api/v1/intake` | multipart -> `IntakeCommand` | `201`; replay `200` |
+| `GET` | `/api/v1/intake/inventory` | `ListIntakeInventoryQuery` | `200` |
+| `GET` | `/api/v1/intake/batches/{batch_id}` | SQLite batch read-back | `200` |
+
+C06 intake mutation додатково вимагає `Idempotency-Key`; multipart приймає
+лише `files`, а literal relative filenames проходять C05 path/archive policy.
+Детальні status, retry й archive semantics визначає
+[`intake-v1.md`](intake-v1.md). Full visual intake workflow лишається C12/C13.
 
 Mutating requests використовують чинний per-launch token у
 `X-Caseflow-Token`. Повний Host/Origin/CSP negative contract затверджено

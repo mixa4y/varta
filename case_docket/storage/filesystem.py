@@ -72,12 +72,20 @@ class ManagedFilesystem:
         file_id: str,
         source_root: Path,
         source_relative_path: str,
+        provenance_relative_path: str | None = None,
         managed_name: str | None,
         kind: str,
         created_at: datetime,
     ) -> StagedOriginal:
         validate_file_id(file_id)
-        source, original_name = resolve_source_file(source_root, source_relative_path)
+        source, source_name = resolve_source_file(source_root, source_relative_path)
+        if provenance_relative_path is None:
+            recorded_source_path = source_relative_path
+            original_name = source_name
+        else:
+            provenance_components = validate_relative_path(provenance_relative_path)
+            recorded_source_path = "/".join(provenance_components)
+            original_name = provenance_components[-1]
         storage_reference = storage_reference_for(file_id)
         staging_reference = staging_reference_for(file_id)
         staging = self.layout.managed_root.joinpath(*staging_reference.split("/"))
@@ -131,7 +139,7 @@ class ManagedFilesystem:
                 staging_reference=staging_reference,
                 original_name=original_name,
                 managed_name=managed_name,
-                source_relative_path=source_relative_path,
+                source_relative_path=recorded_source_path,
                 kind=kind,
                 bytes=byte_count,
                 sha256=digest.hexdigest(),

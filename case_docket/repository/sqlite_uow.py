@@ -15,10 +15,15 @@ from case_docket.application.dto import (
     ProceedingOptionDTO,
 )
 from case_docket.application.errors import ConflictError, NotFoundError, ValidationError
-from case_docket.application.ports import ContactRepositoryPort, ManagedFileRepositoryPort
+from case_docket.application.ports import (
+    ContactRepositoryPort,
+    IntakeRepositoryPort,
+    ManagedFileRepositoryPort,
+)
 from case_docket.models.contact import CaseParticipant, Contact
 
 from .sqlite_connection import SQLiteConnectionPolicy
+from .sqlite_intake import SQLiteIntakeRepository
 from .sqlite_repository import SQLiteRepository
 from .sqlite_storage import SQLiteManagedFileRepository
 
@@ -179,6 +184,7 @@ class SQLiteUnitOfWork:
         self._repository: SQLiteRepository | None = None
         self._contacts: SQLiteContactRepository | None = None
         self._files: SQLiteManagedFileRepository | None = None
+        self._intake: SQLiteIntakeRepository | None = None
         self._finished = False
         self._entered = False
 
@@ -193,6 +199,12 @@ class SQLiteUnitOfWork:
         if self._files is None or self._finished:
             raise RuntimeError("Unit of Work is not active")
         return self._files
+
+    @property
+    def intake(self) -> IntakeRepositoryPort:
+        if self._intake is None or self._finished:
+            raise RuntimeError("Unit of Work is not active")
+        return self._intake
 
     def __enter__(self) -> Self:
         if self._entered:
@@ -214,6 +226,7 @@ class SQLiteUnitOfWork:
         self._repository = repository
         self._contacts = SQLiteContactRepository(repository)
         self._files = SQLiteManagedFileRepository(repository)
+        self._intake = SQLiteIntakeRepository(repository)
         self._finished = False
         return self
 
@@ -227,6 +240,7 @@ class SQLiteUnitOfWork:
             self._repository = None
             self._contacts = None
             self._files = None
+            self._intake = None
 
     def commit(self) -> None:
         repository = self._active_repository()

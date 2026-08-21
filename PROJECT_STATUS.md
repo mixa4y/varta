@@ -39,7 +39,7 @@ changes.
 | Рівень | Стан після C02 |
 |---|---|
 | Architecture decisions | `APPROVED`: `ADR-001`–`ADR-007` |
-| Technical specification | `APPROVED v1.0`, синхронізована з ADR |
+| Technical specification | `APPROVED v1.1`, C06 archive decision синхронізовано з ADR |
 | Local web choice | `DECIDED`: embedded browser UI, explicit loopback only |
 | Notion | `EXCLUDED`: не runtime, docs workflow, integration або source of truth |
 | Structured source of truth | `DECIDED`: тільки SQLite writable; XLSX/JSON/HTML — adapters/projections |
@@ -110,12 +110,16 @@ editable database.
 
 - Python 3.12 package, versioned SQLite migrations і checksum runner;
 - immutable migrations `0001`/`0002`, additive scoped indexes `0003`–`0006`
-  та C05 storage metadata migration `0007`;
+  C05 storage metadata migration `0007` і C06 authoritative intake migration
+  `0008`;
 - per-operation thread-owned SQLite connections, explicit read/write UoW,
   verified foreign keys/WAL/busy/checkpoint policy та schema floor/ceiling;
 - DB-only online backup/restore primitive з integrity/FK/schema verification;
 - managed storage layout v1, streaming SHA-256, immutable original finalize,
   duplicate signal і DB/filesystem crash reconciliation для одного source file;
+- application file/folder/top-level-ZIP intake з import batch/status history,
+  partial/duplicate policy, SQLite-only restart inventory, versioned multipart
+  API та CLI;
 - SQLite repository/API/UI vertical slice для контактів;
 - DDL та JSON contracts для case profile і Evidence Map domain;
 - local `ThreadingHTTPServer`, static UI, loopback restriction, mutating token,
@@ -144,18 +148,22 @@ editable database.
    залишається окремою явно дозволеною дією.
 3. `C05`: `IMPLEMENTED IN CURRENT WORKTREE` — managed storage,
    immutable-original finalize/reconciliation; Git checkpoint окремий.
-4. `C06`: next package — authoritative file/folder/ZIP intake до SQLite read-back.
-5. `C07`/`C08`: multi-case bootstrap та evidence-domain services.
+4. `C06`: `IMPLEMENTED IN CURRENT WORKTREE` — authoritative
+   file/folder/top-level-ZIP intake, immutable storage, SQLite read-back,
+   API/CLI; Git checkpoint окремий.
+5. `C07`: next package — multi-case bootstrap/active case; `C08` після нього
+   завершує evidence-domain services.
 6. `C09`: read-only `.caseflow`/XLSX inventory/import/reconciliation.
 7. `C10`: durable jobs та isolated workers.
 8. `C11`–`C14`: deterministic projections, UI workflow і sealed export.
 9. `C15`/`C16`: recovery, Windows delivery, privacy/performance/release gates.
 
-Поточний server runtime path `<workspace>/.caseflow/varta.sqlite3` залишається
-legacy implementation. C05 library реалізує target
-`<workspace>/.varta/database/varta.sqlite3` + versioned managed zones, але не
-переміщує legacy state і не підключає upload UI до C06. Жодного in-place rename
-або видалення runtime файла немає.
+Fresh server/runtime C06 використовує target
+`<workspace>/.varta/database/varta.sqlite3` + versioned managed zones. Якщо
+існує лише legacy `<workspace>/.caseflow/varta.sqlite3`, він additively
+upgrade-иться і використовується in place без copy/move. Одночасна наявність
+обох DB дає explicit conflict до C09/C15 reconciliation; silent dual authority,
+in-place rename або видалення runtime файла відсутні.
 
 ## C05 implementation evidence
 
@@ -171,11 +179,27 @@ compileall, `git diff --check`, offline wheel та isolated installed-package
 storage/schema smoke. Жодного commit/push/publication/release або доступу до
 case materials C05 не виконував.
 
+## C06 implementation evidence
+
+C06 створює intake context/import batch до enumeration, фіксує per-entry
+discovered/final status і викликає C05 storage service без long SQLite
+transaction. Same-key retry повертає persisted batch; new-key same bytes має
+окремий `file_id`, immutable object і `duplicate` provenance. Top-level ZIP
+policy явно відхиляє traversal/corrupt/encrypted entries, не overwrite-ить
+duplicate member і не expands nested archive.
+
+Synthetic gates покривають file/folder/ZIP, zero-byte, mixed partial package,
+same bytes/different path, source tree/archive immutability, restart inventory,
+append-only transitions, local multipart API й CLI. Full/static/package
+результати: `185 passed`, targeted `69 passed`, clean Ruff, mypy для 50 source
+files, compileall та isolated installed-wheel intake/restart/schema/integrity
+smoke. Деталі фіксує `docs/changes/C06-intake-sqlite.md`; реальні матеріали
+справ не використовувалися. Commit/push/publication/release не виконувалися.
+
 ## Versioned open decisions
 
 | ID | Owner | Gate |
 |---|---|---|
-| `OQ-C02-001` archive variants beyond required file/folder/ZIP | `C06` | `C06 PASS` |
 | `OQ-C02-002` application encryption at rest/key recovery | `C15` | `C15 PASS` |
 | `OQ-C02-003` target corpus/performance profile | `C16` | `C16 TECH PASS` |
 | `OQ-C02-004` numeric RPO/RTO/retention | `C15` | `C15 PASS` |
@@ -183,6 +207,10 @@ case materials C05 не виконував.
 Деталі та чинні обмеження: `docs/architecture/open-questions.md`. Ці питання
 не приховують вибір UI, DB, IDs, workspace, storage або connection model і не
 блокують design application contracts у C03.
+
+`OQ-C02-001` закрито C06: required capability — file/folder/top-level ZIP;
+nested ZIP stored/not expanded, encrypted member failed, інші formats лише
+через окремий adapter. Повний contract — `docs/architecture/intake-v1.md`.
 
 ## Privacy та зовнішні джерела
 
@@ -196,7 +224,9 @@ runtime DB/logs і generated case maps залишаються поза Git.
 
 ## Transition
 
-Architecture gate C02 дає C03 достатні рішення для commands, queries, DTOs,
-ports, Unit of Work і versioned local API. Фактичне розблокування наступного
-controller package після `TECH PASS` потребує окремого `GITHUB SYNCED`; цей
-статус не є дозволом на commit/push і не виконує їх автоматично.
+C06 transition gate оцінюється за `docs/architecture/intake-v1.md` і
+`docs/changes/C06-intake-sqlite.md`: authoritative input -> storage -> SQLite
+-> restart read-back має пройти всі synthetic/static/package checks без XLSX
+authority. Після технічного PASS C07 є наступним package, але C06 не починає
+його автоматично. Git checkpoint/sync потребує окремої прямої команди й не є
+дозволом на merge/release/publication.

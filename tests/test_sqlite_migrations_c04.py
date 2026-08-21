@@ -70,10 +70,10 @@ def test_fresh_database_reaches_scoped_schema_ceiling(tmp_path: Path) -> None:
     migrations = MigrationRunner(repository._conn).discover()
 
     assert APPLICATION_SCHEMA_FLOOR == 2
-    assert APPLICATION_SCHEMA_CEILING == 7
+    assert APPLICATION_SCHEMA_CEILING == 8
     assert compatibility.current_version == APPLICATION_SCHEMA_CEILING
     assert compatibility.pending_versions == ()
-    assert [migration.version for migration in migrations] == [1, 2, 3, 4, 5, 6, 7]
+    assert [migration.version for migration in migrations] == [1, 2, 3, 4, 5, 6, 7, 8]
     assert [migration.scope for migration in migrations] == [
         "legacy",
         "evidence",
@@ -81,6 +81,7 @@ def test_fresh_database_reaches_scoped_schema_ceiling(tmp_path: Path) -> None:
         "intake",
         "case",
         "evidence",
+        "intake",
         "intake",
     ]
     repository.close()
@@ -105,7 +106,7 @@ def test_previous_v2_fixture_upgrades_additively_and_matches_fresh_schema(
     fresh = SQLiteRepository(tmp_path / "fresh.sqlite3")
     fresh_fingerprint = _schema_fingerprint(fresh._conn)
 
-    assert versions == [1, 2, 3, 4, 5, 6, 7]
+    assert versions == [1, 2, 3, 4, 5, 6, 7, 8]
     assert preserved is not None
     assert preserved["name"] == "Синтетична справа для upgrade"
     assert upgraded_fingerprint == fresh_fingerprint
@@ -121,13 +122,13 @@ def test_newer_database_is_rejected_before_writable_repository_mode(tmp_path: Pa
     connection.execute(
         """
         INSERT INTO schema_migrations(version, name, checksum, applied_at)
-        VALUES (8, 'system_future', ?, '2026-01-01T00:00:00+00:00')
+        VALUES (9, 'system_future', ?, '2026-01-01T00:00:00+00:00')
         """,
         ("f" * 64,),
     )
     connection.close()
 
-    with pytest.raises(NewerSchemaError, match="новішу schema version 8"):
+    with pytest.raises(NewerSchemaError, match="новішу schema version 9"):
         SQLiteRepository(database)
 
 
@@ -171,4 +172,5 @@ def test_concurrent_fresh_startup_serializes_migrations(tmp_path: Path) -> None:
         (5, 1),
         (6, 1),
         (7, 1),
+        (8, 1),
     ]
