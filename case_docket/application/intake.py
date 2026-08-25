@@ -55,6 +55,8 @@ class IntakeEntryDTO:
     file_id: str | None
     sha256: str | None
     storage_reference: str | None
+    intake_case_id: str | None
+    bootstrap_status: str | None
     duplicate_of_file_ids: tuple[str, ...]
     warning_code: str | None
     warning_message: str | None
@@ -79,6 +81,8 @@ class IntakeEntryDTO:
             "fileId": self.file_id,
             "sha256": self.sha256,
             "storageReference": self.storage_reference,
+            "intakeCaseId": self.intake_case_id,
+            "bootstrapStatus": self.bootstrap_status,
             "duplicateOfFileIds": list(self.duplicate_of_file_ids),
             "warning": self._message(self.warning_code, self.warning_message),
             "error": self._message(self.error_code, self.error_message),
@@ -313,6 +317,8 @@ class IntakeService:
                     error_message=None,
                     sha256=None,
                     storage_reference=None,
+                    intake_case_id=None,
+                    bootstrap_status=None,
                     created_at=occurred_at,
                     updated_at=occurred_at,
                 )
@@ -347,6 +353,7 @@ class IntakeService:
             status="duplicate" if duplicate_ids else "accepted",
             file_id=accepted.file_id,
             duplicate_of_file_ids=duplicate_ids,
+            intake_case_id=self._ids.new_id(),
             warning_code="storage_cleanup_pending" if accepted.cleanup_pending else None,
             warning_message=(
                 "Managed original verified; staging cleanup потребує reconciliation"
@@ -387,6 +394,8 @@ class IntakeService:
             error_message=None,
             sha256=None,
             storage_reference=None,
+            intake_case_id=None,
+            bootstrap_status=None,
             created_at=occurred_at,
             updated_at=occurred_at,
         )
@@ -491,6 +500,7 @@ class IntakeService:
         warning_message: str | None = None,
         error_code: str | None = None,
         error_message: str | None = None,
+        intake_case_id: str | None = None,
     ) -> None:
         with self._unit_of_work_factory(write=True) as unit_of_work:
             unit_of_work.intake.transition_entry(
@@ -503,6 +513,7 @@ class IntakeService:
                 warning_message=warning_message,
                 error_code=error_code,
                 error_message=error_message,
+                intake_case_id=intake_case_id,
             )
             unit_of_work.commit()
 
@@ -561,6 +572,8 @@ class IntakeService:
                     file_id=entry.file_id,
                     sha256=entry.sha256,
                     storage_reference=entry.storage_reference,
+                    intake_case_id=entry.intake_case_id,
+                    bootstrap_status=entry.bootstrap_status,
                     duplicate_of_file_ids=entry.duplicate_of_file_ids,
                     warning_code=entry.warning_code,
                     warning_message=entry.warning_message,

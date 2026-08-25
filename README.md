@@ -45,7 +45,7 @@ Authoritative state — SQLite + managed filesystem. SQLite є єдиним writ
 structured source of truth, а managed filesystem зберігає registered bytes та
 immutable originals. XLSX/JSON/HTML є import/export/projection artifacts.
 
-Fresh C06 runtime під час першого запуску застосовує migrations `0001`–`0008`
+Fresh C07 runtime під час першого запуску застосовує migrations `0001`–`0009`
 і створює `<workspace>\.varta\database\varta.sqlite3` разом із managed storage
 zones. Якщо існує лише legacy `<workspace>\.caseflow\varta.sqlite3`, VARTA
 використовує й additively upgrades його in place без copy/move. Якщо існують
@@ -56,6 +56,11 @@ File/folder/top-level-ZIP intake проходить application service, C05 imm
 storage і SQLite batch/entry history. Inventory після restart читається тільки
 з SQLite; XLSX/JSON/HTML лишаються adapters/projections. Детальний status,
 idempotency й archive contract — `docs/architecture/intake-v1.md`.
+
+Кожен accepted/duplicate file отримує temporary `intake_case_id` і явний
+pending-review state. Multi-case list, candidate normalization/manual
+confirmation, memberships та active-case presentation preference визначає
+`docs/architecture/workspace-v1.md`; повний UI лишається C12/C13.
 
 Історична Airtable-модель перенесена повністю: 9 таблиць, 127 полів,
 38 зв'язків і 12 computed fields. Вона збережена як privacy-safe schema

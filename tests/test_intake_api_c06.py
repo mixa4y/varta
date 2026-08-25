@@ -77,6 +77,11 @@ def test_versioned_local_web_upload_replays_and_inventory_survives_restart(
         assert capability["capabilities"] == {
             "intake": ["file", "folder", "zip"],
             "inventoryAuthority": "sqlite",
+            "workspace": [
+                "multi_case",
+                "case_bootstrap",
+                "active_case_preference",
+            ],
         }
         headers = {
             "Content-Type": content_type,

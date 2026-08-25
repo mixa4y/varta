@@ -20,12 +20,14 @@ from case_docket.application.ports import (
     IntakeRepositoryPort,
     ManagedFileRepositoryPort,
 )
+from case_docket.application.workspace_ports import WorkspaceRepositoryPort
 from case_docket.models.contact import CaseParticipant, Contact
 
 from .sqlite_connection import SQLiteConnectionPolicy
 from .sqlite_intake import SQLiteIntakeRepository
 from .sqlite_repository import SQLiteRepository
 from .sqlite_storage import SQLiteManagedFileRepository
+from .sqlite_workspace import SQLiteWorkspaceRepository
 
 
 class SQLiteContactRepository(ContactRepositoryPort):
@@ -185,6 +187,7 @@ class SQLiteUnitOfWork:
         self._contacts: SQLiteContactRepository | None = None
         self._files: SQLiteManagedFileRepository | None = None
         self._intake: SQLiteIntakeRepository | None = None
+        self._workspace: SQLiteWorkspaceRepository | None = None
         self._finished = False
         self._entered = False
 
@@ -205,6 +208,12 @@ class SQLiteUnitOfWork:
         if self._intake is None or self._finished:
             raise RuntimeError("Unit of Work is not active")
         return self._intake
+
+    @property
+    def workspace(self) -> WorkspaceRepositoryPort:
+        if self._workspace is None or self._finished:
+            raise RuntimeError("Unit of Work is not active")
+        return self._workspace
 
     def __enter__(self) -> Self:
         if self._entered:
@@ -227,6 +236,7 @@ class SQLiteUnitOfWork:
         self._contacts = SQLiteContactRepository(repository)
         self._files = SQLiteManagedFileRepository(repository)
         self._intake = SQLiteIntakeRepository(repository)
+        self._workspace = SQLiteWorkspaceRepository(repository)
         self._finished = False
         return self
 
@@ -241,6 +251,7 @@ class SQLiteUnitOfWork:
             self._contacts = None
             self._files = None
             self._intake = None
+            self._workspace = None
 
     def commit(self) -> None:
         repository = self._active_repository()

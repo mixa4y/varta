@@ -181,3 +181,48 @@ def test_c06_intake_contract_is_registered_and_http_adapter_stays_thin() -> None
 
     pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
     assert 'varta-intake = "case_docket.intake_cli:main"' in pyproject
+
+
+def test_c07_workspace_contract_is_registered_and_http_adapter_stays_thin() -> None:
+    contract = ROOT / "docs" / "architecture" / "workspace-v1.md"
+    text = contract.read_text(encoding="utf-8")
+    manifest = (ROOT / "docs" / "architecture" / "MANIFEST.md").read_text(
+        encoding="utf-8"
+    )
+    index = (ROOT / "docs" / "INDEX.md").read_text(encoding="utf-8")
+
+    assert "| Status | `ACTIVE` |" in text
+    assert "`0009_case_workspace_bootstrap`" in text
+    assert "filename/folder-only" in text
+    assert "presentation_preference" in text
+    assert "zero/one/multiple" in text
+    assert "`workspace-v1.md` | `ACTIVE`" in manifest
+    assert "architecture/workspace-v1.md" in index
+
+    path = ROOT / "caseflow" / "server.py"
+    source = path.read_text(encoding="utf-8")
+    tree = ast.parse(source, filename=str(path))
+    handler = next(
+        node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == "Handler"
+    )
+    names = {
+        "handle_workspace_cases",
+        "handle_active_case",
+        "handle_bootstrap_reviews",
+        "handle_workspace_case_create",
+        "handle_workspace_proceeding_create",
+        "handle_active_case_select",
+        "handle_bootstrap_candidates",
+        "handle_bootstrap_confirm",
+        "handle_workspace_memberships",
+        "handle_document_memberships",
+    }
+    methods = [
+        node for node in handler.body if isinstance(node, ast.FunctionDef) and node.name in names
+    ]
+    assert {method.name for method in methods} == names
+    for method in methods:
+        method_source = ast.get_source_segment(source, method) or ""
+        assert "workspace_service" in method_source
+        assert ".repository" not in method_source
+        assert "SQLite" not in method_source

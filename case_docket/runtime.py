@@ -8,6 +8,7 @@ from case_docket.application import (
     OriginalStorageService,
     SystemClock,
     UuidProvider,
+    WorkspaceService,
 )
 from case_docket.intake import FilesystemIntakeSource
 from case_docket.repository import SQLiteUnitOfWorkFactory
@@ -21,6 +22,7 @@ class IntakeRuntime:
     filesystem: ManagedFilesystem
     original_storage_service: OriginalStorageService
     intake_service: IntakeService
+    workspace_service: WorkspaceService
 
 
 class WorkspaceDatabaseConflictError(RuntimeError):
@@ -45,10 +47,12 @@ def build_intake_runtime(workspace_root: Path) -> IntakeRuntime:
     originals = OriginalStorageService(factory, filesystem, ids, clock)
     source = FilesystemIntakeSource(filesystem.layout.zone("temp") / "intake")
     intake = IntakeService(factory, originals, source, ids, clock)
+    workspace_service = WorkspaceService(factory, ids, clock)
     return IntakeRuntime(
         database_path=database_path,
         unit_of_work_factory=factory,
         filesystem=filesystem,
         original_storage_service=originals,
         intake_service=intake,
+        workspace_service=workspace_service,
     )

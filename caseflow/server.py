@@ -37,12 +37,16 @@ from case_docket.application import (
     ContactService,
     GetContactQuery,
     GetContactsContextQuery,
+    GetActiveCaseQuery,
     IntakeCommand,
     IntakeService,
     ListContactsQuery,
     ListIntakeInventoryQuery,
+    ListPendingBootstrapReviewsQuery,
+    ListWorkspaceCasesQuery,
     SystemClock,
     UuidProvider,
+    WorkspaceService,
 )
 from case_docket.repository import SQLiteRepository
 from case_docket.runtime import build_intake_runtime
@@ -57,9 +61,17 @@ from caseflow.api_v1 import (
     error_status,
     match_contact_route,
     match_intake_route,
+    match_workspace_route,
+    parse_add_document_memberships,
+    parse_add_file_memberships,
     parse_assign_contact_role,
     parse_create_contact,
+    parse_create_workspace_case,
+    parse_create_workspace_proceeding,
+    parse_confirm_case_bootstrap,
     parse_idempotency_key,
+    parse_register_candidate_sources,
+    parse_select_active_case,
     parse_update_contact,
     success_envelope,
 )
@@ -459,6 +471,10 @@ class CaseFlowState:
     @property
     def intake_service(self) -> IntakeService:
         return self._intake_runtime.intake_service
+
+    @property
+    def workspace_service(self) -> WorkspaceService:
+        return self._intake_runtime.workspace_service
 
     @property
     def intake_upload_root(self) -> Path:
@@ -1343,6 +1359,7 @@ class Handler(BaseHTTPRequestHandler):
         versioned = self._is_versioned_path(parsed.path)
         contact_route = match_contact_route(parsed.path)
         intake_route = match_intake_route(parsed.path)
+        workspace_route = match_workspace_route(parsed.path)
         try:
             if parsed.path == "/api/status":
                 self.handle_status()
@@ -1362,6 +1379,18 @@ class Handler(BaseHTTPRequestHandler):
                     return
                 if intake_route.action == "detail" and intake_route.batch_id is not None:
                     self.handle_intake_batch(intake_route.batch_id)
+                    return
+                self._send_route_not_found(versioned=True)
+                return
+            if workspace_route is not None:
+                if workspace_route.action == "cases":
+                    self.handle_workspace_cases()
+                    return
+                if workspace_route.action == "active_case":
+                    self.handle_active_case(urllib.parse.parse_qs(parsed.query))
+                    return
+                if workspace_route.action == "bootstrap_reviews":
+                    self.handle_bootstrap_reviews()
                     return
                 self._send_route_not_found(versioned=True)
                 return
@@ -1403,11 +1432,39 @@ class Handler(BaseHTTPRequestHandler):
         versioned = self._is_versioned_path(route)
         contact_route = match_contact_route(route)
         intake_route = match_intake_route(route)
+        workspace_route = match_workspace_route(route)
         try:
             self.require_csrf()
             if intake_route is not None and intake_route.action == "collection":
                 self.handle_intake_upload()
             elif intake_route is not None:
+                self._send_route_not_found(versioned=True)
+            elif workspace_route is not None and workspace_route.action == "cases":
+                self.handle_workspace_case_create()
+            elif workspace_route is not None and workspace_route.action == "proceedings":
+                self.handle_workspace_proceeding_create()
+            elif workspace_route is not None and workspace_route.action == "active_case":
+                self.handle_active_case_select()
+            elif (
+                workspace_route is not None
+                and workspace_route.action == "bootstrap_candidates"
+                and workspace_route.intake_case_id is not None
+            ):
+                self.handle_bootstrap_candidates(workspace_route.intake_case_id)
+            elif (
+                workspace_route is not None
+                and workspace_route.action == "bootstrap_confirm"
+                and workspace_route.intake_case_id is not None
+            ):
+                self.handle_bootstrap_confirm(workspace_route.intake_case_id)
+            elif workspace_route is not None and workspace_route.action == "memberships":
+                self.handle_workspace_memberships()
+            elif (
+                workspace_route is not None
+                and workspace_route.action == "document_memberships"
+            ):
+                self.handle_document_memberships()
+            elif workspace_route is not None:
                 self._send_route_not_found(versioned=True)
             elif contact_route is not None and contact_route.action == "collection":
                 self.handle_contact_create(versioned=contact_route.versioned)
@@ -1750,6 +1807,100 @@ class Handler(BaseHTTPRequestHandler):
             success_envelope({"batch": batch.to_dict()}),
         )
 
+    def handle_workspace_cases(self) -> None:
+        cases = self.state.workspace_service.list_cases(ListWorkspaceCasesQuery())
+        self.send_json(
+            200,
+            success_envelope(
+                {
+                    "cases": [case.to_dict() for case in cases],
+                    "count": len(cases),
+                    "authority": "sqlite",
+                }
+            ),
+        )
+
+    def handle_active_case(self, query: dict[str, list[str]]) -> None:
+        preference_id = str(query.get("preferenceId", [""])[0]).strip()
+        if not preference_id:
+            raise RequestValidationError(
+                "Відсутній preferenceId",
+                {"query": "preferenceId"},
+            )
+        active = self.state.workspace_service.get_active_case(
+            GetActiveCaseQuery(preference_id)
+        )
+        self.send_json(200, success_envelope({"activeCase": active.to_dict()}))
+
+    def handle_bootstrap_reviews(self) -> None:
+        reviews = self.state.workspace_service.list_pending_bootstraps(
+            ListPendingBootstrapReviewsQuery()
+        )
+        self.send_json(
+            200,
+            success_envelope(
+                {
+                    "reviews": [review.to_dict() for review in reviews],
+                    "count": len(reviews),
+                    "authority": "sqlite",
+                }
+            ),
+        )
+
+    def handle_workspace_case_create(self) -> None:
+        command = parse_create_workspace_case(self.read_command_body())
+        case = self.state.workspace_service.create_case(command)
+        self.send_json(201, success_envelope({"case": case.to_dict()}))
+
+    def handle_workspace_proceeding_create(self) -> None:
+        command = parse_create_workspace_proceeding(self.read_command_body())
+        proceeding = self.state.workspace_service.create_proceeding(command)
+        self.send_json(
+            201,
+            success_envelope({"proceeding": proceeding.to_dict()}),
+        )
+
+    def handle_active_case_select(self) -> None:
+        command = parse_select_active_case(self.read_command_body())
+        active = self.state.workspace_service.select_active_case(command)
+        self.send_json(200, success_envelope({"activeCase": active.to_dict()}))
+
+    def handle_bootstrap_candidates(self, intake_case_id: str) -> None:
+        command = parse_register_candidate_sources(
+            urllib.parse.unquote(intake_case_id),
+            self.read_command_body(),
+        )
+        review = self.state.workspace_service.register_candidate_sources(command)
+        self.send_json(200, success_envelope({"review": review.to_dict()}))
+
+    def handle_bootstrap_confirm(self, intake_case_id: str) -> None:
+        command = parse_confirm_case_bootstrap(
+            urllib.parse.unquote(intake_case_id),
+            self.read_command_body(),
+        )
+        review = self.state.workspace_service.confirm_bootstrap(command)
+        self.send_json(200, success_envelope({"review": review.to_dict()}))
+
+    def handle_workspace_memberships(self) -> None:
+        command = parse_add_file_memberships(self.read_command_body())
+        memberships = self.state.workspace_service.add_file_memberships(command)
+        self.send_json(
+            201,
+            success_envelope(
+                {"memberships": [membership.to_dict() for membership in memberships]}
+            ),
+        )
+
+    def handle_document_memberships(self) -> None:
+        command = parse_add_document_memberships(self.read_command_body())
+        memberships = self.state.workspace_service.add_document_memberships(command)
+        self.send_json(
+            201,
+            success_envelope(
+                {"memberships": [membership.to_dict() for membership in memberships]}
+            ),
+        )
+
     def handle_document_status(self) -> None:
         payload = self.read_json_body()
         doc_id = str(payload.get("docId", "")).strip()
@@ -1858,6 +2009,11 @@ class Handler(BaseHTTPRequestHandler):
                     "capabilities": {
                         "intake": ["file", "folder", "zip"],
                         "inventoryAuthority": "sqlite",
+                        "workspace": [
+                            "multi_case",
+                            "case_bootstrap",
+                            "active_case_preference",
+                        ],
                     },
                 }
             ),

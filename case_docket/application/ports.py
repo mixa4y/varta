@@ -218,6 +218,8 @@ class IntakeEntryRecord:
     error_message: str | None
     sha256: str | None
     storage_reference: str | None
+    intake_case_id: str | None
+    bootstrap_status: str | None
     created_at: datetime
     updated_at: datetime
 
@@ -267,6 +269,7 @@ class IntakeRepositoryPort(Protocol):
         warning_message: str | None = None,
         error_code: str | None = None,
         error_message: str | None = None,
+        intake_case_id: str | None = None,
     ) -> None: ...
 
     def list_entries(self, batch_id: str) -> tuple[IntakeEntryRecord, ...]: ...

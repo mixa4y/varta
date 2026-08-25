@@ -257,6 +257,7 @@ class SQLiteIntakeRepository(IntakeRepositoryPort):
         warning_message: str | None = None,
         error_code: str | None = None,
         error_message: str | None = None,
+        intake_case_id: str | None = None,
     ) -> None:
         if status not in _ENTRY_STATUSES or status == "discovered":
             raise ValueError("Некоректний final intake entry status")
@@ -272,6 +273,10 @@ class SQLiteIntakeRepository(IntakeRepositoryPort):
             raise ValueError("Failed/skipped intake entry потребує error_code")
         if status not in {"failed", "skipped"} and error_code is not None:
             raise ValueError("Accepted/duplicate intake entry не може мати error_code")
+        if status in {"accepted", "duplicate"} and intake_case_id is None:
+            raise ValueError("Accepted/duplicate intake entry потребує intake_case_id")
+        if status not in {"accepted", "duplicate"} and intake_case_id is not None:
+            raise ValueError("Failed/skipped intake entry не може мати intake_case_id")
 
         row = self._repository._conn.execute(
             "SELECT import_batch_id, status FROM intake_entries WHERE id = ?",
@@ -326,6 +331,27 @@ class SQLiteIntakeRepository(IntakeRepositoryPort):
             """,
             (entry_id, previous, status, error_code, error_message, occurred),
         )
+        if intake_case_id is not None and file_id is not None:
+            self._repository._conn.execute(
+                """
+                INSERT INTO case_bootstraps(
+                    intake_case_id, intake_entry_id, file_id, status,
+                    confirmed_case_id, created_at, updated_at, resolved_at
+                )
+                VALUES (?, ?, ?, 'manual_review_required', NULL, ?, ?, NULL)
+                """,
+                (intake_case_id, entry_id, file_id, occurred, occurred),
+            )
+            self._repository._conn.execute(
+                """
+                INSERT INTO case_bootstrap_status_history(
+                    intake_case_id, from_status, to_status, candidate_id,
+                    case_id, actor_id, note, occurred_at
+                )
+                VALUES (?, NULL, 'manual_review_required', NULL, NULL, NULL, ?, ?)
+                """,
+                (intake_case_id, "Accepted intake entry", occurred),
+            )
         self._repository._record_audit_event(
             "transition_intake_entry",
             "intake_entries",
@@ -359,11 +385,14 @@ class SQLiteIntakeRepository(IntakeRepositoryPort):
                 e.error_message,
                 f.sha256,
                 m.storage_reference,
+                b.intake_case_id,
+                b.status AS bootstrap_status,
                 e.created_at,
                 e.updated_at
             FROM intake_entries AS e
             LEFT JOIN file_objects AS f ON f.id = e.file_id
             LEFT JOIN managed_storage_records AS m ON m.file_id = e.file_id
+            LEFT JOIN case_bootstraps AS b ON b.intake_entry_id = e.id
             WHERE e.import_batch_id = ?
             ORDER BY e.ordinal, e.id
             """,
@@ -450,6 +479,12 @@ class SQLiteIntakeRepository(IntakeRepositoryPort):
             sha256=str(row["sha256"]) if row["sha256"] is not None else None,
             storage_reference=(
                 str(row["storage_reference"]) if row["storage_reference"] is not None else None
+            ),
+            intake_case_id=(
+                str(row["intake_case_id"]) if row["intake_case_id"] is not None else None
+            ),
+            bootstrap_status=(
+                str(row["bootstrap_status"]) if row["bootstrap_status"] is not None else None
             ),
             created_at=datetime.fromisoformat(str(row["created_at"])),
             updated_at=datetime.fromisoformat(str(row["updated_at"])),

@@ -7,6 +7,7 @@
 | Date | `2026-08-18` |
 | Owner | `C03` |
 | Additive intake extension | `C06`, contract `intake-v1.md` |
+| Additive workspace extension | `C07`, contract `workspace-v1.md` |
 
 ## Призначення і межа
 
@@ -30,7 +31,7 @@ processors, workspace detection і повний security hardening залиша�
 - видалення compatibility routes можливе лише окремою міграцією після
   підтвердження відсутності callers.
 
-## Versioned endpoints implemented through C06
+## Versioned endpoints implemented through C07
 
 | Method | Path | Application operation | Success |
 |---|---|---|---|
@@ -44,11 +45,28 @@ processors, workspace detection і повний security hardening залиша�
 | `POST` | `/api/v1/intake` | multipart -> `IntakeCommand` | `201`; replay `200` |
 | `GET` | `/api/v1/intake/inventory` | `ListIntakeInventoryQuery` | `200` |
 | `GET` | `/api/v1/intake/batches/{batch_id}` | SQLite batch read-back | `200` |
+| `GET` | `/api/v1/workspace/cases` | `ListWorkspaceCasesQuery` | `200` |
+| `POST` | `/api/v1/workspace/cases` | `CreateWorkspaceCaseCommand` | `201` |
+| `POST` | `/api/v1/workspace/proceedings` | `CreateWorkspaceProceedingCommand` | `201` |
+| `GET` | `/api/v1/workspace/bootstrap-reviews` | `ListPendingBootstrapReviewsQuery` | `200` |
+| `POST` | `/api/v1/workspace/bootstrap-reviews/{id}/candidates` | `RegisterCandidateSourcesCommand` | `200` |
+| `POST` | `/api/v1/workspace/bootstrap-reviews/{id}/confirm` | `ConfirmCaseBootstrapCommand` | `200` |
+| `POST` | `/api/v1/workspace/memberships` | `AddFileMembershipsCommand` | `201` |
+| `POST` | `/api/v1/workspace/document-memberships` | `AddDocumentMembershipsCommand` | `201` |
+| `GET` | `/api/v1/workspace/active-case?preferenceId=` | `GetActiveCaseQuery` | `200` |
+| `POST` | `/api/v1/workspace/active-case` | `SelectActiveCaseCommand` | `200` |
 
 C06 intake mutation додатково вимагає `Idempotency-Key`; multipart приймає
 лише `files`, а literal relative filenames проходять C05 path/archive policy.
 Детальні status, retry й archive semantics визначає
 [`intake-v1.md`](intake-v1.md). Full visual intake workflow лишається C12/C13.
+
+C07 workspace routes використовують той самий stable envelope/token boundary.
+Filename/folder не є достатнім candidate evidence, manual confirmation не
+виводиться з active-case preference, а HTTP handler викликає лише
+`WorkspaceService`. Детальний contract —
+[`workspace-v1.md`](workspace-v1.md); full workspace/review UI лишається
+C12/C13.
 
 Mutating requests використовують чинний per-launch token у
 `X-Caseflow-Token`. Повний Host/Origin/CSP negative contract затверджено

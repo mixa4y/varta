@@ -25,6 +25,12 @@ Case detection, temporary `intake_case_id`, document roles, legacy
 `.caseflow`/XLSX import, durable processors і повний intake UI не належать
 C06. Legacy XLSX/JSON indexes не читаються inventory query і не є authority.
 
+C07 additively підключає case bootstrap після C06 acceptance: terminal
+accepted/duplicate transition і temporary `intake_case_id` pending row тепер
+commit-яться в одній SQLite transaction. Candidate/manual-review semantics
+визначає [`workspace-v1.md`](workspace-v1.md); C06 enumeration, immutable
+storage, idempotency та inventory contract не змінено.
+
 ## SQLite model і lifecycle
 
 `0008_intake_batches` додає:

@@ -51,6 +51,10 @@ presentation -> application -> domain
   migration compatibility і DB-only recovery foundation.
 - [`managed-storage.md`](managed-storage.md) — C05 layout v1, streaming
   immutable originals, collision policy та DB/filesystem reconciliation.
+- [`intake-v1.md`](intake-v1.md) — C06 authoritative file/folder/ZIP intake,
+  idempotency, provenance та SQLite inventory.
+- [`workspace-v1.md`](workspace-v1.md) — C07 multi-case workspace, temporary
+  intake case, candidates/manual confirmation, memberships і active case.
 
 ## Legacy detail documents
 

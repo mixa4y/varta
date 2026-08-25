@@ -33,6 +33,7 @@ from .sqlite_intake import SQLiteIntakeRepository
 from .sqlite_repository import SQLiteRepository
 from .sqlite_storage import SQLiteManagedFileRepository
 from .sqlite_uow import SQLiteUnitOfWork, SQLiteUnitOfWorkFactory
+from .sqlite_workspace import SQLiteWorkspaceRepository
 
 __all__ = [
     "APPLICATION_SCHEMA_CEILING",
@@ -56,6 +57,7 @@ __all__ = [
     "SQLiteUnitOfWork",
     "SQLiteUnitOfWorkFactory",
     "SQLiteVerification",
+    "SQLiteWorkspaceRepository",
     "SchemaCompatibility",
     "SchemaCompatibilityError",
     "checkpoint_wal",
