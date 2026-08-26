@@ -42,13 +42,15 @@ class FakeAppServer:
         self.requests.append((method, payload))
         if method == "thread/start":
             self.thread_count += 1
-            suffix = "c01" if self.thread_count == 1 else f"git-c01-{self.thread_count}"
+            suffix = "c01" if self.thread_count == 1 else f"extra-{self.thread_count}"
             return {"thread": {"id": f"thread-{suffix}", "ephemeral": False}}
         if method == "thread/name/set":
             return {}
+        if method == "thread/resume":
+            return {"thread": {"id": payload["threadId"], "ephemeral": False}}
         if method == "turn/start":
             self.turn_count += 1
-            suffix = "c01" if self.turn_count == 1 else f"git-c01-{self.turn_count}"
+            suffix = "c01" if self.turn_count == 1 else f"c01-{self.turn_count}"
             return {"turn": {"id": f"turn-{suffix}", "status": "inProgress"}}
         if method == "turn/interrupt":
             return {}
@@ -174,6 +176,22 @@ def _valid_git_result(stage_id: str = "C01") -> str:
     )
 
 
+def _progress_marker(
+    stage_id: str = "C01",
+    *,
+    kind: str = "stage",
+    percent: int = 35,
+) -> str:
+    payload = {
+        "stage_id": stage_id,
+        "kind": kind,
+        "percent": percent,
+        "phase": "Реалізація",
+        "detail": "Завершено першу перевірену контрольну точку.",
+    }
+    return "<VARTA_PROGRESS>" + json.dumps(payload, ensure_ascii=False) + "</VARTA_PROGRESS>"
+
+
 def test_catalog_contains_all_core_and_processor_stages() -> None:
     stages = roadmap.load_catalog(ROOT / "tools" / "roadmap_controller" / "stages.json")
     ids = [stage["id"] for stage in stages]
@@ -199,6 +217,24 @@ def test_html_and_machine_catalog_have_the_same_stage_ids() -> None:
     assert "start-git" in html
     assert "/git/${action}" in html
     assert "GITHUB SYNCED" in html
+    assert 'id="live-execution"' in html
+    assert "VARTA_PROGRESS" in html
+    assert "window.setInterval(refreshRoadmap, 1000)" in html
+    assert "рівно один постійний чат" in html
+    assert "position: sticky" not in html
+    assert "position: fixed" not in html
+    assert 'id="expand-all">+ Розгорнути всі C/P' in html
+    assert 'id="collapse-all">− Згорнути всі C/P' in html
+    assert 'article[data-stage-id] details[open] summary .id::before' in html
+    assert len(re.findall(r'<article class="satellite" data-stage-id="P\d{2}"><details>', html)) == 4
+    assert 'id="execution-stats"' in html
+    assert "function packagePresentation(stage)" in html
+    assert "function renderExecutionStats(snapshot)" in html
+    assert "function renderRoadmapFooter(snapshot)" in html
+    assert 'if (gitStatus === "synced") return {tone: "done", label: "DONE"}' in html
+    assert "summaryStatus.textContent = presentation.label" in html
+    assert "Найближчий новий чат:" not in html
+    assert 'href="http://127.0.0.1:8766/"' in html
     assert not re.search(r'<(?:script|link|img)[^>]+(?:src|href)="https?://', html)
 
 
@@ -221,6 +257,24 @@ def test_stage_result_requires_matching_id_and_real_passed_tests() -> None:
         + "</VARTA_STAGE_RESULT>"
     )
     assert roadmap.parse_stage_result(failed_text, "C01") is None
+
+
+def test_progress_marker_is_stage_scoped_and_never_accepts_completion() -> None:
+    valid = roadmap.parse_progress_update(_progress_marker(), "C01", "stage")
+    assert valid == {
+        "percent": 35,
+        "phase": "Реалізація",
+        "detail": "Завершено першу перевірену контрольну точку.",
+        "source": "reported",
+    }
+    assert roadmap.parse_progress_update(_progress_marker("C02"), "C01", "stage") is None
+    assert (
+        roadmap.parse_progress_update(
+            _progress_marker(kind="git"), "C01", "stage"
+        )
+        is None
+    )
+    assert roadmap.parse_progress_update(_progress_marker(percent=100), "C01", "stage") is None
 
 
 def test_git_result_requires_private_pushed_branch_and_draft_pr() -> None:
@@ -294,6 +348,20 @@ def test_controller_unlocks_next_stage_only_after_pass_and_git_sync(
         assert "sandboxPolicy" not in stage_turn_start
         name_request = next(params for method, params in fake.requests if method == "thread/name/set")
         assert name_request["name"].startswith("VARTA C01")
+        controller.handle_app_server_message(
+            {
+                "method": "item/agentMessage/delta",
+                "params": {
+                    "threadId": "thread-c01",
+                    "turnId": "turn-c01",
+                    "delta": "Контрольна точка.\n" + _progress_marker(),
+                },
+            }
+        )
+        reported_progress = controller.store.stage("C01")["progress"]
+        assert reported_progress["percent"] == 35
+        assert reported_progress["source"] == "reported"
+        assert reported_progress["events"][-1]["phase"] == "Реалізація"
 
         with pytest.raises(roadmap.RoadmapConflict):
             controller.start_stage("C02")
@@ -322,6 +390,7 @@ def test_controller_unlocks_next_stage_only_after_pass_and_git_sync(
 
         completed = controller.store.stage("C01")
         assert completed["runStatus"] == "completed"
+        assert completed["progress"]["percent"] == 100
         assert completed["git"]["status"] == "awaiting_approval"
         next_snapshot = controller.snapshot()
         first = next(stage for stage in next_snapshot["stages"] if stage["id"] == "C01")
@@ -332,12 +401,14 @@ def test_controller_unlocks_next_stage_only_after_pass_and_git_sync(
 
         controller.start_git_checkpoint("C01")
         git_running = _wait_for_git_status(controller, "C01", "running")
-        assert git_running["threadId"] == "thread-git-c01-2"
-        assert git_running["turnId"] == "turn-git-c01-2"
+        assert git_running["threadId"] == "thread-c01"
+        assert git_running["turnId"] == "turn-c01-2"
+        assert fake.thread_count == 1
         git_turn_start = [
             params
             for method, params in fake.requests
-            if method == "turn/start" and params["threadId"] == "thread-git-c01-2"
+            if method == "turn/start" and params["threadId"] == "thread-c01"
+            and params.get("sandboxPolicy") == {"type": "dangerFullAccess"}
         ][0]
         assert git_turn_start["sandboxPolicy"] == {"type": "dangerFullAccess"}
         git_prompt = git_turn_start["input"][0]["text"]
@@ -350,8 +421,8 @@ def test_controller_unlocks_next_stage_only_after_pass_and_git_sync(
             {
                 "method": "item/completed",
                 "params": {
-                    "threadId": "thread-git-c01-2",
-                    "turnId": "turn-git-c01-2",
+                    "threadId": "thread-c01",
+                    "turnId": "turn-c01-2",
                     "completedAtMs": 2,
                     "item": {
                         "id": "item-git",
@@ -365,9 +436,9 @@ def test_controller_unlocks_next_stage_only_after_pass_and_git_sync(
             {
                 "method": "turn/completed",
                 "params": {
-                    "threadId": "thread-git-c01-2",
+                    "threadId": "thread-c01",
                     "turn": {
-                        "id": "turn-git-c01-2",
+                        "id": "turn-c01-2",
                         "status": "completed",
                         "items": [],
                     },
@@ -376,10 +447,44 @@ def test_controller_unlocks_next_stage_only_after_pass_and_git_sync(
         )
 
         assert controller.store.stage("C01")["git"]["status"] == "synced"
+        assert controller.store.stage("C01")["git"]["progress"]["percent"] == 100
         synced_snapshot = controller.snapshot()
         second = next(stage for stage in synced_snapshot["stages"] if stage["id"] == "C02")
         assert synced_snapshot["summary"]["gitSynced"] == 1
         assert second["canStart"] is True
+    finally:
+        controller.close()
+
+
+def test_snapshot_enables_only_the_first_ready_stage_in_roadmap_order(
+    tmp_path: Path,
+) -> None:
+    controller, _fake = _controller(tmp_path)
+    try:
+        def mark_completed_and_synced(run: dict[str, object]) -> None:
+            run["runStatus"] = "completed"
+            run["result"] = {"outcome": "passed"}
+            git_checkpoint = run["git"]
+            assert isinstance(git_checkpoint, dict)
+            git_checkpoint["status"] = "synced"
+            git_checkpoint["result"] = {"outcome": "synced"}
+
+        for number in range(1, 9):
+            controller.store.update_stage(
+                f"C{number:02d}",
+                mark_completed_and_synced,
+            )
+
+        snapshot = controller.snapshot()
+        enabled = [stage["id"] for stage in snapshot["stages"] if stage["canStart"]]
+        c10 = next(stage for stage in snapshot["stages"] if stage["id"] == "C10")
+        c11 = next(stage for stage in snapshot["stages"] if stage["id"] == "C11")
+
+        assert enabled == ["C09"]
+        assert c10["blockedBy"] == []
+        assert c11["blockedBy"] == []
+        assert c10["startReason"] == "За порядком roadmap спочатку запустіть C09."
+        assert c11["startReason"] == "За порядком roadmap спочатку запустіть C09."
     finally:
         controller.close()
 
@@ -414,6 +519,102 @@ def test_completed_turn_without_machine_result_needs_review(tmp_path: Path) -> N
         assert controller.snapshot()["summary"]["completed"] == 0
     finally:
         controller.close()
+
+
+def test_retry_reuses_the_same_stage_thread_and_starts_only_a_new_turn(
+    tmp_path: Path,
+) -> None:
+    controller, fake = _controller(tmp_path)
+    try:
+        controller.start_stage("C01")
+        first = _wait_for_status(controller, "C01", "running")
+        controller.handle_app_server_message(
+            {
+                "method": "item/completed",
+                "params": {
+                    "threadId": first["threadId"],
+                    "turnId": first["turnId"],
+                    "item": {"type": "agentMessage", "text": "Потрібна повторна спроба."},
+                },
+            }
+        )
+        controller.handle_app_server_message(
+            {
+                "method": "turn/completed",
+                "params": {
+                    "threadId": first["threadId"],
+                    "turn": {"id": first["turnId"], "status": "completed", "items": []},
+                },
+            }
+        )
+        assert controller.store.stage("C01")["runStatus"] == "needs_review"
+
+        controller.start_stage("C01")
+        second = _wait_for_status(controller, "C01", "running")
+
+        assert first["threadId"] == second["threadId"] == "thread-c01"
+        assert first["turnId"] == "turn-c01"
+        assert second["turnId"] == "turn-c01-2"
+        assert fake.thread_count == 1
+        assert fake.turn_count == 2
+        assert [method for method, _ in fake.requests].count("thread/start") == 1
+        assert [method for method, _ in fake.requests].count("thread/name/set") == 1
+    finally:
+        controller.close()
+
+
+def test_controller_restart_resumes_canonical_thread_instead_of_creating_duplicate(
+    tmp_path: Path,
+) -> None:
+    first_controller, _first_fake = _controller(tmp_path)
+    try:
+        first_controller.start_stage("C01")
+        first = _wait_for_status(first_controller, "C01", "running")
+        first_controller.handle_app_server_message(
+            {
+                "method": "item/completed",
+                "params": {
+                    "threadId": first["threadId"],
+                    "turnId": first["turnId"],
+                    "item": {"type": "agentMessage", "text": "Потрібна повторна спроба."},
+                },
+            }
+        )
+        first_controller.handle_app_server_message(
+            {
+                "method": "turn/completed",
+                "params": {
+                    "threadId": first["threadId"],
+                    "turn": {"id": first["turnId"], "status": "completed", "items": []},
+                },
+            }
+        )
+        assert first_controller.store.stage("C01")["runStatus"] == "needs_review"
+    finally:
+        first_controller.close()
+
+    resumed_controller, resumed_fake = _controller(tmp_path)
+    try:
+        resumed_controller.start_stage("C01")
+        resumed = _wait_for_status(resumed_controller, "C01", "running")
+
+        assert resumed["threadId"] == "thread-c01"
+        assert resumed_fake.thread_count == 0
+        resume_requests = [
+            params for method, params in resumed_fake.requests if method == "thread/resume"
+        ]
+        assert resume_requests == [
+            {
+                "threadId": "thread-c01",
+                "cwd": str(ROOT),
+                "approvalPolicy": "never",
+                "sandbox": "workspace-write",
+            }
+        ]
+        assert [method for method, _ in resumed_fake.requests].count("thread/start") == 0
+        assert [method for method, _ in resumed_fake.requests].count("thread/name/set") == 0
+    finally:
+        resumed_controller.close()
 
 
 def test_git_sync_is_rejected_when_controller_cannot_verify_remote(
@@ -563,6 +764,8 @@ def test_task_prompt_contains_scope_and_non_publication_guards() -> None:
     assert "D:\\VARTA\\AGENTS.md" in prompt
     assert "не виконуй commit, push" in prompt
     assert "не починай наступний package" in prompt
+    assert "постійним і канонічним" in prompt
+    assert '<VARTA_PROGRESS>{"stage_id":"C01","kind":"stage"' in prompt
     assert '<VARTA_STAGE_RESULT>{"stage_id":"C01"' in prompt
 
 
@@ -586,4 +789,6 @@ def test_git_checkpoint_prompt_is_exact_path_private_draft_pr_only() -> None:
     assert "приватний mixa4y/varta" in prompt
     assert "Draft PR" in prompt
     assert "Не merge" in prompt
+    assert "того самого постійного Codex-чату" in prompt
+    assert '<VARTA_PROGRESS>{"stage_id":"C01","kind":"git"' in prompt
     assert '<VARTA_GIT_RESULT>{"stage_id":"C01"' in prompt

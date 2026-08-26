@@ -1,4 +1,4 @@
-# Локальний controller для запуску roadmap tasks
+# Локальний controller для запуску roadmap packages
 
 **Статус документа:** `IMPLEMENTATION GUIDE / DEVELOPMENT TOOLING`
 
@@ -6,13 +6,16 @@
 `docs/interactive/varta-chat-roadmap.html` з офлайн-карти на локальну панель,
 яка може:
 
-1. створити окремий Codex task з точною темою package;
-2. одразу передати йому повний stage prompt і почати turn;
-3. показувати `starting`, `running`, `waiting`, `failed` та завершення;
+1. створити рівно один постійний Codex task/chat з точною темою package;
+2. одразу передати йому повний stage prompt і почати turn, а всі повторні
+   спроби продовжувати новими turns у цьому самому task;
+3. показувати live-процес, доказовий відсоток виконання, `starting`, `running`,
+   `waiting`, `failed` та завершення;
 4. прийняти структурований handoff із summary, tests, changed files і gate;
 5. після `TECH PASS` показати окрему підтверджену кнопку GitHub checkpoint;
-6. створити окремий Git task для audit, exact staging, commit, push у приватну
-   `codex/*` branch і створення/оновлення Draft PR;
+6. запустити Git checkpoint новим turn у тому самому package task для audit,
+   exact staging, commit, push у приватну `codex/*` branch і
+   створення/оновлення Draft PR;
 7. розблокувати залежні stages тільки після валідного `GITHUB SYNCED`;
 8. зупинити активний stage або Git turn без видалення task чи його історії.
 
@@ -25,18 +28,19 @@ Notion, зовнішній SaaS, OpenAI API key і окрема хмарна Б�
 - [Codex App Server](https://learn.chatgpt.com/docs/app-server) —
   `thread/start`, `thread/name/set`, `turn/start`, streamed notifications і
   `turn/completed`;
-- [Projects and chats](https://learn.chatgpt.com/docs/projects) — окремий task
-  на окремий результат у межах одного local project.
+- [Projects and chats](https://learn.chatgpt.com/docs/projects) — один
+  постійний task на один `Cxx`/`Pxx` package у межах одного local project.
 
 ## Швидкий запуск
 
 1. У корені `D:\VARTA` двічі натиснути `START_ROADMAP.cmd`.
 2. Дочекатися відкриття `http://127.0.0.1:8766/`.
 3. Переконатися, що верхній badge показує `CODEX READY`.
-4. Відкрити потрібний stage і натиснути **Стартувати task**.
+4. Відкрити потрібний package і натиснути **Створити чат і почати Cxx**. Якщо
+   package вже має Task ID, кнопка продовжить саме цей чат новим turn.
 5. Підтвердити точну тему та prerequisites у діалозі.
-6. Стежити за status, останнім повідомленням, tests і transition gate на тій
-   самій сторінці.
+6. Стежити за live-процесом, відсотком, контрольними подіями, status, останнім
+   повідомленням, tests і transition gate на тій самій сторінці.
 7. Після `TECH PASS` перевірити stage result і натиснути **GitHub checkpoint**.
 8. У другому confirmation прочитати точний scope: privacy/ownership audit,
    exact staging, commit, push і Draft PR без merge/release.
@@ -53,15 +57,16 @@ Notion, зовнішній SaaS, OpenAI API key і окрема хмарна Б�
 stage button
   -> POST 127.0.0.1 + Origin check + per-launch token
   -> allowlist stage ID + dependency gate + single-active-task gate
-  -> Codex App Server thread/start
-  -> thread/name/set
+  -> thread/start + thread/name/set лише для першого запуску package
+  -> для retry/continuation повторно використати збережений package thread
   -> turn/start у D:\VARTA
-  -> streamed status і agent message
+  -> streamed status, agent message і VARTA_PROGRESS checkpoints
+  -> live UI: процес + evidence-based percent + event history
   -> VARTA_STAGE_RESULT validation
   -> local state.json
   -> TECH PASS / awaiting_approval
   -> окреме підтвердження GitHub checkpoint
-  -> окремий Codex thread + VARTA_GIT_RESULT
+  -> новий Git turn у тому самому package thread + VARTA_GIT_RESULT
   -> exact stage-owned paths + privacy gates
   -> commit + push origin/codex/* + Draft PR
   -> GITHUB SYNCED
@@ -85,7 +90,7 @@ Controller не виконує наступний stage автоматично. 
 | Run status | Значення |
 |---|---|
 | `not_started` | controller ще не запускав package |
-| `starting` | створюється thread, name і turn |
+| `starting` | створюється перший thread або новий turn у вже наявному package task |
 | `running` | Codex виконує task |
 | `waiting` | App Server повідомив про очікування дії/дозволу |
 | `completed` | turn завершено й валідний result підтвердив `passed` |
@@ -104,9 +109,9 @@ Controller не виконує наступний stage автоматично. 
 |---|---|
 | `not_ready` | stage ще не має технічного PASS |
 | `awaiting_approval` | TECH PASS є, GitHub не змінено; потрібне натискання користувача |
-| `starting` | створюється окремий Git task |
+| `starting` | створюється Git turn у тому самому package task |
 | `running` | Codex перевіряє ownership/privacy та виконує checkpoint |
-| `waiting` | Git task очікує дії/дозволу |
+| `waiting` | Git turn очікує дії/дозволу |
 | `synced` | private origin містить commit у `codex/*`, Draft PR підтверджено |
 | `blocked` | ownership, privacy, branch або інший gate не доведено |
 | `failed` | Git/gh/turn завершився помилкою |
@@ -122,6 +127,14 @@ Controller не виконує наступний stage автоматично. 
 head branch, base `main` і PR head SHA. Невідповідність дає `needs_review`, а
 не розблокування наступного stage.
 
+`progress` зберігається окремо для технічного та Git lifecycle. Controller
+публікує власні lifecycle checkpoints, а agent може додавати лише значення
+`1`–`99` у валідному package-scoped блоці `VARTA_PROGRESS`; `100%` controller
+встановлює сам тільки після валідного `VARTA_STAGE_RESULT` або
+`VARTA_GIT_RESULT`. Це відсоток підтверджених контрольних точок, а не прогноз
+часу. UI опитує loopback API щосекунди, показує поточну фазу, detail і журнал
+подій; повний Task ID залишається незмінним для всіх turns одного package.
+
 Roadmap tasks є unattended execution. Якщо agent все ж викликає interactive
 request-user-input, controller повертає protocol error замість безстрокового
 зависання; prompt вимагає завершити такий package як `blocked` з конкретним
@@ -135,7 +148,8 @@ request-user-input, controller повертає protocol error замість б
 - В одному `D:\VARTA` одночасно дозволено один активний stage або Git task. Це
   захищає спільний dirty working tree від паралельного перезапису.
 - Failed/blocked/interrupted package можна запустити новою спробою; попередня
-  спроба залишається у локальній history.
+  спроба залишається у локальній history, а новий turn використовує той самий
+  package Task ID.
 - Completed package controller повторно не запускає; він очікує Git checkpoint.
 - Failed/blocked/interrupted Git checkpoint можна повторити, не втрачаючи його
   локальну history.
@@ -160,7 +174,7 @@ Controller:
 - не передає в UI email, account ID, auth tokens або App Server account object;
 - не зберігає матеріали справ у repository.
 
-Git task додатково отримує жорсткий allowlist-policy prompt:
+Git turn додатково отримує жорсткий allowlist-policy prompt:
 
 - перевірити live branch, HEAD, origin і private visibility перед write;
 - порівняти baseline до stage, `changed_files` і поточний diff;

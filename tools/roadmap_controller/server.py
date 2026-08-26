@@ -22,7 +22,7 @@ from urllib.parse import urlparse
 
 
 APP_NAME = "VARTA Roadmap Controller"
-APP_VERSION = "0.2.0"
+APP_VERSION = "0.3.0"
 STATE_SCHEMA_VERSION = 1
 ACTIVE_STATUSES = frozenset({"starting", "running", "waiting"})
 TERMINAL_STATUSES = frozenset(
@@ -34,6 +34,10 @@ RESULT_PATTERN = re.compile(
 )
 GIT_RESULT_PATTERN = re.compile(
     r"<VARTA_GIT_RESULT>\s*(\{.*?\})\s*</VARTA_GIT_RESULT>",
+    re.DOTALL,
+)
+PROGRESS_PATTERN = re.compile(
+    r"<VARTA_PROGRESS>\s*(\{.*?\})\s*</VARTA_PROGRESS>",
     re.DOTALL,
 )
 WINDOWS_RUNTIME_FILES = (
@@ -97,6 +101,136 @@ def _limited_string(value: Any, *, limit: int) -> str:
     if not isinstance(value, str):
         return ""
     return value.strip()[:limit]
+
+
+def parse_progress_update(
+    text: str,
+    expected_stage_id: str,
+    expected_kind: str,
+) -> dict[str, Any] | None:
+    """Return the latest complete, stage-scoped progress marker.
+
+    Progress is reported by the active Codex turn at evidence-backed milestones.
+    It is deliberately not inferred from elapsed time or tool-call counts.
+    """
+
+    matches = list(PROGRESS_PATTERN.finditer(text or ""))
+    if not matches:
+        return None
+    try:
+        raw = json.loads(matches[-1].group(1))
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(raw, dict):
+        return None
+    if raw.get("stage_id") != expected_stage_id or raw.get("kind") != expected_kind:
+        return None
+    percent = raw.get("percent")
+    if not isinstance(percent, int) or isinstance(percent, bool) or not 1 <= percent <= 99:
+        return None
+    phase = _limited_string(raw.get("phase"), limit=160)
+    detail = _limited_string(raw.get("detail"), limit=1200)
+    if not phase or not detail:
+        return None
+    return {
+        "percent": percent,
+        "phase": phase,
+        "detail": detail,
+        "source": "reported",
+    }
+
+
+def _blank_progress() -> dict[str, Any]:
+    return {
+        "percent": 0,
+        "phase": "Не розпочато",
+        "detail": "Пакет ще не запускався.",
+        "source": "lifecycle",
+        "updatedAt": None,
+        "events": [],
+    }
+
+
+def _normalise_progress(value: Any) -> dict[str, Any]:
+    progress = _blank_progress()
+    if isinstance(value, dict):
+        progress.update(value)
+    percent = progress.get("percent")
+    if not isinstance(percent, int) or isinstance(percent, bool):
+        percent = 0
+    progress["percent"] = max(0, min(100, percent))
+    progress["phase"] = _limited_string(progress.get("phase"), limit=160) or "Немає даних"
+    progress["detail"] = (
+        _limited_string(progress.get("detail"), limit=1200)
+        or "Детальний progress checkpoint ще не отримано."
+    )
+    if progress.get("source") not in {"lifecycle", "reported", "controller"}:
+        progress["source"] = "lifecycle"
+    if not isinstance(progress.get("events"), list):
+        progress["events"] = []
+    progress["events"] = [
+        copy.deepcopy(item)
+        for item in progress["events"][-40:]
+        if isinstance(item, dict)
+    ]
+    return progress
+
+
+def _set_progress(
+    progress: dict[str, Any],
+    *,
+    percent: int,
+    phase: str,
+    detail: str,
+    source: str,
+    timestamp: str | None = None,
+    allow_regression: bool = False,
+) -> bool:
+    """Update a progress record and append a de-duplicated process event."""
+
+    current = progress.get("percent", 0)
+    current_percent = current if isinstance(current, int) and not isinstance(current, bool) else 0
+    bounded = max(0, min(100, percent))
+    if not allow_regression and bounded < current_percent:
+        return False
+    clean_phase = _limited_string(phase, limit=160)
+    clean_detail = _limited_string(detail, limit=1200)
+    if not clean_phase or not clean_detail:
+        return False
+    if source not in {"lifecycle", "reported", "controller"}:
+        return False
+    if (
+        bounded == current_percent
+        and progress.get("phase") == clean_phase
+        and progress.get("detail") == clean_detail
+        and progress.get("source") == source
+    ):
+        return False
+    event_at = timestamp or utc_now()
+    progress.update(
+        {
+            "percent": bounded,
+            "phase": clean_phase,
+            "detail": clean_detail,
+            "source": source,
+            "updatedAt": event_at,
+        }
+    )
+    events = progress.setdefault("events", [])
+    if not isinstance(events, list):
+        events = []
+        progress["events"] = events
+    event = {
+        "percent": bounded,
+        "phase": clean_phase,
+        "detail": clean_detail,
+        "source": source,
+        "at": event_at,
+    }
+    if not events or events[-1] != event:
+        events.append(event)
+        del events[:-40]
+    return True
 
 
 def parse_stage_result(text: str, expected_stage_id: str) -> dict[str, Any] | None:
@@ -267,6 +401,7 @@ class StateStore:
             "result": None,
             "error": None,
             "history": [],
+            "progress": _blank_progress(),
         }
 
     @staticmethod
@@ -284,6 +419,7 @@ class StateStore:
             "error": None,
             "history": [],
             "gitBaseline": None,
+            "progress": _blank_progress(),
             "git": StateStore._blank_git_checkpoint(),
         }
 
@@ -312,12 +448,43 @@ class StateStore:
             blank.update(existing)
             if not isinstance(blank.get("history"), list):
                 blank["history"] = []
+            blank["progress"] = _normalise_progress(blank.get("progress"))
+            if (
+                blank.get("runStatus") == "completed"
+                and blank["progress"].get("percent", 0) < 100
+            ):
+                _set_progress(
+                    blank["progress"],
+                    percent=100,
+                    phase="TECH PASS",
+                    detail="Legacy state підтверджує завершений package.",
+                    source="controller",
+                    timestamp=blank.get("completedAt") or blank.get("updatedAt"),
+                )
             git_checkpoint = self._blank_git_checkpoint()
             existing_git = blank.get("git")
             if isinstance(existing_git, dict):
                 git_checkpoint.update(existing_git)
             if not isinstance(git_checkpoint.get("history"), list):
                 git_checkpoint["history"] = []
+            git_checkpoint["progress"] = _normalise_progress(
+                git_checkpoint.get("progress")
+            )
+            if (
+                git_checkpoint.get("status") == "synced"
+                and git_checkpoint["progress"].get("percent", 0) < 100
+            ):
+                _set_progress(
+                    git_checkpoint["progress"],
+                    percent=100,
+                    phase="GITHUB SYNCED",
+                    detail="Legacy state підтверджує синхронізований Git checkpoint.",
+                    source="controller",
+                    timestamp=(
+                        git_checkpoint.get("completedAt")
+                        or git_checkpoint.get("updatedAt")
+                    ),
+                )
             blank["git"] = git_checkpoint
             raw_stages[stage_id] = blank
         for stale_id in set(raw_stages) - set(self.stage_ids):
@@ -355,6 +522,16 @@ class StateStore:
                         "Контролер було перезапущено під час активного turn; "
                         "перевірте task у Codex перед повторним запуском."
                     )
+                    progress = _normalise_progress(stage.get("progress"))
+                    _set_progress(
+                        progress,
+                        percent=int(progress["percent"]),
+                        phase="Виконання перервано",
+                        detail=stage["error"],
+                        source="controller",
+                        timestamp=stage["updatedAt"],
+                    )
+                    stage["progress"] = progress
                     changed = True
                 git_checkpoint = stage.get("git")
                 if (
@@ -368,6 +545,16 @@ class StateStore:
                         "Контролер було перезапущено під час GitHub checkpoint; "
                         "перевірте task і Git state перед повторним запуском."
                     )
+                    progress = _normalise_progress(git_checkpoint.get("progress"))
+                    _set_progress(
+                        progress,
+                        percent=int(progress["percent"]),
+                        phase="Git checkpoint перервано",
+                        detail=git_checkpoint["error"],
+                        source="controller",
+                        timestamp=git_checkpoint["updatedAt"],
+                    )
+                    git_checkpoint["progress"] = progress
                     changed = True
             if changed:
                 self._state["updatedAt"] = utc_now()
@@ -789,6 +976,10 @@ Task ID: {stage['id']}
 Тема: {stage['topic']}
 Залежності: {dependencies}
 
+Цей Codex-чат є постійним і канонічним для package {stage['id']}. Повторні
+спроби, продовження та Git checkpoint мають бути новими turns саме в цьому
+чаті; не створюй і не проси створювати додаткові чати для цього package.
+
 Спочатку повністю прочитай D:\\VARTA\\AGENTS.md і відповідний package у
 D:\\VARTA\\docs\\chat-roadmap.md. Працюй тільки в D:\\VARTA. Старі каталоги
 CaseFlow/CMSD та матеріали справ поза репозиторієм є read-only джерелами.
@@ -811,6 +1002,19 @@ Git baseline, автоматично зафіксований controller пер�
   заверши package як blocked і чітко опиши потрібне рішення;
 - перед PASS виконай tests/gates, визначені package, і перевір поточний git diff.
 
+Онлайн-прогрес для roadmap UI:
+- перед першою предметною дією та після кожної завершеної змістовної контрольної
+  точки надішли коротке commentary-повідомлення українською;
+- у самому кінці такого commentary додай рівно один машинний marker без Markdown
+  code fence:
+  <VARTA_PROGRESS>{{"stage_id":"{stage['id']}","kind":"stage","percent":15,"phase":"Коротка назва фази","detail":"Що фактично завершено і що виконується далі"}}</VARTA_PROGRESS>
+- percent має бути цілим, доказовим і монотонним у межах 15..95; не оцінюй його
+  за витраченим часом. Орієнтири: inventory 15, рішення/план 25, реалізація
+  35..75, перевірки 80..95. Значення 100 виставляє controller лише після
+  валідного PASS;
+- marker не замінює звичайне зрозуміле commentary і не повинен містити секретів
+  або case-specific даних.
+
 У фінальній відповіді спочатку дай нормальний людський звіт українською. В
 самому кінці додай рівно один машинний блок без Markdown code fence:
 
@@ -826,10 +1030,13 @@ def build_git_checkpoint_prompt(
 ) -> str:
     stage_result = json.dumps(run.get("result") or {}, ensure_ascii=False, indent=2)
     baseline = json.dumps(run.get("gitBaseline") or {}, ensure_ascii=False, indent=2)
-    return f"""Ти виконуєш окремий GitHub checkpoint після технічного PASS етапу VARTA.
+    return f"""Ти виконуєш GitHub checkpoint після технічного PASS етапу VARTA.
 
 Stage ID: {stage['id']}
 Тема етапу: {stage['topic']}
+
+Це продовження того самого постійного Codex-чату package {stage['id']}, а не
+окремий Git-чат. Не створюй і не проси створювати додатковий чат.
 
 Натискання користувачем кнопки GitHub checkpoint є прямою командою виконати
 вузько обмежені stage-owned staging, commit, push у приватну feature branch та
@@ -868,6 +1075,16 @@ Git baseline перед початком stage:
 9. Після push повторно перевір remote branch commit, private visibility, Draft PR
    URL і що index/working tree не були пошкоджені сторонніми змінами.
 10. Якщо будь-який gate не пройдено, outcome=blocked або failed; не маскуй помилку.
+
+Онлайн-прогрес для roadmap UI:
+- після кожної завершеної контрольної точки надішли коротке commentary і в його
+  кінці один marker без Markdown code fence:
+  <VARTA_PROGRESS>{{"stage_id":"{stage['id']}","kind":"git","percent":15,"phase":"Коротка назва фази","detail":"Фактичний результат checkpoint і наступна дія"}}</VARTA_PROGRESS>
+- percent є доказовим і монотонним у межах 15..95: live audit 15, ownership та
+  exact scope 35, tests/privacy 55, commit 75, push/Draft PR 90, controller
+  read-back 95. Значення 100 controller виставляє лише після підтвердженого
+  GITHUB SYNCED;
+- не включай у marker secrets, credentials або case-specific дані.
 
 У фінальній відповіді спочатку дай людський звіт українською. В самому кінці
 додай рівно один машинний блок без Markdown code fence:
@@ -920,7 +1137,10 @@ class RoadmapController:
         self._lock = threading.RLock()
         self._thread_to_stage: dict[str, str] = {}
         self._thread_kind: dict[str, str] = {}
+        self._thread_to_turn: dict[str, str] = {}
         self._live_messages: dict[str, str] = {}
+        self._progress_signatures: dict[tuple[str, str], tuple[Any, ...]] = {}
+        self._loaded_threads: set[str] = set()
 
     def bootstrap(self) -> None:
         try:
@@ -943,6 +1163,7 @@ class RoadmapController:
                     self.runtime_root / "app-server.log",
                     self.handle_app_server_message,
                 )
+            self._loaded_threads.clear()
             client.start()
             self.client = client
             self.codex_ready = bool(client.authenticated)
@@ -986,6 +1207,32 @@ class RoadmapController:
                 and git_checkpoint.get("status") in ACTIVE_STATUSES
             ):
                 active.append(f"{stage_id}:git")
+        start_candidate_id: str | None = None
+        git_candidate_id: str | None = None
+        if self.codex_ready and not active:
+            for catalog_stage in self.catalog:
+                candidate_id = catalog_stage["id"]
+                candidate_run = state["stages"][candidate_id]
+                candidate_missing = [
+                    dependency
+                    for dependency in catalog_stage["dependencies"]
+                    if dependency not in synced
+                ]
+                if (
+                    start_candidate_id is None
+                    and candidate_run.get("runStatus") != "completed"
+                    and not candidate_missing
+                ):
+                    start_candidate_id = candidate_id
+                candidate_git = candidate_run.get("git")
+                if (
+                    git_candidate_id is None
+                    and candidate_run.get("runStatus") == "completed"
+                    and isinstance(candidate_git, dict)
+                    and candidate_git.get("status") != "synced"
+                    and candidate_git.get("status") not in ACTIVE_STATUSES
+                ):
+                    git_candidate_id = candidate_id
         stages: list[dict[str, Any]] = []
         for stage in self.catalog:
             stage_id = stage["id"]
@@ -1007,6 +1254,7 @@ class RoadmapController:
                 and not missing
                 and not active
                 and current_status != "completed"
+                and stage_id == start_candidate_id
             )
             if current_status in ACTIVE_STATUSES:
                 reason = "Task уже виконується."
@@ -1021,6 +1269,8 @@ class RoadmapController:
                 reason = "Не завершені prerequisites: " + ", ".join(missing)
             elif not self.codex_ready:
                 reason = self.codex_error or "Codex App Server недоступний."
+            elif start_candidate_id and stage_id != start_candidate_id:
+                reason = f"За порядком roadmap спочатку запустіть {start_candidate_id}."
             else:
                 reason = "Готово до запуску."
 
@@ -1031,6 +1281,7 @@ class RoadmapController:
                 and git_status != "synced"
                 and git_status not in ACTIVE_STATUSES
                 and not active
+                and stage_id == git_candidate_id
             )
             if current_status != "completed":
                 git_reason = "GitHub checkpoint доступний тільки після технічного PASS."
@@ -1042,10 +1293,15 @@ class RoadmapController:
                 git_reason = f"Спочатку завершіть активну роботу {active[0]}."
             elif not self.codex_ready:
                 git_reason = self.codex_error or "Codex App Server недоступний."
+            elif git_candidate_id and stage_id != git_candidate_id:
+                git_reason = (
+                    "За порядком roadmap спочатку виконайте GitHub checkpoint "
+                    f"для {git_candidate_id}."
+                )
             else:
                 git_reason = (
-                    "Готово: окремий task перевірить diff, stage exact paths, "
-                    "commit, push у codex/* і створить/оновить Draft PR."
+                    "Готово: новий turn у чаті цього package перевірить diff, "
+                    "stage exact paths, commit, push у codex/* і Draft PR."
                 )
             stages.append(
                 {
@@ -1079,6 +1335,151 @@ class RoadmapController:
             "stages": stages,
         }
 
+    def _bind_thread(self, thread_id: str, stage_id: str, work_kind: str) -> None:
+        with self._lock:
+            self._thread_to_stage[thread_id] = stage_id
+            self._thread_kind[thread_id] = work_kind
+            self._live_messages[thread_id] = ""
+            self._progress_signatures.pop((thread_id, work_kind), None)
+
+    def _ensure_canonical_thread(
+        self,
+        client: AppServerClient,
+        stage: Mapping[str, Any],
+        work_kind: str,
+    ) -> tuple[str, bool]:
+        """Return the one persistent Codex thread owned by a roadmap package."""
+
+        stage_id = str(stage["id"])
+        run = self.store.stage(stage_id)
+        existing = run.get("threadId")
+        created = False
+        if isinstance(existing, str) and existing:
+            thread_id = existing
+            with self._lock:
+                loaded = thread_id in self._loaded_threads
+            if not loaded:
+                resumed = client.request(
+                    "thread/resume",
+                    {
+                        "threadId": thread_id,
+                        "cwd": str(self.root),
+                        "approvalPolicy": "never",
+                        "sandbox": "workspace-write",
+                    },
+                    timeout=40,
+                )
+                resumed_thread = resumed.get("thread")
+                resumed_id = (
+                    resumed_thread.get("id") if isinstance(resumed_thread, dict) else None
+                )
+                if resumed_id != thread_id:
+                    raise AppServerError(
+                        "thread/resume did not restore the canonical package thread"
+                    )
+        else:
+            started = client.request(
+                "thread/start",
+                {
+                    "cwd": str(self.root),
+                    "approvalPolicy": "never",
+                    "sandbox": "workspace-write",
+                    "serviceName": "varta_roadmap_controller",
+                    "threadSource": "vartaRoadmap",
+                },
+                timeout=40,
+            )
+            thread = started.get("thread")
+            if not isinstance(thread, dict) or not isinstance(thread.get("id"), str):
+                raise AppServerError("thread/start did not return a thread id")
+            thread_id = thread["id"]
+            created = True
+
+            def remember_thread(item: dict[str, Any]) -> None:
+                item["threadId"] = thread_id
+                git_checkpoint = item.get("git")
+                if isinstance(git_checkpoint, dict):
+                    git_checkpoint["threadId"] = thread_id
+
+            self.store.update_stage(stage_id, remember_thread)
+            client.request(
+                "thread/name/set",
+                {"threadId": thread_id, "name": stage["topic"]},
+                timeout=20,
+            )
+
+        with self._lock:
+            self._loaded_threads.add(thread_id)
+        self._bind_thread(thread_id, stage_id, work_kind)
+        return thread_id, created
+
+    def _register_turn(self, thread_id: str, turn_id: str) -> None:
+        with self._lock:
+            self._thread_to_turn[thread_id] = turn_id
+
+    def _update_work_progress(
+        self,
+        stage_id: str,
+        work_kind: str,
+        *,
+        percent: int,
+        phase: str,
+        detail: str,
+        source: str,
+        allow_regression: bool = False,
+    ) -> None:
+        def update_progress(item: dict[str, Any]) -> None:
+            progress = _normalise_progress(item.get("progress"))
+            _set_progress(
+                progress,
+                percent=percent,
+                phase=phase,
+                detail=detail,
+                source=source,
+                allow_regression=allow_regression,
+            )
+            item["progress"] = progress
+
+        if work_kind == "git":
+            self._update_git_checkpoint(stage_id, update_progress)
+        else:
+            self.store.update_stage(stage_id, update_progress)
+
+    def _apply_reported_progress(
+        self,
+        thread_id: str,
+        stage_id: str,
+        work_kind: str,
+        text: str,
+    ) -> None:
+        update = parse_progress_update(text, stage_id, work_kind)
+        if update is None:
+            return
+        signature = (
+            update["percent"],
+            update["phase"],
+            update["detail"],
+        )
+        signature_key = (thread_id, work_kind)
+        with self._lock:
+            if self._progress_signatures.get(signature_key) == signature:
+                return
+            self._progress_signatures[signature_key] = signature
+        current = self.store.stage(stage_id)
+        container = current.get("git") if work_kind == "git" else current
+        progress = container.get("progress") if isinstance(container, dict) else None
+        current_percent = progress.get("percent", 0) if isinstance(progress, dict) else 0
+        if isinstance(current_percent, int) and update["percent"] < current_percent:
+            return
+        self._update_work_progress(
+            stage_id,
+            work_kind,
+            percent=update["percent"],
+            phase=update["phase"],
+            detail=update["detail"],
+            source="reported",
+        )
+
     def start_stage(self, stage_id: str) -> dict[str, Any]:
         stage = self.catalog_by_id.get(stage_id)
         if stage is None:
@@ -1104,24 +1505,44 @@ class RoadmapController:
                             "completedAt",
                             "result",
                             "error",
+                            "progress",
                         )
                     }
                     run["history"].append(history_entry)
                     run["history"] = run["history"][-20:]
+                canonical_thread_id = run.get("threadId")
+                progress = _blank_progress()
+                started_at = utc_now()
+                _set_progress(
+                    progress,
+                    percent=5,
+                    phase="Підготовка запуску",
+                    detail="Controller фіксує Git baseline і готує turn пакета.",
+                    source="lifecycle",
+                    timestamp=started_at,
+                )
+                git_checkpoint = StateStore._blank_git_checkpoint()
+                if isinstance(canonical_thread_id, str) and canonical_thread_id:
+                    git_checkpoint["threadId"] = canonical_thread_id
                 run.update(
                     {
                         "runStatus": "starting",
                         "attempt": int(run.get("attempt", 0)) + 1,
-                        "threadId": None,
+                        "threadId": canonical_thread_id,
                         "turnId": None,
-                        "startedAt": utc_now(),
-                        "updatedAt": utc_now(),
+                        "startedAt": started_at,
+                        "updatedAt": started_at,
                         "completedAt": None,
-                        "lastMessage": "Створюється окремий task у Codex…",
+                        "lastMessage": (
+                            "Готується новий turn у постійному чаті package…"
+                            if canonical_thread_id
+                            else "Створюється постійний чат package у Codex…"
+                        ),
                         "result": None,
                         "error": None,
                         "gitBaseline": git_baseline,
-                        "git": StateStore._blank_git_checkpoint(),
+                        "progress": progress,
+                        "git": git_checkpoint,
                     }
                 )
 
@@ -1139,25 +1560,7 @@ class RoadmapController:
         stage_id = str(stage["id"])
         try:
             client = self._ensure_client()
-            started = client.request(
-                "thread/start",
-                {
-                    "cwd": str(self.root),
-                    "approvalPolicy": "never",
-                    "sandbox": "workspace-write",
-                    "serviceName": "varta_roadmap_controller",
-                    "threadSource": "vartaRoadmap",
-                },
-                timeout=40,
-            )
-            thread = started.get("thread")
-            if not isinstance(thread, dict) or not isinstance(thread.get("id"), str):
-                raise AppServerError("thread/start did not return a thread id")
-            thread_id = thread["id"]
-            with self._lock:
-                self._thread_to_stage[thread_id] = stage_id
-                self._thread_kind[thread_id] = "stage"
-                self._live_messages[thread_id] = ""
+            thread_id, created = self._ensure_canonical_thread(client, stage, "stage")
 
             self.store.update_stage(
                 stage_id,
@@ -1165,14 +1568,25 @@ class RoadmapController:
                     {
                         "threadId": thread_id,
                         "updatedAt": utc_now(),
-                        "lastMessage": "Task створено; встановлюється назва…",
+                        "lastMessage": (
+                            "Постійний чат створено; запускається перший turn…"
+                            if created
+                            else "Використовується постійний чат; запускається новий turn…"
+                        ),
                     }
                 ),
             )
-            client.request(
-                "thread/name/set",
-                {"threadId": thread_id, "name": stage["topic"]},
-                timeout=20,
+            self._update_work_progress(
+                stage_id,
+                "stage",
+                percent=8,
+                phase="Чат готовий",
+                detail=(
+                    "Створено один постійний Codex-чат для package."
+                    if created
+                    else "Повторна спроба продовжується в тому самому Codex-чаті."
+                ),
+                source="lifecycle",
             )
             turn_result = client.request(
                 "turn/start",
@@ -1192,6 +1606,7 @@ class RoadmapController:
             turn = turn_result.get("turn")
             if not isinstance(turn, dict) or not isinstance(turn.get("id"), str):
                 raise AppServerError("turn/start did not return a turn id")
+            self._register_turn(thread_id, turn["id"])
             self.store.update_stage(
                 stage_id,
                 lambda run: run.update(
@@ -1202,6 +1617,14 @@ class RoadmapController:
                         "lastMessage": "Codex виконує package…",
                     }
                 ),
+            )
+            self._update_work_progress(
+                stage_id,
+                "stage",
+                percent=10,
+                phase="Package виконується",
+                detail="Turn запущено; очікується перший доказовий progress checkpoint.",
+                source="lifecycle",
             )
         except Exception as exc:
             message = _limited_string(str(exc), limit=2000) or type(exc).__name__
@@ -1216,6 +1639,16 @@ class RoadmapController:
                         "lastMessage": "Не вдалося запустити task.",
                     }
                 ),
+            )
+            current = self.store.stage(stage_id).get("progress", {})
+            percent = current.get("percent", 5) if isinstance(current, dict) else 5
+            self._update_work_progress(
+                stage_id,
+                "stage",
+                percent=int(percent) if isinstance(percent, int) else 5,
+                phase="Запуск не вдався",
+                detail=message,
+                source="controller",
             )
 
     def _update_git_checkpoint(
@@ -1243,6 +1676,7 @@ class RoadmapController:
             current = next(item for item in snapshot["stages"] if item["id"] == stage_id)
             if not current["canGitCheckpoint"]:
                 raise RoadmapConflict(current["gitReason"])
+            canonical_thread_id = current["run"].get("threadId")
 
             def mark_starting(git_checkpoint: dict[str, Any]) -> None:
                 if (
@@ -1260,22 +1694,34 @@ class RoadmapController:
                             "completedAt",
                             "result",
                             "error",
+                            "progress",
                         )
                     }
                     git_checkpoint["history"].append(history_entry)
                     git_checkpoint["history"] = git_checkpoint["history"][-20:]
+                started_at = utc_now()
+                progress = _blank_progress()
+                _set_progress(
+                    progress,
+                    percent=5,
+                    phase="Підготовка Git checkpoint",
+                    detail="Controller готує новий turn у чаті цього package.",
+                    source="lifecycle",
+                    timestamp=started_at,
+                )
                 git_checkpoint.update(
                     {
                         "status": "starting",
                         "attempt": int(git_checkpoint.get("attempt", 0)) + 1,
-                        "threadId": None,
+                        "threadId": canonical_thread_id,
                         "turnId": None,
-                        "startedAt": utc_now(),
-                        "updatedAt": utc_now(),
+                        "startedAt": started_at,
+                        "updatedAt": started_at,
                         "completedAt": None,
-                        "lastMessage": "Створюється окремий GitHub checkpoint task…",
+                        "lastMessage": "Готується Git checkpoint у чаті цього package…",
                         "result": None,
                         "error": None,
+                        "progress": progress,
                     }
                 )
 
@@ -1293,25 +1739,7 @@ class RoadmapController:
         stage_id = str(stage["id"])
         try:
             client = self._ensure_client()
-            started = client.request(
-                "thread/start",
-                {
-                    "cwd": str(self.root),
-                    "approvalPolicy": "never",
-                    "sandbox": "workspace-write",
-                    "serviceName": "varta_roadmap_controller",
-                    "threadSource": "vartaRoadmapGit",
-                },
-                timeout=40,
-            )
-            thread = started.get("thread")
-            if not isinstance(thread, dict) or not isinstance(thread.get("id"), str):
-                raise AppServerError("thread/start did not return a thread id")
-            thread_id = thread["id"]
-            with self._lock:
-                self._thread_to_stage[thread_id] = stage_id
-                self._thread_kind[thread_id] = "git"
-                self._live_messages[thread_id] = ""
+            thread_id, created = self._ensure_canonical_thread(client, stage, "git")
 
             self._update_git_checkpoint(
                 stage_id,
@@ -1319,17 +1747,21 @@ class RoadmapController:
                     {
                         "threadId": thread_id,
                         "updatedAt": utc_now(),
-                        "lastMessage": "GitHub task створено; встановлюється назва…",
+                        "lastMessage": (
+                            "Відновлено legacy package без Task ID; створено його єдиний чат."
+                            if created
+                            else "Git checkpoint продовжується в чаті цього package…"
+                        ),
                     }
                 ),
             )
-            client.request(
-                "thread/name/set",
-                {
-                    "threadId": thread_id,
-                    "name": f"VARTA {stage_id} · GitHub checkpoint",
-                },
-                timeout=20,
+            self._update_work_progress(
+                stage_id,
+                "git",
+                percent=8,
+                phase="Чат package готовий",
+                detail="Git checkpoint запускається як новий turn у тому самому Codex-чаті.",
+                source="lifecycle",
             )
             run = self.store.stage(stage_id)
             turn_result = client.request(
@@ -1355,6 +1787,7 @@ class RoadmapController:
             turn = turn_result.get("turn")
             if not isinstance(turn, dict) or not isinstance(turn.get("id"), str):
                 raise AppServerError("turn/start did not return a turn id")
+            self._register_turn(thread_id, turn["id"])
             self._update_git_checkpoint(
                 stage_id,
                 lambda item: item.update(
@@ -1365,6 +1798,14 @@ class RoadmapController:
                         "lastMessage": "Codex перевіряє й публікує Git checkpoint…",
                     }
                 ),
+            )
+            self._update_work_progress(
+                stage_id,
+                "git",
+                percent=10,
+                phase="Git checkpoint виконується",
+                detail="Turn запущено; очікується перший доказовий Git progress checkpoint.",
+                source="lifecycle",
             )
         except Exception as exc:
             message = _limited_string(str(exc), limit=2000) or type(exc).__name__
@@ -1379,6 +1820,16 @@ class RoadmapController:
                         "lastMessage": "Не вдалося запустити GitHub checkpoint task.",
                     }
                 ),
+            )
+            current = self.store.stage(stage_id).get("git", {}).get("progress", {})
+            percent = current.get("percent", 5) if isinstance(current, dict) else 5
+            self._update_work_progress(
+                stage_id,
+                "git",
+                percent=int(percent) if isinstance(percent, int) else 5,
+                phase="Git checkpoint не запустився",
+                detail=message,
+                source="controller",
             )
 
     def stop_git_checkpoint(self, stage_id: str) -> dict[str, Any]:
@@ -1401,12 +1852,23 @@ class RoadmapController:
             {"threadId": thread_id, "turnId": turn_id},
             timeout=20,
         )
-        return self._update_git_checkpoint(
+        self._update_git_checkpoint(
             stage_id,
             lambda item: item.update(
                 {"lastMessage": "Запит на зупинку прийнято…", "updatedAt": utc_now()}
             ),
         )
+        progress = self.store.stage(stage_id).get("git", {}).get("progress", {})
+        percent = progress.get("percent", 10) if isinstance(progress, dict) else 10
+        self._update_work_progress(
+            stage_id,
+            "git",
+            percent=int(percent) if isinstance(percent, int) else 10,
+            phase="Зупинка Git checkpoint",
+            detail="Controller надіслав запит на зупинку активного Git turn.",
+            source="controller",
+        )
+        return copy.deepcopy(self.store.stage(stage_id)["git"])
 
     def stop_stage(self, stage_id: str) -> dict[str, Any]:
         if stage_id not in self.catalog_by_id:
@@ -1424,12 +1886,23 @@ class RoadmapController:
             {"threadId": thread_id, "turnId": turn_id},
             timeout=20,
         )
-        return self.store.update_stage(
+        self.store.update_stage(
             stage_id,
             lambda item: item.update(
                 {"lastMessage": "Запит на зупинку прийнято…", "updatedAt": utc_now()}
             ),
         )
+        progress = self.store.stage(stage_id).get("progress", {})
+        percent = progress.get("percent", 10) if isinstance(progress, dict) else 10
+        self._update_work_progress(
+            stage_id,
+            "stage",
+            percent=int(percent) if isinstance(percent, int) else 10,
+            phase="Зупинка package",
+            detail="Controller надіслав запит на зупинку активного turn.",
+            source="controller",
+        )
+        return self.store.stage(stage_id)
 
     def handle_app_server_message(self, message: dict[str, Any]) -> None:
         method = message.get("method")
@@ -1442,7 +1915,19 @@ class RoadmapController:
         with self._lock:
             stage_id = self._thread_to_stage.get(thread_id)
             work_kind = self._thread_kind.get(thread_id, "stage")
+            active_turn_id = self._thread_to_turn.get(thread_id)
         if stage_id is None:
+            return
+        event_turn_id = params.get("turnId")
+        if method == "turn/completed" and not isinstance(event_turn_id, str):
+            event_turn = params.get("turn")
+            if isinstance(event_turn, dict):
+                event_turn_id = event_turn.get("id")
+        if (
+            isinstance(event_turn_id, str)
+            and isinstance(active_turn_id, str)
+            and event_turn_id != active_turn_id
+        ):
             return
 
         def update_context(fields: Mapping[str, Any]) -> None:
@@ -1474,6 +1959,9 @@ class RoadmapController:
                 with self._lock:
                     combined = self._live_messages.get(thread_id, "") + delta
                     self._live_messages[thread_id] = combined[-200_000:]
+                self._apply_reported_progress(
+                    thread_id, stage_id, work_kind, combined
+                )
             return
 
         if method == "item/completed":
@@ -1483,6 +1971,9 @@ class RoadmapController:
                 if isinstance(text, str):
                     with self._lock:
                         self._live_messages[thread_id] = text[-200_000:]
+                    self._apply_reported_progress(
+                        thread_id, stage_id, work_kind, text
+                    )
                     update_context(
                         {"lastMessage": text[-4000:], "updatedAt": utc_now()}
                     )
@@ -1500,6 +1991,22 @@ class RoadmapController:
                             "updatedAt": utc_now(),
                             "lastMessage": "Task очікує дії або дозволу в Codex.",
                         }
+                    )
+                    current = self.store.stage(stage_id)
+                    container = current.get("git") if work_kind == "git" else current
+                    progress = (
+                        container.get("progress", {})
+                        if isinstance(container, dict)
+                        else {}
+                    )
+                    percent = progress.get("percent", 10)
+                    self._update_work_progress(
+                        stage_id,
+                        work_kind,
+                        percent=int(percent) if isinstance(percent, int) else 10,
+                        phase="Очікується дія",
+                        detail="Codex повідомив про очікування дозволу або зовнішньої дії.",
+                        source="controller",
                     )
             return
 
@@ -1562,6 +2069,33 @@ class RoadmapController:
                     }
                 ),
             )
+            current_progress = self.store.stage(stage_id).get("git", {}).get(
+                "progress", {}
+            )
+            current_percent = (
+                current_progress.get("percent", 10)
+                if isinstance(current_progress, dict)
+                else 10
+            )
+            progress_phase = {
+                "synced": "GITHUB SYNCED",
+                "blocked": "Git checkpoint заблоковано",
+                "failed": "Git checkpoint завершився помилкою",
+                "interrupted": "Git checkpoint зупинено",
+                "needs_review": "Git checkpoint потребує перевірки",
+            }.get(git_status, "Git checkpoint завершено")
+            self._update_work_progress(
+                stage_id,
+                "git",
+                percent=100 if git_status == "synced" else int(current_percent),
+                phase=progress_phase,
+                detail=(
+                    result["summary"]
+                    if isinstance(result, dict)
+                    else (error or progress_phase)
+                ),
+                source="controller",
+            )
             return
 
         result = parse_stage_result(final_message, stage_id)
@@ -1603,6 +2137,31 @@ class RoadmapController:
                     "error": error,
                 }
             )
+            progress = _normalise_progress(run.get("progress"))
+            progress_phase = {
+                "completed": "TECH PASS",
+                "blocked": "Package заблоковано",
+                "failed": "Package завершився помилкою",
+                "interrupted": "Package зупинено",
+                "needs_review": "Package потребує перевірки",
+            }.get(run_status, "Package завершено")
+            _set_progress(
+                progress,
+                percent=(
+                    100
+                    if run_status == "completed"
+                    else int(progress.get("percent", 10))
+                ),
+                phase=progress_phase,
+                detail=(
+                    result["summary"]
+                    if isinstance(result, dict)
+                    else (error or progress_phase)
+                ),
+                source="controller",
+                timestamp=completed_at,
+            )
+            run["progress"] = progress
             if run_status == "completed":
                 git_checkpoint = run.get("git")
                 if not isinstance(git_checkpoint, dict):
@@ -1611,6 +2170,7 @@ class RoadmapController:
                 git_checkpoint.update(
                     {
                         "status": "awaiting_approval",
+                        "threadId": run.get("threadId"),
                         "updatedAt": completed_at,
                         "lastMessage": (
                             "Технічний PASS підтверджено. GitHub змін не отримав; "
@@ -1618,6 +2178,7 @@ class RoadmapController:
                         ),
                         "result": None,
                         "error": None,
+                        "progress": _blank_progress(),
                     }
                 )
 
@@ -1628,6 +2189,7 @@ class RoadmapController:
             client = self.client
             self.client = None
             self.codex_ready = False
+            self._loaded_threads.clear()
         if client is not None:
             client.close()
 

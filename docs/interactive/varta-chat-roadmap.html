@@ -25,7 +25,7 @@
 
     * { box-sizing: border-box; }
 
-    html { min-width: 320px; background: var(--bg); }
+    html { min-width: 0; background: var(--bg); }
 
     body {
       min-height: 100vh;
@@ -51,6 +51,8 @@
 
     code, pre {
       font-family: "Cascadia Code", Consolas, monospace;
+      min-width: 0;
+      max-width: 100%;
     }
 
     code {
@@ -110,6 +112,7 @@
     .stat b { display: block; margin-top: 0.25rem; font-size: 1.45rem; }
 
     .stat[data-tone="ready"] b { color: var(--green); }
+    .stat[data-tone="active"] b { color: var(--blue); }
     .stat[data-tone="partial"] b { color: var(--yellow); }
     .stat[data-tone="blocked"] b { color: var(--red); }
     .stat[data-tone="planned"] b { color: var(--muted); }
@@ -161,6 +164,136 @@
     .controller-panel[data-state="online"] { border-color: var(--green); }
     .controller-panel[data-state="offline"] { border-color: var(--yellow); }
     .controller-panel p { margin: 0.25rem 0 0; }
+
+    .live-overview {
+      display: grid;
+      gap: 0.75rem;
+      margin: 0 0 1rem;
+      padding: 0.9rem;
+      border: 1px solid var(--border);
+      border-radius: 0.75rem;
+      background: color-mix(in srgb, var(--surface) 96%, transparent);
+      box-shadow: 0 0.8rem 2.2rem rgb(0 0 0 / 28%);
+      backdrop-filter: blur(12px);
+    }
+
+    .live-overview[data-state="active"] {
+      border-color: var(--blue);
+      box-shadow: 0 0 0 1px rgb(101 184 255 / 15%), 0 0.8rem 2.2rem rgb(0 0 0 / 28%);
+    }
+
+    .live-overview[data-state="waiting"] { border-color: var(--yellow); }
+    .live-overview[data-state="idle"] { box-shadow: none; }
+
+    .live-overview-heading,
+    .live-overview-title,
+    .live-overview-actions,
+    .progress-heading {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem 0.75rem;
+      align-items: center;
+    }
+
+    .live-overview-heading { justify-content: space-between; }
+    .live-overview-title b { font-size: 1.02rem; }
+
+    .live-stage-id {
+      display: inline-grid;
+      min-width: 3.4rem;
+      min-height: 2rem;
+      place-items: center;
+      border: 1px solid color-mix(in srgb, var(--green) 60%, var(--border));
+      border-radius: 0.45rem;
+      color: var(--green);
+      background: rgb(67 224 141 / 7%);
+      font-weight: 800;
+      letter-spacing: 0.05em;
+    }
+
+    .live-overview-meta,
+    .progress-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem 1rem;
+      color: var(--muted);
+    }
+
+    .live-overview-body {
+      display: grid;
+      grid-template-columns: minmax(0, 1.4fr) minmax(14rem, 0.8fr);
+      gap: 0.75rem;
+      min-width: 0;
+    }
+
+    .live-stream,
+    .process-events {
+      min-width: 0;
+      padding: 0.65rem;
+      border: 1px solid var(--border);
+      border-radius: 0.55rem;
+      background: rgb(0 0 0 / 16%);
+    }
+
+    .live-stream h3,
+    .process-events h3 { margin-bottom: 0.4rem; }
+
+    .live-stream pre {
+      max-height: 8.5rem;
+      margin: 0;
+      color: var(--muted);
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+      overflow: auto;
+    }
+
+    .process-event-list {
+      max-height: 8.5rem;
+      margin: 0;
+      padding-left: 1.25rem;
+      overflow: auto;
+    }
+
+    .process-event-list li { margin-bottom: 0.4rem; }
+
+    .progress-block {
+      display: grid;
+      gap: 0.42rem;
+    }
+
+    .progress-heading { justify-content: space-between; }
+    .progress-percent { color: var(--green); font-size: 1.05rem; font-weight: 800; }
+
+    .progress-track {
+      position: relative;
+      height: 0.72rem;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: #07110c;
+    }
+
+    .progress-fill {
+      width: 0;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--green), var(--blue));
+      transition: width 420ms ease;
+    }
+
+    .progress-track[data-active="true"] .progress-fill {
+      background-size: 200% 100%;
+      animation: live-progress 1.8s linear infinite;
+    }
+
+    .progress-detail { margin: 0; color: var(--muted); line-height: 1.45; }
+    .progress-source { color: var(--blue); }
+
+    @keyframes live-progress {
+      from { background-position: 100% 0; }
+      to { background-position: -100% 0; }
+    }
 
     .connection-badge,
     .run-badge,
@@ -251,6 +384,11 @@
 
     .step[data-status="done"] .dot { background: var(--green); box-shadow: 0 0 0 0.32rem var(--bg), 0 0 0.8rem rgb(67 224 141 / 45%); }
     .step[data-status="ready"] .dot { background: var(--green); }
+    .step[data-status="running"] .dot { background: var(--blue); box-shadow: 0 0 0 0.32rem var(--bg), 0 0 0.8rem rgb(101 184 255 / 42%); }
+    .step[data-status="waiting"] .dot,
+    .step[data-status="review"] .dot { background: var(--yellow); }
+    .step[data-status="failed"] .dot { background: var(--red); }
+    .step[data-status="locked"] .dot { background: var(--muted); }
     .step[data-status="partial"] .dot { background: var(--yellow); }
     .step[data-status="blocked"] .dot { background: var(--red); }
 
@@ -275,6 +413,21 @@
     summary:hover { background: rgb(67 224 141 / 5%); }
     details[open] summary { background: rgb(67 224 141 / 7%); }
 
+    article[data-stage-id] summary .id::before {
+      content: "+";
+      display: inline-grid;
+      width: 1.15rem;
+      height: 1.15rem;
+      margin-right: 0.3rem;
+      place-items: center;
+      border: 1px solid currentColor;
+      border-radius: 0.25rem;
+      font-size: 0.9rem;
+      line-height: 1;
+    }
+
+    article[data-stage-id] details[open] summary .id::before { content: "−"; }
+
     .id {
       min-width: 3rem;
       color: var(--green);
@@ -298,6 +451,11 @@
 
     .step[data-status="done"] .status,
     .step[data-status="ready"] .status { color: var(--green); }
+    .step[data-status="running"] .status { color: var(--blue); }
+    .step[data-status="waiting"] .status,
+    .step[data-status="review"] .status { color: var(--yellow); }
+    .step[data-status="failed"] .status { color: var(--red); }
+    .step[data-status="locked"] .status { color: var(--muted); }
     .step[data-status="partial"] .status { color: var(--yellow); }
     .step[data-status="blocked"] .status { color: var(--red); }
     .step[data-status="planned"] .status { color: var(--muted); }
@@ -305,7 +463,20 @@
     .body {
       display: grid;
       gap: 0.85rem;
+      min-width: 0;
       padding: 0.8rem 0.65rem 0.35rem;
+    }
+
+    .body,
+    .grid,
+    .grid section,
+    .meta,
+    .live-controls,
+    .git-checkpoint,
+    .run-result,
+    .process-event-list {
+      overflow-wrap: anywhere;
+      word-break: break-word;
     }
 
     .meta {
@@ -366,6 +537,8 @@
     .start-git { border-color: color-mix(in srgb, var(--green) 75%, var(--border)); }
     .stop-git { border-color: color-mix(in srgb, var(--red) 65%, var(--border)); }
     .run-note { margin: 0; color: var(--muted); }
+    .stage-progress { padding: 0.55rem 0; border-block: 1px solid var(--border); }
+    .stage-process-events { margin: 0; }
     .run-message {
       max-height: 9rem;
       margin: 0;
@@ -374,6 +547,8 @@
       color: var(--muted);
       background: rgb(0 0 0 / 18%);
       white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      word-break: break-word;
       overflow: auto;
     }
 
@@ -427,6 +602,8 @@
       background: color-mix(in srgb, var(--surface) 92%, transparent);
     }
 
+    .satellite details { padding: 0; border-bottom: 0; }
+
     .satellite p:last-child { margin-bottom: 0; }
 
     footer {
@@ -440,6 +617,7 @@
     @media (max-width: 760px) {
       .stats, .grid, .satellites { grid-template-columns: 1fr; }
       .controller-panel { grid-template-columns: 1fr; }
+      .live-overview-body { grid-template-columns: 1fr; }
       summary { grid-template-columns: auto minmax(0, 1fr); }
       .status { grid-column: 2; }
       .phase { padding-left: 0; }
@@ -463,32 +641,77 @@
   <header>
     <h1>VARTA: пакети C01–C16 у Codex</h1>
     <p class="decision">Ціль: local web UI на loopback → application services → SQLite і managed filesystem → локальні workers → відтворювані Evidence Map, reports та sealed exports. Notion не входить до системи.</p>
+    <p class="decision"><b>Правило виконання:</b> кожен <code>Cxx</code> має рівно один постійний чат у Codex; повторні спроби та Git checkpoint додають turns у той самий чат.</p>
     <p class="small muted">Версія 1.2 · синхронізовано 18.08.2026 · C02 architecture decisions approved; implementation лишається у наступних packages.</p>
   </header>
 
   <section id="controller-panel" class="controller-panel" data-state="offline" aria-live="polite">
     <div>
-      <b>Керований запуск Codex tasks</b>
+      <b>Керований запуск пакетів у Codex</b>
       <p id="controller-message" class="small muted">Offline-перегляд. Для кнопок Start відкрийте <code>START_ROADMAP.cmd</code>.</p>
     </div>
     <span id="connection-badge" class="connection-badge">OFFLINE PLAN</span>
   </section>
 
+  <section id="live-execution" class="live-overview" data-state="idle" aria-label="Живе виконання package">
+    <div class="live-overview-heading">
+      <div class="live-overview-title">
+        <span id="live-stage-id" class="live-stage-id">—</span>
+        <div>
+          <b id="live-stage-title">Активного пакета немає</b>
+          <div id="live-stage-phase" class="small muted">Оберіть доступний Cxx і натисніть кнопку початку.</div>
+        </div>
+      </div>
+      <span id="live-run-badge" class="run-badge" data-run-status="not_started">ОЧІКУВАННЯ</span>
+    </div>
+    <div class="progress-block">
+      <div class="progress-heading">
+        <span id="live-progress-label"><b>Виконання</b> · доказовий progress</span>
+        <span id="live-progress-percent" class="progress-percent">0%</span>
+      </div>
+      <div id="live-progress-track" class="progress-track" role="progressbar" aria-label="Виконання активного package" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+        <div id="live-progress-fill" class="progress-fill"></div>
+      </div>
+      <p id="live-progress-detail" class="progress-detail small">Відсоток змінюється лише після підтвердженої контрольної точки.</p>
+      <div class="live-overview-meta small">
+        <span id="live-progress-source" class="progress-source">Джерело: lifecycle</span>
+        <span id="live-task-id">Task ID: ще не створено</span>
+        <span id="live-elapsed">Тривалість: —</span>
+        <span id="live-signal">Останній сигнал: —</span>
+      </div>
+    </div>
+    <div class="live-overview-actions">
+      <button type="button" id="open-active-stage" disabled>Відкрити картку package</button>
+      <button type="button" id="copy-active-thread" disabled>Скопіювати Task ID</button>
+    </div>
+    <div class="live-overview-body">
+      <section class="live-stream">
+        <h3>Поточний процес</h3>
+        <pre id="live-process-message" class="small">Очікується запуск package.</pre>
+      </section>
+      <section class="process-events">
+        <h3>Контрольні точки</h3>
+        <ol id="live-process-events" class="process-event-list small"><li>Ще немає подій.</li></ol>
+      </section>
+    </div>
+  </section>
+
   <p class="path small"><b>Двофазний gate:</b> технічний <code>PASS</code> ще нічого не публікує. Після нього окрема підтверджена кнопка запускає Git audit → exact staging → commit → push у <code>codex/*</code> → Draft PR. Наступний залежний stage відкривається лише після статусу <code>GITHUB SYNCED</code>; merge, tag і release залишаються окремими ручними рішеннями.</p>
 
-  <section class="stats" aria-label="Поточний стан work packages">
-    <div class="stat small" data-tone="ready"><span>Gate завершено</span><b>2</b></div>
-    <div class="stat small" data-tone="ready"><span>Можна почати зараз</span><b>1</b></div>
-    <div class="stat small" data-tone="partial"><span>Є часткова реалізація</span><b>8</b></div>
-    <div class="stat small" data-tone="blocked"><span>Заблоковано рішенням</span><b>1</b></div>
-    <div class="stat small" data-tone="planned"><span>Очікують prerequisites</span><b>4</b></div>
+  <section id="execution-stats" class="stats" aria-label="Фактичний стан виконання work packages">
+    <div class="stat small" data-tone="ready"><span>Технічний PASS</span><b id="stat-tech-pass">—</b></div>
+    <div class="stat small" data-tone="ready"><span>GitHub synced</span><b id="stat-git-synced">—</b></div>
+    <div class="stat small" data-tone="active"><span>Виконується зараз</span><b id="stat-active">—</b></div>
+    <div class="stat small" data-tone="ready"><span>Готово до старту</span><b id="stat-ready">—</b></div>
+    <div class="stat small" data-tone="partial"><span>Очікує Git checkpoint</span><b id="stat-awaiting-git">—</b></div>
+    <div class="stat small" data-tone="planned"><span>Очікує prerequisites</span><b id="stat-waiting">—</b></div>
   </section>
 
   <p class="path small"><b>Критичний шлях:</b> C01 → C02 → C03 → C04 → C05 → C06 → C07 → C08 → C11 → C12 → C13 → C14 → C15 → C16. C09 і C10 мають власні gates; processor-чати P01–P04 можуть йти паралельно тільки після C10.</p>
 
   <div class="controls" aria-label="Керування картою">
-    <button type="button" id="expand-all">Розгорнути всі</button>
-    <button type="button" id="collapse-all">Згорнути всі</button>
+    <button type="button" id="expand-all">+ Розгорнути всі C/P</button>
+    <button type="button" id="collapse-all">− Згорнути всі C/P</button>
     <span id="copy-result" class="copy-result small" role="status" aria-live="polite"></span>
   </div>
 
@@ -797,24 +1020,55 @@
 
   <h2 class="phase">Processor lane після C10</h2>
   <section class="satellites" aria-label="Окремі processor-чати">
-    <article class="satellite" data-stage-id="P01"><h3>P01 — OCR/text processor</h3><p class="small muted">Залежності: C05, C08, C10</p><p>Local OCR, page mapping, versioned params, confidence/errors. Тести: українські/англійські synthetic pages, rotation, blank/corrupt PDF, missing dependency, timeout і provenance.</p></article>
-    <article class="satellite" data-stage-id="P02"><h3>P02 — КЕП/P7S та attachments</h3><p class="small muted">Залежності: C05, C08, C10</p><p>Literal PDF/P7S pairing, local verification, <code>not_verifiable</code>, claimed-vs-actual attachments. Тести: valid/invalid/missing/ambiguous pairs, no private keys/log leaks.</p></article>
-    <article class="satellite" data-stage-id="P03"><h3>P03 — Offline STT</h3><p class="small muted">Залежності: C05, C08, C10</p><p>FFmpeg-derived normalization, local Whisper, timestamps/confidence, interruption policy. Тести: Ukrainian synthetic audio, silence/corrupt media, offline load, retry/provenance.</p></article>
-    <article class="satellite" data-stage-id="P04"><h3>P04 — Matching/anomalies</h3><p class="small muted">Залежності: C08, C10</p><p>Versioned exact/metadata/text matching, confidence і structured findings без fraud/legal auto-conclusion. Тести: true/false/ambiguous pairs, thresholds, deterministic results, preserved review.</p></article>
+    <article class="satellite" data-stage-id="P01"><details><summary><span class="id">P01</span><span class="title"><b>OCR/text processor</b><small>Local OCR, page mapping і provenance</small></span><span class="status">PLANNED</span></summary><div class="body"><p class="small muted">Залежності: C05, C08, C10</p><p>Local OCR, page mapping, versioned params, confidence/errors. Тести: українські/англійські synthetic pages, rotation, blank/corrupt PDF, missing dependency, timeout і provenance.</p></div></details></article>
+    <article class="satellite" data-stage-id="P02"><details><summary><span class="id">P02</span><span class="title"><b>КЕП/P7S та attachments</b><small>Literal pairing і local verification</small></span><span class="status">PLANNED</span></summary><div class="body"><p class="small muted">Залежності: C05, C08, C10</p><p>Literal PDF/P7S pairing, local verification, <code>not_verifiable</code>, claimed-vs-actual attachments. Тести: valid/invalid/missing/ambiguous pairs, no private keys/log leaks.</p></div></details></article>
+    <article class="satellite" data-stage-id="P03"><details><summary><span class="id">P03</span><span class="title"><b>Offline STT</b><small>Local Whisper, timestamps і interruption policy</small></span><span class="status">PLANNED</span></summary><div class="body"><p class="small muted">Залежності: C05, C08, C10</p><p>FFmpeg-derived normalization, local Whisper, timestamps/confidence, interruption policy. Тести: Ukrainian synthetic audio, silence/corrupt media, offline load, retry/provenance.</p></div></details></article>
+    <article class="satellite" data-stage-id="P04"><details><summary><span class="id">P04</span><span class="title"><b>Matching/anomalies</b><small>Versioned matching і structured findings</small></span><span class="status">PLANNED</span></summary><div class="body"><p class="small muted">Залежності: C08, C10</p><p>Versioned exact/metadata/text matching, confidence і structured findings без fraud/legal auto-conclusion. Тести: true/false/ambiguous pairs, thresholds, deterministic results, preserved review.</p></div></details></article>
   </section>
 
-  <footer>
-    <b>Найближчий новий чат:</b> <code>VARTA C01 — стабілізація поточного working baseline</code>.<br>
-    До його PASS не починати масовий refactor, новий UI framework, full Evidence Map generator або release packaging.
+  <footer id="roadmap-footer" aria-live="polite">
+    <b id="roadmap-footer-label">Фактичний наступний крок:</b>
+    <span id="roadmap-footer-message">
+      Це offline-план без актуального runtime-стану. Відкрийте
+      <a href="http://127.0.0.1:8766/">live controller</a>, щоб побачити активний або наступний доступний C/P.
+    </span>
   </footer>
 </main>
 
 <script>
-  const details = [...document.querySelectorAll("details")];
+  const packageDetails = [...document.querySelectorAll("article[data-stage-id] details")];
   const copyResult = document.getElementById("copy-result");
   const controllerPanel = document.getElementById("controller-panel");
   const controllerMessage = document.getElementById("controller-message");
   const connectionBadge = document.getElementById("connection-badge");
+  const liveExecution = document.getElementById("live-execution");
+  const liveStageId = document.getElementById("live-stage-id");
+  const liveStageTitle = document.getElementById("live-stage-title");
+  const liveStagePhase = document.getElementById("live-stage-phase");
+  const liveRunBadge = document.getElementById("live-run-badge");
+  const liveProgressPercent = document.getElementById("live-progress-percent");
+  const liveProgressTrack = document.getElementById("live-progress-track");
+  const liveProgressFill = document.getElementById("live-progress-fill");
+  const liveProgressDetail = document.getElementById("live-progress-detail");
+  const liveProgressSource = document.getElementById("live-progress-source");
+  const liveTaskId = document.getElementById("live-task-id");
+  const liveElapsed = document.getElementById("live-elapsed");
+  const liveSignal = document.getElementById("live-signal");
+  const liveProcessMessage = document.getElementById("live-process-message");
+  const liveProcessEvents = document.getElementById("live-process-events");
+  const openActiveStage = document.getElementById("open-active-stage");
+  const copyActiveThread = document.getElementById("copy-active-thread");
+  const roadmapFooterLabel = document.getElementById("roadmap-footer-label");
+  const roadmapFooterMessage = document.getElementById("roadmap-footer-message");
+  const executionStats = {
+    techPass: document.getElementById("stat-tech-pass"),
+    gitSynced: document.getElementById("stat-git-synced"),
+    active: document.getElementById("stat-active"),
+    ready: document.getElementById("stat-ready"),
+    awaitingGit: document.getElementById("stat-awaiting-git"),
+    waiting: document.getElementById("stat-waiting")
+  };
+  document.querySelector(".topbar").after(liveExecution);
   const sessionToken = document.querySelector('meta[name="varta-session-token"]').content;
   const activeStatuses = new Set(["starting", "running", "waiting"]);
   const runLabels = {
@@ -840,15 +1094,109 @@
     interrupted: "GIT ЗУПИНЕНО",
     needs_review: "GIT ПОТРІБНА ПЕРЕВІРКА"
   };
+
+  function packagePresentation(stage) {
+    const run = stage.run || {};
+    const runStatus = run.runStatus || "not_started";
+    const gitStatus = run.git?.status || "not_ready";
+
+    if (gitStatus === "synced") return {tone: "done", label: "DONE"};
+    if (["starting", "running"].includes(gitStatus)) {
+      return {tone: "running", label: "GIT RUNNING"};
+    }
+    if (gitStatus === "waiting") return {tone: "waiting", label: "GIT WAITING"};
+    if (gitStatus === "failed") return {tone: "failed", label: "GIT FAILED"};
+    if (gitStatus === "blocked") return {tone: "failed", label: "GIT BLOCKED"};
+    if (gitStatus === "interrupted") return {tone: "review", label: "GIT STOPPED"};
+    if (gitStatus === "needs_review") return {tone: "review", label: "GIT REVIEW"};
+    if (runStatus === "completed") {
+      return gitStatus === "awaiting_approval"
+        ? {tone: "review", label: "GIT READY"}
+        : {tone: "review", label: "TECH PASS"};
+    }
+    if (["starting", "running"].includes(runStatus)) {
+      return {tone: "running", label: "RUNNING"};
+    }
+    if (runStatus === "waiting") return {tone: "waiting", label: "WAITING"};
+    if (runStatus === "failed") return {tone: "failed", label: "FAILED"};
+    if (runStatus === "blocked") return {tone: "failed", label: "BLOCKED"};
+    if (runStatus === "interrupted") return {tone: "review", label: "STOPPED"};
+    if (runStatus === "needs_review") return {tone: "review", label: "REVIEW"};
+    return stage.canStart
+      ? {tone: "ready", label: "READY"}
+      : {tone: "locked", label: "WAITING"};
+  }
+
+  function renderExecutionStats(snapshot) {
+    const stages = snapshot.stages;
+    const isActive = stage => (
+      activeStatuses.has(stage.run.runStatus)
+      || activeStatuses.has(stage.run.git?.status)
+    );
+    executionStats.techPass.textContent = String(
+      stages.filter(stage => stage.run.runStatus === "completed").length
+    );
+    executionStats.gitSynced.textContent = String(
+      stages.filter(stage => stage.run.git?.status === "synced").length
+    );
+    executionStats.active.textContent = String(stages.filter(isActive).length);
+    executionStats.ready.textContent = String(
+      stages.filter(stage => stage.run.runStatus === "not_started" && stage.canStart).length
+    );
+    executionStats.awaitingGit.textContent = String(
+      stages.filter(stage => stage.run.git?.status === "awaiting_approval").length
+    );
+    executionStats.waiting.textContent = String(
+      stages.filter(stage => stage.run.runStatus === "not_started" && !stage.canStart).length
+    );
+  }
+
+  function renderRoadmapFooter(snapshot) {
+    const activeKey = snapshot.summary.active[0] || "";
+    if (activeKey) {
+      const [stageId, suffix] = activeKey.split(":");
+      const stage = snapshot.stages.find(item => item.id === stageId);
+      roadmapFooterLabel.textContent = "Зараз виконується:";
+      roadmapFooterMessage.textContent = stage
+        ? `${stage.id} — ${stage.title}${suffix === "git" ? " · GitHub checkpoint" : " · технічний gate"}.`
+        : activeKey;
+      return;
+    }
+
+    const gitReady = snapshot.stages.find(stage => stage.canGitCheckpoint);
+    if (gitReady) {
+      roadmapFooterLabel.textContent = "Наступна доступна дія:";
+      roadmapFooterMessage.textContent = `${gitReady.id} — запустити GitHub checkpoint у тому самому чаті.`;
+      return;
+    }
+
+    const next = snapshot.stages.find(stage => stage.canStart);
+    if (next) {
+      roadmapFooterLabel.textContent = "Наступний доступний пакет:";
+      roadmapFooterMessage.textContent = `${next.id} — ${next.title}. Запуск виконує користувач.`;
+      return;
+    }
+
+    if (snapshot.stages.every(stage => stage.run.git?.status === "synced")) {
+      roadmapFooterLabel.textContent = "Roadmap завершено:";
+      roadmapFooterMessage.textContent = "Усі технічні gates і GitHub checkpoints синхронізовані.";
+      return;
+    }
+
+    roadmapFooterLabel.textContent = "Фактичний наступний крок:";
+    roadmapFooterMessage.textContent = "Доступної ручної дії немає; очікується завершення або перевірка попереднього gate.";
+  }
   let latestSnapshot = null;
   let refreshInFlight = false;
+  let liveMessageFingerprint = "";
+  let liveMessageObservedAt = null;
 
   document.getElementById("expand-all").addEventListener("click", () => {
-    details.forEach(item => { item.open = true; });
+    packageDetails.forEach(item => { item.open = true; });
   });
 
   document.getElementById("collapse-all").addEventListener("click", () => {
-    details.forEach(item => { item.open = false; });
+    packageDetails.forEach(item => { item.open = false; });
   });
 
   async function copyText(text) {
@@ -884,6 +1232,36 @@
     return element;
   }
 
+  function createProgressPanel(label) {
+    const panel = createElement("section", "progress-block stage-progress");
+    panel.setAttribute("aria-label", label);
+    const heading = createElement("div", "progress-heading");
+    heading.append(
+      createElement("b", "progress-phase", "Не розпочато"),
+      createElement("span", "progress-percent", "0%")
+    );
+    const track = createElement("div", "progress-track");
+    track.setAttribute("role", "progressbar");
+    track.setAttribute("aria-valuemin", "0");
+    track.setAttribute("aria-valuemax", "100");
+    track.setAttribute("aria-valuenow", "0");
+    track.appendChild(createElement("div", "progress-fill"));
+    const meta = createElement("div", "progress-meta small");
+    meta.append(
+      createElement("span", "progress-source", "Джерело: lifecycle"),
+      createElement("span", "progress-updated", "Checkpoint: —")
+    );
+    panel.append(
+      heading,
+      track,
+      createElement("p", "progress-detail small", "Очікується запуск package."),
+      meta,
+      createElement("ol", "process-event-list stage-process-events small")
+    );
+    panel.querySelector(".stage-process-events").hidden = true;
+    return panel;
+  }
+
   function ensureLiveControls(card, stage) {
     let controls = card.querySelector(":scope .live-controls");
     if (controls) return controls;
@@ -894,13 +1272,13 @@
 
     const heading = createElement("div", "live-heading");
     heading.append(
-      createElement("b", "", `Codex task ${stage.id}`),
+      createElement("b", "", `Codex-чат package ${stage.id}`),
       createElement("span", "run-badge", "НЕ РОЗПОЧАТО")
     );
     heading.lastElementChild.dataset.runStatus = "not_started";
 
     const actions = createElement("div", "live-actions");
-    const start = createElement("button", "start-stage", "Стартувати task");
+    const start = createElement("button", "start-stage", `Створити чат і почати ${stage.id}`);
     start.type = "button";
     start.dataset.stageId = stage.id;
     const stop = createElement("button", "stop-stage", "Зупинити turn");
@@ -919,6 +1297,7 @@
     controls.append(
       heading,
       actions,
+      createProgressPanel(`Прогрес виконання ${stage.id}`),
       createElement("p", "run-note small", "Очікується підключення controller…"),
       createElement("pre", "run-message small"),
       createElement("div", "run-result small")
@@ -943,7 +1322,7 @@
     stopGit.type = "button";
     stopGit.dataset.stageId = stage.id;
     stopGit.hidden = true;
-    const copyGitThread = createElement("button", "copy-git-thread-id", "Скопіювати Git Task ID");
+    const copyGitThread = createElement("button", "copy-git-thread-id", "Скопіювати той самий Task ID");
     copyGitThread.type = "button";
     copyGitThread.dataset.stageId = stage.id;
     copyGitThread.hidden = true;
@@ -951,6 +1330,7 @@
     gitPanel.append(
       gitHeading,
       gitActions,
+      createProgressPanel(`Прогрес Git checkpoint ${stage.id}`),
       createElement("p", "git-note run-note small", "Доступно після технічного PASS."),
       createElement("pre", "git-message run-message small"),
       createElement("div", "git-result run-result small")
@@ -967,6 +1347,7 @@
   function cleanAgentMessage(text) {
     if (!text) return "";
     return text
+      .replace(/<VARTA_PROGRESS>[\s\S]*?(?:<\/VARTA_PROGRESS>|$)/g, "")
       .replace(/<VARTA_STAGE_RESULT>[\s\S]*?<\/VARTA_STAGE_RESULT>/g, "")
       .replace(/<VARTA_GIT_RESULT>[\s\S]*?<\/VARTA_GIT_RESULT>/g, "")
       .trim()
@@ -1062,12 +1443,193 @@
     }
   }
 
+  function effectiveProgress(context, status, kind = "stage") {
+    const reported = context?.progress;
+    if (reported && Number.isInteger(reported.percent)) {
+      return {
+        percent: Math.max(0, Math.min(100, reported.percent)),
+        phase: reported.phase || "Виконання",
+        detail: reported.detail || "Детальний checkpoint ще не отримано.",
+        source: reported.source || "lifecycle",
+        updatedAt: reported.updatedAt || context.updatedAt || null,
+        events: Array.isArray(reported.events) ? reported.events : []
+      };
+    }
+
+    const terminalSuccess = kind === "git" ? status === "synced" : status === "completed";
+    if (terminalSuccess) {
+      return {
+        percent: 100,
+        phase: kind === "git" ? "GITHUB SYNCED" : "TECH PASS",
+        detail: "Legacy controller state підтверджує завершений gate.",
+        source: "controller",
+        updatedAt: context?.updatedAt || null,
+        events: []
+      };
+    }
+    if (["starting", "running", "waiting"].includes(status)) {
+      return {
+        percent: status === "starting" ? 5 : 10,
+        phase: status === "waiting" ? "Очікується дія" : "Package виконується",
+        detail: "Цей turn стартував до progress protocol; показано лише підтверджену lifecycle-точку.",
+        source: "lifecycle",
+        updatedAt: context?.updatedAt || null,
+        events: []
+      };
+    }
+    return {
+      percent: 0,
+      phase: status === "not_started" || status === "not_ready" ? "Не розпочато" : "Немає checkpoint",
+      detail: "Доказовий відсоток з’явиться після запуску та першої контрольної точки.",
+      source: "lifecycle",
+      updatedAt: context?.updatedAt || null,
+      events: []
+    };
+  }
+
+  function progressSourceLabel(source) {
+    if (source === "reported") return "Джерело: checkpoint активного task";
+    if (source === "controller") return "Джерело: перевірений controller gate";
+    return "Джерело: lifecycle, не оцінка часу";
+  }
+
+  function renderProcessEvents(list, progress, emptyText = "Ще немає контрольних точок.") {
+    list.replaceChildren();
+    const events = Array.isArray(progress.events) ? progress.events.slice(-8).reverse() : [];
+    if (!events.length) {
+      list.appendChild(createElement("li", "muted", `${progress.percent}% — ${progress.phase}: ${progress.detail || emptyText}`));
+      return;
+    }
+    events.forEach(event => {
+      const at = event.at ? new Date(event.at).toLocaleTimeString("uk-UA") : "—";
+      list.appendChild(createElement(
+        "li",
+        "",
+        `${event.percent}% · ${event.phase} · ${event.detail} · ${at}`
+      ));
+    });
+  }
+
+  function renderProgressPanel(panel, context, status, kind = "stage") {
+    const progress = effectiveProgress(context, status, kind);
+    const active = activeStatuses.has(status);
+    panel.querySelector(".progress-phase").textContent = progress.phase;
+    panel.querySelector(".progress-percent").textContent = `${progress.percent}%`;
+    const track = panel.querySelector(".progress-track");
+    track.setAttribute("aria-valuenow", String(progress.percent));
+    track.dataset.active = String(active);
+    panel.querySelector(".progress-fill").style.width = `${progress.percent}%`;
+    panel.querySelector(".progress-detail").textContent = progress.detail;
+    panel.querySelector(".progress-source").textContent = progressSourceLabel(progress.source);
+    panel.querySelector(".progress-updated").textContent = progress.updatedAt
+      ? `Checkpoint: ${new Date(progress.updatedAt).toLocaleString("uk-UA")}`
+      : "Checkpoint: —";
+    const events = panel.querySelector(".stage-process-events");
+    renderProcessEvents(events, progress);
+    events.hidden = status === "not_started" || status === "not_ready";
+    return progress;
+  }
+
+  function formatDuration(startedAt) {
+    if (!startedAt) return "—";
+    const seconds = Math.max(0, Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000));
+    if (seconds < 60) return `${seconds} с`;
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes} хв ${seconds % 60} с`;
+    return `${Math.floor(minutes / 60)} год ${minutes % 60} хв`;
+  }
+
+  function renderLiveOverview(snapshot) {
+    const activeKey = snapshot.summary.active[0] || "";
+    if (!activeKey) {
+      const next = snapshot.stages.find(stage => stage.canStart) || null;
+      liveExecution.dataset.state = "idle";
+      liveStageId.textContent = next?.id || "—";
+      liveStageTitle.textContent = next
+        ? `Готовий до запуску: ${next.title}`
+        : "Активного пакета немає";
+      liveStagePhase.textContent = next?.startReason || "Очікується наступний доступний gate.";
+      liveRunBadge.dataset.runStatus = "not_started";
+      liveRunBadge.textContent = next ? "ГОТОВО ДО СТАРТУ" : "ОЧІКУВАННЯ";
+      liveProgressPercent.textContent = "0%";
+      liveProgressTrack.setAttribute("aria-valuenow", "0");
+      liveProgressTrack.dataset.active = "false";
+      liveProgressFill.style.width = "0%";
+      liveProgressDetail.textContent = "Немає активного turn; відсоток не моделюється за часом.";
+      liveProgressSource.textContent = "Джерело: controller lifecycle";
+      liveTaskId.textContent = next?.run?.threadId
+        ? `Task ID: ${next.run.threadId}`
+        : "Task ID: буде створено першим запуском";
+      liveElapsed.textContent = "Тривалість: —";
+      liveSignal.textContent = `Останній сигнал: ${new Date(snapshot.updatedAt).toLocaleString("uk-UA")}`;
+      liveProcessMessage.textContent = next
+        ? "Натисніть кнопку у картці package: перший запуск створить його єдиний Codex-чат."
+        : "Очікується проходження prerequisite або Git gate.";
+      liveProcessEvents.replaceChildren(createElement("li", "muted", "Активних процесів немає."));
+      openActiveStage.disabled = !next;
+      openActiveStage.dataset.stageId = next?.id || "";
+      copyActiveThread.disabled = !next?.run?.threadId;
+      copyActiveThread.dataset.threadId = next?.run?.threadId || "";
+      return;
+    }
+
+    const [stageId, suffix] = activeKey.split(":");
+    const kind = suffix === "git" ? "git" : "stage";
+    const stage = snapshot.stages.find(item => item.id === stageId);
+    if (!stage) return;
+    const context = kind === "git" ? stage.run.git : stage.run;
+    const status = kind === "git" ? context.status : context.runStatus;
+    const progress = effectiveProgress(context, status, kind);
+    const message = cleanAgentMessage(context.lastMessage) || progress.detail;
+    const fingerprint = `${activeKey}|${progress.percent}|${message}`;
+    if (fingerprint !== liveMessageFingerprint) {
+      liveMessageFingerprint = fingerprint;
+      liveMessageObservedAt = new Date();
+    }
+
+    liveExecution.dataset.state = status === "waiting" ? "waiting" : "active";
+    liveStageId.textContent = stage.id;
+    liveStageTitle.textContent = stage.title;
+    liveStagePhase.textContent = kind === "git"
+      ? `Git checkpoint · ${progress.phase}`
+      : `Технічне виконання · ${progress.phase}`;
+    liveRunBadge.dataset.runStatus = status;
+    liveRunBadge.textContent = kind === "git"
+      ? (gitLabels[status] || status.toUpperCase())
+      : (runLabels[status] || status.toUpperCase());
+    liveProgressPercent.textContent = `${progress.percent}%`;
+    liveProgressTrack.setAttribute("aria-valuenow", String(progress.percent));
+    liveProgressTrack.dataset.active = "true";
+    liveProgressFill.style.width = `${progress.percent}%`;
+    liveProgressDetail.textContent = progress.detail;
+    liveProgressSource.textContent = progressSourceLabel(progress.source);
+    const threadId = stage.run.threadId || context.threadId || "";
+    liveTaskId.textContent = threadId ? `Task ID: ${threadId}` : "Task ID: створюється";
+    liveElapsed.textContent = `Тривалість: ${formatDuration(context.startedAt)}`;
+    liveSignal.textContent = liveMessageObservedAt
+      ? `Останній сигнал у браузері: ${liveMessageObservedAt.toLocaleTimeString("uk-UA")}`
+      : "Останній сигнал: очікується";
+    liveProcessMessage.textContent = message;
+    renderProcessEvents(liveProcessEvents, progress);
+    openActiveStage.disabled = false;
+    openActiveStage.dataset.stageId = stage.id;
+    copyActiveThread.disabled = !threadId;
+    copyActiveThread.dataset.threadId = threadId;
+  }
+
   function renderStage(stage) {
-    const card = document.querySelector(`[data-stage-id="${stage.id}"]`);
+    const card = document.querySelector(`article[data-stage-id="${stage.id}"]`);
     if (!card) return;
     const controls = ensureLiveControls(card, stage);
     const run = stage.run;
     const status = run.runStatus || "not_started";
+    const presentation = packagePresentation(stage);
+    card.dataset.status = presentation.tone;
+    const summaryStatus = card.querySelector("summary .status");
+    if (summaryStatus) {
+      summaryStatus.textContent = presentation.label;
+      summaryStatus.title = `Фактичний стан ${stage.id}: ${presentation.label}`;
+    }
     const badge = controls.querySelector(".run-badge");
     badge.dataset.runStatus = status;
     badge.textContent = runLabels[status] || status.toUpperCase();
@@ -1077,8 +1639,10 @@
     start.title = stage.startReason;
     if (status === "completed") start.textContent = "Gate пройдено";
     else if (["blocked", "failed", "interrupted", "needs_review"].includes(status)) {
-      start.textContent = "Створити нову спробу";
-    } else start.textContent = "Стартувати task";
+      start.textContent = run.threadId ? "Продовжити в цьому чаті" : "Створити чат і повторити";
+    } else {
+      start.textContent = run.threadId ? "Продовжити package" : `Створити чат і почати ${stage.id}`;
+    }
 
     const stop = controls.querySelector(".stop-stage");
     stop.hidden = !activeStatuses.has(status);
@@ -1090,9 +1654,15 @@
 
     const noteBits = [stage.startReason];
     if (run.attempt) noteBits.push(`Спроба: ${run.attempt}`);
-    if (run.threadId) noteBits.push(`Task ID: ${run.threadId.slice(0, 8)}…`);
+    if (run.threadId) noteBits.push(`Постійний Task ID: ${run.threadId.slice(0, 8)}…`);
     if (run.updatedAt) noteBits.push(`Оновлено: ${new Date(run.updatedAt).toLocaleString("uk-UA")}`);
     controls.querySelector(".run-note").textContent = noteBits.join(" · ");
+    renderProgressPanel(
+      controls.querySelector(":scope > .stage-progress"),
+      run,
+      status,
+      "stage"
+    );
 
     const message = cleanAgentMessage(run.lastMessage);
     const messageBox = controls.querySelector(".run-message");
@@ -1112,21 +1682,28 @@
     if (gitStatus === "synced") startGit.textContent = "GitHub synced";
     else if (["blocked", "failed", "interrupted", "needs_review"].includes(gitStatus)) {
       startGit.textContent = "Повторити Git checkpoint";
-    } else startGit.textContent = "GitHub checkpoint";
+    } else startGit.textContent = "GitHub checkpoint у цьому чаті";
 
     const stopGit = controls.querySelector(".stop-git");
     stopGit.hidden = !activeStatuses.has(gitStatus);
     stopGit.disabled = !git.threadId || !git.turnId;
 
     const copyGitThread = controls.querySelector(".copy-git-thread-id");
-    copyGitThread.hidden = !git.threadId;
-    copyGitThread.dataset.threadId = git.threadId || "";
+    const gitThreadId = git.threadId || run.threadId || "";
+    copyGitThread.hidden = !gitThreadId;
+    copyGitThread.dataset.threadId = gitThreadId;
 
     const gitNoteBits = [stage.gitReason];
     if (git.attempt) gitNoteBits.push(`Спроба: ${git.attempt}`);
-    if (git.threadId) gitNoteBits.push(`Git Task ID: ${git.threadId.slice(0, 8)}…`);
+    if (gitThreadId) gitNoteBits.push(`Той самий Task ID: ${gitThreadId.slice(0, 8)}…`);
     if (git.updatedAt) gitNoteBits.push(`Оновлено: ${new Date(git.updatedAt).toLocaleString("uk-UA")}`);
     controls.querySelector(".git-note").textContent = gitNoteBits.join(" · ");
+    renderProgressPanel(
+      controls.querySelector(".git-checkpoint .stage-progress"),
+      git,
+      gitStatus,
+      "git"
+    );
 
     const gitMessage = cleanAgentMessage(git.lastMessage);
     const gitMessageBox = controls.querySelector(".git-message");
@@ -1161,8 +1738,13 @@
       const active = snapshot.summary.active.length
         ? `активний ${snapshot.summary.active.join(", ")}`
         : "активних немає";
-      controllerMessage.textContent = `${snapshot.stages.length} tasks · TECH PASS ${snapshot.summary.completed} · GITHUB SYNCED ${snapshot.summary.gitSynced} · ${active} · оновлено ${new Date(snapshot.updatedAt).toLocaleString("uk-UA")}`;
+      const awaitingGit = snapshot.stages.filter(stage => stage.run.git?.status === "awaiting_approval").length;
+      const ready = snapshot.stages.filter(stage => stage.run.runStatus === "not_started" && stage.canStart).length;
+      controllerMessage.textContent = `${snapshot.stages.length} packages · TECH PASS ${snapshot.summary.completed} · GITHUB SYNCED ${snapshot.summary.gitSynced} · GIT APPROVAL ${awaitingGit} · READY ${ready} · ${active} · LIVE кожну 1 с · state ${new Date(snapshot.updatedAt).toLocaleString("uk-UA")}`;
       snapshot.stages.forEach(renderStage);
+      renderExecutionStats(snapshot);
+      renderRoadmapFooter(snapshot);
+      renderLiveOverview(snapshot);
     } catch (error) {
       controllerPanel.dataset.state = "offline";
       connectionBadge.textContent = "OFFLINE PLAN";
@@ -1205,7 +1787,7 @@
     }
     if (liveButton.classList.contains("copy-git-thread-id")) {
       await copyText(liveButton.dataset.threadId);
-      announce(`Git Task ID ${stageId} скопійовано.`, 3500);
+      announce(`Постійний Task ID ${stageId} скопійовано.`, 3500);
       return;
     }
     if (liveButton.classList.contains("copy-stage-prompt")) {
@@ -1221,7 +1803,7 @@
     if (isGit && action === "start") {
       const approved = window.confirm(
         `Запустити GitHub checkpoint ${stageId}?\n\n` +
-        "Це пряма команда окремому Codex task: перевірити ownership і privacy, " +
+        "Це новий turn у постійному чаті цього package: перевірити ownership і privacy, " +
         "stage тільки точні файли цього етапу, створити commit, push у приватну " +
         "codex/* branch та створити/оновити Draft PR.\n\n" +
         "Merge, force-push, tag, release і зміна visibility заборонені."
@@ -1229,8 +1811,11 @@
       if (!approved) return;
     } else if (action === "start") {
       const dependencies = stage.dependencies.length ? stage.dependencies.join(", ") : "немає";
+      const chatAction = stage.run.threadId
+        ? "Продовжити package новим turn у його постійному Codex-чаті?"
+        : "Створити єдиний Codex-чат цього package і одразу почати виконання?";
       const approved = window.confirm(
-        `Створити окремий Codex task і одразу почати виконання?\n\n${stage.topic}\nPrerequisites: ${dependencies}\n\nЦей stage не виконує commit або push. Після TECH PASS з'явиться окрема кнопка GitHub checkpoint.`
+        `${chatAction}\n\n${stage.topic}\nPrerequisites: ${dependencies}\n\nЦей stage не виконує commit або push. Після TECH PASS GitHub checkpoint продовжить той самий чат окремим turn.`
       );
       if (!approved) return;
     } else if (!window.confirm(
@@ -1240,7 +1825,7 @@
     liveButton.disabled = true;
     announce(
       action === "start"
-        ? `Створюється ${isGit ? "GitHub checkpoint " : "task "}${stageId}…`
+        ? `${isGit ? "Запускається GitHub checkpoint у чаті " : "Запускається package "}${stageId}…`
         : `Зупиняється ${isGit ? "Git " : ""}${stageId}…`
     );
     try {
@@ -1251,7 +1836,7 @@
       await refreshRoadmap();
       announce(
         action === "start"
-          ? `${isGit ? "GitHub checkpoint" : "Task"} ${stageId} створюється у Codex і починає роботу.`
+          ? `${isGit ? "GitHub checkpoint" : "Package"} ${stageId} починає новий turn у своєму Codex-чаті.`
           : `Запит на зупинку ${isGit ? "Git " : ""}${stageId} прийнято.`,
         4500
       );
@@ -1261,12 +1846,32 @@
     }
   });
 
+  openActiveStage.addEventListener("click", () => {
+    const stageId = openActiveStage.dataset.stageId;
+    const card = stageId ? document.querySelector(`article[data-stage-id="${stageId}"]`) : null;
+    if (!card) return;
+    const stageDetails = card.querySelector("details");
+    if (stageDetails) stageDetails.open = true;
+    card.scrollIntoView({behavior: "smooth", block: "center"});
+  });
+
+  copyActiveThread.addEventListener("click", async () => {
+    const threadId = copyActiveThread.dataset.threadId;
+    if (!threadId) return;
+    try {
+      await copyText(threadId);
+      announce("Постійний Task ID скопійовано.", 3000);
+    } catch {
+      announce("Не вдалося скопіювати Task ID.");
+    }
+  });
+
   const liveMode = location.protocol === "http:"
     && sessionToken
     && !sessionToken.startsWith("__VARTA_");
   if (liveMode) {
     refreshRoadmap();
-    window.setInterval(refreshRoadmap, 2500);
+    window.setInterval(refreshRoadmap, 1000);
   }
 </script>
 </body>
