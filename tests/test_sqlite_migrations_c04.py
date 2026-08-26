@@ -70,10 +70,10 @@ def test_fresh_database_reaches_scoped_schema_ceiling(tmp_path: Path) -> None:
     migrations = MigrationRunner(repository._conn).discover()
 
     assert APPLICATION_SCHEMA_FLOOR == 2
-    assert APPLICATION_SCHEMA_CEILING == 9
+    assert APPLICATION_SCHEMA_CEILING == 10
     assert compatibility.current_version == APPLICATION_SCHEMA_CEILING
     assert compatibility.pending_versions == ()
-    assert [migration.version for migration in migrations] == [1, 2, 3, 4, 5, 6, 7, 8, 9]
+    assert [migration.version for migration in migrations] == list(range(1, 11))
     assert [migration.scope for migration in migrations] == [
         "legacy",
         "evidence",
@@ -84,6 +84,7 @@ def test_fresh_database_reaches_scoped_schema_ceiling(tmp_path: Path) -> None:
         "intake",
         "intake",
         "case",
+        "evidence",
     ]
     repository.close()
 
@@ -107,12 +108,127 @@ def test_previous_v2_fixture_upgrades_additively_and_matches_fresh_schema(
     fresh = SQLiteRepository(tmp_path / "fresh.sqlite3")
     fresh_fingerprint = _schema_fingerprint(fresh._conn)
 
-    assert versions == [1, 2, 3, 4, 5, 6, 7, 8, 9]
+    assert versions == list(range(1, 11))
     assert preserved is not None
     assert preserved["name"] == "Синтетична справа для upgrade"
     assert upgraded_fingerprint == fresh_fingerprint
     upgraded.close()
     fresh.close()
+
+
+def test_previous_v9_evidence_rows_upgrade_to_c08_defaults(tmp_path: Path) -> None:
+    migrations = tmp_path / "migrations-through-c08"
+    migrations.mkdir()
+    for version in range(1, 10):
+        source = next(MIGRATIONS.glob(f"{version:04d}_*.sql"))
+        shutil.copyfile(source, migrations / source.name)
+
+    database = tmp_path / "v9-evidence.sqlite3"
+    connection = sqlite3.connect(database, isolation_level=None)
+    connection.row_factory = sqlite3.Row
+    connection.execute("PRAGMA foreign_keys = ON")
+    MigrationRunner(
+        connection,
+        migrations,
+        schema_floor=2,
+        schema_ceiling=9,
+        enforce_scopes=True,
+    ).migrate()
+    occurred = "2026-01-01T00:00:00+00:00"
+    connection.execute(
+        "INSERT INTO actors(id, created_at, updated_at) VALUES (?, ?, ?)",
+        ("actor-synthetic-v9", occurred, occurred),
+    )
+    connection.execute(
+        "INSERT INTO documents(id, title, created_at, updated_at) VALUES (?, ?, ?, ?)",
+        ("document-synthetic-v9", "Синтетичний v9 документ", occurred, occurred),
+    )
+    connection.execute(
+        """
+        INSERT INTO claims(
+            id, subject_type, subject_id, claim_text, classification,
+            review_status, created_at, updated_at
+        ) VALUES (?, 'document', ?, ?, 'unverified', 'unreviewed', ?, ?)
+        """,
+        (
+            "claim-synthetic-v9",
+            "document-synthetic-v9",
+            "Синтетичне v9 твердження",
+            occurred,
+            occurred,
+        ),
+    )
+    connection.execute(
+        """
+        INSERT INTO evidence_relations(
+            id, from_type, from_id, to_type, to_id, relation_type,
+            classification, review_status, created_at, updated_at
+        ) VALUES (?, 'document', ?, 'claim', ?, 'supports',
+                  'unverified', 'unreviewed', ?, ?)
+        """,
+        (
+            "relation-synthetic-v9",
+            "document-synthetic-v9",
+            "claim-synthetic-v9",
+            occurred,
+            occurred,
+        ),
+    )
+    connection.execute(
+        """
+        INSERT INTO review_decisions(
+            id, subject_type, subject_id, decision, previous_status,
+            new_status, actor_id, decided_at
+        ) VALUES (?, 'claim', ?, 'request_review', 'unreviewed',
+                  'in_review', ?, ?)
+        """,
+        (
+            "decision-synthetic-v9",
+            "claim-synthetic-v9",
+            "user:synthetic-v9-reviewer",
+            occurred,
+        ),
+    )
+
+    c08_migration = next(MIGRATIONS.glob("0010_*.sql"))
+    shutil.copyfile(c08_migration, migrations / c08_migration.name)
+    applied = MigrationRunner(
+        connection,
+        migrations,
+        schema_floor=2,
+        schema_ceiling=10,
+        enforce_scopes=True,
+    ).migrate()
+
+    assert applied == [10]
+    assert tuple(
+        connection.execute(
+            "SELECT actor_type, review_status, version FROM actors WHERE id = ?",
+            ("actor-synthetic-v9",),
+        ).fetchone()
+    ) == ("unknown", "unreviewed", 1)
+    assert connection.execute(
+        "SELECT version FROM documents WHERE id = ?", ("document-synthetic-v9",)
+    ).fetchone()[0] == 1
+    assert connection.execute(
+        "SELECT version FROM claims WHERE id = ?", ("claim-synthetic-v9",)
+    ).fetchone()[0] == 1
+    assert connection.execute(
+        "SELECT version FROM evidence_relations WHERE id = ?",
+        ("relation-synthetic-v9",),
+    ).fetchone()[0] == 1
+    assert tuple(
+        connection.execute(
+            """
+            SELECT subject_version, decision_origin FROM review_decisions
+            WHERE id = ?
+            """,
+            ("decision-synthetic-v9",),
+        ).fetchone()
+    ) == (1, "user")
+    assert connection.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
+    assert connection.execute("PRAGMA foreign_key_check").fetchall() == []
+    connection.close()
 
 
 def test_newer_database_is_rejected_before_writable_repository_mode(tmp_path: Path) -> None:
@@ -123,13 +239,13 @@ def test_newer_database_is_rejected_before_writable_repository_mode(tmp_path: Pa
     connection.execute(
         """
         INSERT INTO schema_migrations(version, name, checksum, applied_at)
-        VALUES (10, 'system_future', ?, '2026-01-01T00:00:00+00:00')
+        VALUES (11, 'system_future', ?, '2026-01-01T00:00:00+00:00')
         """,
         ("f" * 64,),
     )
     connection.close()
 
-    with pytest.raises(NewerSchemaError, match="новішу schema version 10"):
+    with pytest.raises(NewerSchemaError, match="новішу schema version 11"):
         SQLiteRepository(database)
 
 
@@ -175,4 +291,5 @@ def test_concurrent_fresh_startup_serializes_migrations(tmp_path: Path) -> None:
         (7, 1),
         (8, 1),
         (9, 1),
+        (10, 1),
     ]

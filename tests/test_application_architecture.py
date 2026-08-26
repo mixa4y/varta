@@ -60,7 +60,10 @@ def test_contacts_ui_uses_versioned_routes_and_legacy_routes_are_server_only() -
 
     transport = (ROOT / "caseflow" / "api_v1.py").read_text(encoding="utf-8")
     assert 'CONTACTS_COMPATIBILITY_PREFIX = "/api/contacts"' in transport
-    assert not any(name.startswith("case_docket.repository") for name in _imports(ROOT / "caseflow" / "api_v1.py"))
+    assert not any(
+        name.startswith("case_docket.repository")
+        for name in _imports(ROOT / "caseflow" / "api_v1.py")
+    )
 
 
 def test_c03_contract_document_is_registered() -> None:
@@ -82,7 +85,9 @@ def test_runtime_state_does_not_keep_a_shared_sqlite_connection() -> None:
     source = path.read_text(encoding="utf-8")
     tree = ast.parse(source, filename=str(path))
     state = next(
-        node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == "CaseFlowState"
+        node
+        for node in tree.body
+        if isinstance(node, ast.ClassDef) and node.name == "CaseFlowState"
     )
     state_source = ast.get_source_segment(source, state) or ""
 
@@ -105,18 +110,16 @@ def test_workers_have_no_direct_sqlite_or_repository_access() -> None:
     for path in worker_paths:
         imports = _imports(path)
         source = path.read_text(encoding="utf-8")
-        assert not any(
-            imported.startswith(forbidden_imports) for imported in imports
-        ), path.relative_to(ROOT)
+        assert not any(imported.startswith(forbidden_imports) for imported in imports), (
+            path.relative_to(ROOT)
+        )
         assert not any(marker in source for marker in forbidden_source), path.relative_to(ROOT)
 
 
 def test_c04_sqlite_contract_is_registered_and_keeps_recovery_boundary() -> None:
     contract = ROOT / "docs" / "architecture" / "sqlite-lifecycle.md"
     text = contract.read_text(encoding="utf-8")
-    manifest = (ROOT / "docs" / "architecture" / "MANIFEST.md").read_text(
-        encoding="utf-8"
-    )
+    manifest = (ROOT / "docs" / "architecture" / "MANIFEST.md").read_text(encoding="utf-8")
     index = (ROOT / "docs" / "INDEX.md").read_text(encoding="utf-8")
 
     assert "| Status | `ACTIVE` |" in text
@@ -130,9 +133,7 @@ def test_c04_sqlite_contract_is_registered_and_keeps_recovery_boundary() -> None
 def test_c05_managed_storage_contract_is_registered_and_keeps_intake_boundary() -> None:
     contract = ROOT / "docs" / "architecture" / "managed-storage.md"
     text = contract.read_text(encoding="utf-8")
-    manifest = (ROOT / "docs" / "architecture" / "MANIFEST.md").read_text(
-        encoding="utf-8"
-    )
+    manifest = (ROOT / "docs" / "architecture" / "MANIFEST.md").read_text(encoding="utf-8")
     index = (ROOT / "docs" / "INDEX.md").read_text(encoding="utf-8")
 
     assert "| Status | `ACTIVE` |" in text
@@ -148,16 +149,14 @@ def test_c05_managed_storage_contract_is_registered_and_keeps_intake_boundary() 
 def test_c06_intake_contract_is_registered_and_http_adapter_stays_thin() -> None:
     contract = ROOT / "docs" / "architecture" / "intake-v1.md"
     text = contract.read_text(encoding="utf-8")
-    manifest = (ROOT / "docs" / "architecture" / "MANIFEST.md").read_text(
-        encoding="utf-8"
-    )
+    manifest = (ROOT / "docs" / "architecture" / "MANIFEST.md").read_text(encoding="utf-8")
     index = (ROOT / "docs" / "INDEX.md").read_text(encoding="utf-8")
 
     assert "| Status | `ACTIVE` |" in text
     assert "`0008_intake_batches`" in text
     assert "top-level ZIP" in text
     assert "encrypted_archive_member" in text
-    assert "authority: \"sqlite\"" in text
+    assert 'authority: "sqlite"' in text
     assert "`intake-v1.md` | `ACTIVE`" in manifest
     assert "architecture/intake-v1.md" in index
 
@@ -186,9 +185,7 @@ def test_c06_intake_contract_is_registered_and_http_adapter_stays_thin() -> None
 def test_c07_workspace_contract_is_registered_and_http_adapter_stays_thin() -> None:
     contract = ROOT / "docs" / "architecture" / "workspace-v1.md"
     text = contract.read_text(encoding="utf-8")
-    manifest = (ROOT / "docs" / "architecture" / "MANIFEST.md").read_text(
-        encoding="utf-8"
-    )
+    manifest = (ROOT / "docs" / "architecture" / "MANIFEST.md").read_text(encoding="utf-8")
     index = (ROOT / "docs" / "INDEX.md").read_text(encoding="utf-8")
 
     assert "| Status | `ACTIVE` |" in text
@@ -224,5 +221,52 @@ def test_c07_workspace_contract_is_registered_and_http_adapter_stays_thin() -> N
     for method in methods:
         method_source = ast.get_source_segment(source, method) or ""
         assert "workspace_service" in method_source
+        assert ".repository" not in method_source
+        assert "SQLite" not in method_source
+
+
+def test_c08_evidence_contract_is_registered_and_http_adapter_stays_thin() -> None:
+    contract = ROOT / "docs" / "architecture" / "evidence-domain-v1.md"
+    text = contract.read_text(encoding="utf-8")
+    manifest = (ROOT / "docs" / "architecture" / "MANIFEST.md").read_text(encoding="utf-8")
+    index = (ROOT / "docs" / "INDEX.md").read_text(encoding="utf-8")
+
+    assert "| Status | `ACTIVE` |" in text
+    assert "`0010_evidence_services`" in text
+    assert "automaticVersion" in text
+    assert "expectedVersion" in text
+    assert 'authority: "sqlite"' in text
+    assert "No later than C13 PASS" in text
+    assert "`evidence-domain-v1.md` | `ACTIVE`" in manifest
+    assert "architecture/evidence-domain-v1.md" in index
+
+    path = ROOT / "caseflow" / "server.py"
+    source = path.read_text(encoding="utf-8")
+    tree = ast.parse(source, filename=str(path))
+    handler = next(
+        node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == "Handler"
+    )
+    names = {
+        "handle_evidence_actor_create",
+        "handle_evidence_document_create",
+        "handle_evidence_event_create",
+        "handle_source_reference_create",
+        "handle_claim_create",
+        "handle_evidence_relation_create",
+        "handle_finding_record",
+        "handle_evidence_review",
+        "handle_finding_review",
+        "handle_evidence_case",
+        "handle_evidence_timeline",
+        "handle_source_context",
+        "handle_evidence_review_history",
+    }
+    methods = [
+        node for node in handler.body if isinstance(node, ast.FunctionDef) and node.name in names
+    ]
+    assert {method.name for method in methods} == names
+    for method in methods:
+        method_source = ast.get_source_segment(source, method) or ""
+        assert "evidence_service" in method_source
         assert ".repository" not in method_source
         assert "SQLite" not in method_source

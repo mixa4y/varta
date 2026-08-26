@@ -16,6 +16,19 @@ from case_docket.application.errors import (
     NotFoundError,
     ValidationError,
 )
+from case_docket.application.evidence import (
+    CreateClaimCommand,
+    CreateEvidenceActorCommand,
+    CreateEvidenceDocumentCommand,
+    CreateEvidenceEventCommand,
+    CreateEvidenceRelationCommand,
+    CreateSourceReferenceCommand,
+    EntityReferenceInput,
+    EvidenceMembershipInput,
+    RecordFindingCommand,
+    ReviewEvidenceCommand,
+    ReviewFindingCommand,
+)
 from case_docket.application.workspace import (
     AddDocumentMembershipsCommand,
     AddFileMembershipsCommand,
@@ -35,6 +48,7 @@ CONTACTS_V1_PREFIX = f"{API_PREFIX}/contacts"
 CONTACTS_COMPATIBILITY_PREFIX = "/api/contacts"
 INTAKE_V1_PREFIX = f"{API_PREFIX}/intake"
 WORKSPACE_V1_PREFIX = f"{API_PREFIX}/workspace"
+EVIDENCE_V1_PREFIX = f"{API_PREFIX}/evidence"
 
 _CONTACT_FIELDS = {
     "full_name",
@@ -104,6 +118,28 @@ class WorkspaceRoute:
     intake_case_id: str | None = None
 
 
+EvidenceRouteAction: TypeAlias = Literal[
+    "actors",
+    "documents",
+    "events",
+    "source_references",
+    "claims",
+    "relations",
+    "findings",
+    "finding_reviews",
+    "reviews",
+    "case_read_model",
+    "timeline",
+    "source_context",
+]
+
+
+@dataclass(frozen=True, slots=True)
+class EvidenceRoute:
+    action: EvidenceRouteAction
+    resource_id: str | None = None
+
+
 def match_contact_route(path: str) -> ContactRoute | None:
     for prefix, versioned in (
         (CONTACTS_V1_PREFIX, True),
@@ -165,6 +201,41 @@ def match_workspace_route(path: str) -> WorkspaceRoute | None:
     return None
 
 
+def match_evidence_route(path: str) -> EvidenceRoute | None:
+    static_routes: dict[str, EvidenceRouteAction] = {
+        f"{EVIDENCE_V1_PREFIX}/actors": "actors",
+        f"{EVIDENCE_V1_PREFIX}/documents": "documents",
+        f"{EVIDENCE_V1_PREFIX}/events": "events",
+        f"{EVIDENCE_V1_PREFIX}/source-references": "source_references",
+        f"{EVIDENCE_V1_PREFIX}/claims": "claims",
+        f"{EVIDENCE_V1_PREFIX}/relations": "relations",
+        f"{EVIDENCE_V1_PREFIX}/findings": "findings",
+        f"{EVIDENCE_V1_PREFIX}/reviews": "reviews",
+        f"{EVIDENCE_V1_PREFIX}/timeline": "timeline",
+    }
+    action = static_routes.get(path)
+    if action is not None:
+        return EvidenceRoute(action)
+    prefixes: tuple[tuple[str, EvidenceRouteAction], ...] = (
+        (f"{EVIDENCE_V1_PREFIX}/cases/", "case_read_model"),
+        (f"{EVIDENCE_V1_PREFIX}/source-references/", "source_context"),
+    )
+    for prefix, routed_action in prefixes:
+        if path.startswith(prefix):
+            resource_id = path[len(prefix) :]
+            if resource_id and "/" not in resource_id:
+                return EvidenceRoute(routed_action, resource_id)
+    finding_prefix = f"{EVIDENCE_V1_PREFIX}/findings/"
+    if path.startswith(finding_prefix):
+        tail = path[len(finding_prefix) :]
+        if tail.endswith("/reviews") and tail.count("/") == 1:
+            return EvidenceRoute(
+                "finding_reviews",
+                tail[: -len("/reviews")],
+            )
+    return None
+
+
 def parse_idempotency_key(value: object) -> str:
     if not isinstance(value, str) or not value or value != value.strip():
         raise RequestValidationError(
@@ -194,9 +265,7 @@ def parse_create_contact(payload: object) -> CreateContactCommand:
         tax_id=_optional_string(data, "tax_id"),
         edrpou=_optional_string(data, "edrpou"),
         birth_or_registration_date=_optional_date(data, "birth_or_registration_date"),
-        representative_or_contact_person=_optional_string(
-            data, "representative_or_contact_person"
-        ),
+        representative_or_contact_person=_optional_string(data, "representative_or_contact_person"),
         notes=_optional_string(data, "notes"),
     )
 
@@ -266,9 +335,7 @@ def parse_register_candidate_sources(
                 evidence_basis=_required_string(source, "evidenceBasis"),
                 confidence=_required_number(source, "confidence"),
                 tool_name=_required_string(tool, "name") if tool is not None else None,
-                tool_version=(
-                    _required_string(tool, "version") if tool is not None else None
-                ),
+                tool_version=(_required_string(tool, "version") if tool is not None else None),
                 external_reference_system=(
                     _required_string(external, "system") if external is not None else None
                 ),
@@ -320,9 +387,7 @@ def parse_create_workspace_case(payload: object) -> CreateWorkspaceCaseCommand:
     data = _object(payload)
     _reject_unknown(data, {"actorId", "caseNumber", "name", "externalReferences"})
     references: list[ExternalReferenceInput] = []
-    for index, raw_reference in enumerate(
-        _optional_array(data, "externalReferences")
-    ):
+    for index, raw_reference in enumerate(_optional_array(data, "externalReferences")):
         reference = _object_at(raw_reference, f"externalReferences[{index}]")
         _reject_unknown(
             reference,
@@ -399,6 +464,333 @@ def parse_select_active_case(payload: object) -> SelectActiveCaseCommand:
         preference_id=_required_string(data, "preferenceId"),
         actor_id=_required_string(data, "actorId"),
         active_case_id=_optional_string(data, "activeCaseId"),
+    )
+
+
+def parse_create_evidence_actor(payload: object) -> CreateEvidenceActorCommand:
+    data = _object(payload)
+    _reject_unknown(
+        data,
+        {"createdBy", "actorType", "displayName", "memberships", "reviewStatus", "notes"},
+    )
+    return CreateEvidenceActorCommand(
+        created_by=_required_string(data, "createdBy"),
+        actor_type=_required_string(data, "actorType"),
+        display_name=_required_string(data, "displayName"),
+        memberships=_evidence_memberships(data),
+        review_status=_optional_string(data, "reviewStatus") or "unreviewed",
+        notes=_optional_string(data, "notes"),
+    )
+
+
+def parse_create_evidence_document(payload: object) -> CreateEvidenceDocumentCommand:
+    data = _object(payload)
+    _reject_unknown(
+        data,
+        {
+            "createdBy",
+            "title",
+            "label",
+            "documentType",
+            "category",
+            "source",
+            "originFormat",
+            "summary",
+            "processRole",
+            "classification",
+            "reviewStatus",
+            "isKey",
+            "memberships",
+            "fileIds",
+        },
+    )
+    return CreateEvidenceDocumentCommand(
+        created_by=_required_string(data, "createdBy"),
+        title=_required_string(data, "title"),
+        label=_optional_string(data, "label"),
+        document_type=_optional_string(data, "documentType"),
+        category=_optional_string(data, "category"),
+        source=_optional_string(data, "source"),
+        origin_format=_optional_string(data, "originFormat"),
+        summary=_optional_string(data, "summary"),
+        process_role=_optional_string(data, "processRole"),
+        classification=_optional_string(data, "classification") or "unverified",
+        review_status=_optional_string(data, "reviewStatus") or "unreviewed",
+        is_key=_optional_bool(data, "isKey", False),
+        memberships=_evidence_memberships(data),
+        file_ids=_optional_string_array(data, "fileIds"),
+    )
+
+
+def parse_create_evidence_event(payload: object) -> CreateEvidenceEventCommand:
+    data = _object(payload)
+    _reject_unknown(
+        data,
+        {
+            "createdBy",
+            "title",
+            "eventType",
+            "eventAt",
+            "description",
+            "workflowStatus",
+            "classification",
+            "reviewStatus",
+            "processConsequence",
+            "nextAction",
+            "deadline",
+            "memberships",
+            "actorIds",
+            "documentIds",
+        },
+    )
+    return CreateEvidenceEventCommand(
+        created_by=_required_string(data, "createdBy"),
+        title=_required_string(data, "title"),
+        event_type=_optional_string(data, "eventType"),
+        event_at=_optional_string(data, "eventAt"),
+        description=_optional_string(data, "description"),
+        workflow_status=_optional_string(data, "workflowStatus"),
+        classification=_optional_string(data, "classification") or "unverified",
+        review_status=_optional_string(data, "reviewStatus") or "unreviewed",
+        process_consequence=_optional_string(data, "processConsequence"),
+        next_action=_optional_string(data, "nextAction"),
+        deadline=_optional_string(data, "deadline"),
+        memberships=_evidence_memberships(data),
+        actor_ids=_optional_string_array(data, "actorIds"),
+        document_ids=_optional_string_array(data, "documentIds"),
+    )
+
+
+def parse_create_source_reference(payload: object) -> CreateSourceReferenceCommand:
+    data = _object(payload)
+    _reject_unknown(
+        data,
+        {
+            "createdBy",
+            "sourceEntity",
+            "sourceFileId",
+            "locationType",
+            "location",
+            "excerpt",
+            "sha256",
+            "reviewStatus",
+            "note",
+        },
+    )
+    return CreateSourceReferenceCommand(
+        created_by=_required_string(data, "createdBy"),
+        source_entity=_entity_reference(data, "sourceEntity"),
+        source_file_id=_optional_string(data, "sourceFileId"),
+        location_type=_required_string(data, "locationType"),
+        location_value=_optional_string(data, "location"),
+        excerpt=_optional_string(data, "excerpt"),
+        source_sha256=_optional_string(data, "sha256"),
+        review_status=_optional_string(data, "reviewStatus") or "unreviewed",
+        note=_optional_string(data, "note"),
+    )
+
+
+def parse_create_claim(payload: object) -> CreateClaimCommand:
+    data = _object(payload)
+    _reject_unknown(
+        data,
+        {
+            "createdBy",
+            "subject",
+            "text",
+            "classification",
+            "reviewStatus",
+            "assertedByActorIds",
+            "basisDocumentIds",
+            "sourceReferenceIds",
+            "memberships",
+            "uncertaintyNote",
+            "processConsequence",
+        },
+    )
+    return CreateClaimCommand(
+        created_by=_required_string(data, "createdBy"),
+        subject=_entity_reference(data, "subject"),
+        text=_required_string(data, "text"),
+        classification=_optional_string(data, "classification") or "unverified",
+        review_status=_optional_string(data, "reviewStatus") or "unreviewed",
+        asserted_by_actor_ids=_optional_string_array(data, "assertedByActorIds"),
+        basis_document_ids=_optional_string_array(data, "basisDocumentIds"),
+        source_reference_ids=_optional_string_array(data, "sourceReferenceIds"),
+        memberships=_evidence_memberships(data),
+        uncertainty_note=_optional_string(data, "uncertaintyNote"),
+        process_consequence=_optional_string(data, "processConsequence"),
+    )
+
+
+def parse_create_evidence_relation(payload: object) -> CreateEvidenceRelationCommand:
+    data = _object(payload)
+    _reject_unknown(
+        data,
+        {
+            "createdBy",
+            "from",
+            "to",
+            "relationType",
+            "label",
+            "classification",
+            "reviewStatus",
+            "basisDocumentIds",
+            "sourceReferenceIds",
+            "uncertaintyNote",
+            "validFrom",
+            "validTo",
+        },
+    )
+    return CreateEvidenceRelationCommand(
+        created_by=_required_string(data, "createdBy"),
+        from_entity=_entity_reference(data, "from"),
+        to_entity=_entity_reference(data, "to"),
+        relation_type=_required_string(data, "relationType"),
+        label=_optional_string(data, "label"),
+        classification=_optional_string(data, "classification") or "unverified",
+        review_status=_optional_string(data, "reviewStatus") or "unreviewed",
+        basis_document_ids=_optional_string_array(data, "basisDocumentIds"),
+        source_reference_ids=_optional_string_array(data, "sourceReferenceIds"),
+        uncertainty_note=_optional_string(data, "uncertaintyNote"),
+        valid_from=_optional_string(data, "validFrom"),
+        valid_to=_optional_string(data, "validTo"),
+    )
+
+
+def parse_review_evidence(payload: object) -> ReviewEvidenceCommand:
+    data = _object(payload)
+    _reject_unknown(
+        data,
+        {
+            "subject",
+            "decision",
+            "newStatus",
+            "actorId",
+            "expectedVersion",
+            "sourceReferenceIds",
+            "note",
+        },
+    )
+    return ReviewEvidenceCommand(
+        subject=_entity_reference(data, "subject"),
+        decision=_required_string(data, "decision"),
+        new_status=_required_string(data, "newStatus"),
+        actor_id=_required_string(data, "actorId"),
+        expected_version=_required_integer(data, "expectedVersion"),
+        source_reference_ids=_optional_string_array(data, "sourceReferenceIds"),
+        note=_optional_string(data, "note"),
+    )
+
+
+def parse_record_finding(payload: object) -> RecordFindingCommand:
+    data = _object(payload)
+    _reject_unknown(
+        data,
+        {
+            "fingerprint",
+            "findingType",
+            "title",
+            "description",
+            "severity",
+            "confidence",
+            "detector",
+            "processingRunId",
+            "observationStatus",
+            "subjects",
+            "sourceReferenceIds",
+            "details",
+        },
+    )
+    detector = _object_at(data.get("detector"), "detector")
+    _reject_unknown(detector, {"name", "version"})
+    raw_subjects = _required_array(data, "subjects")
+    subjects = tuple(
+        _entity_reference_from_object(item, f"subjects[{index}]")
+        for index, item in enumerate(raw_subjects)
+    )
+    details = _optional_object(data, "details")
+    return RecordFindingCommand(
+        fingerprint=_required_string(data, "fingerprint"),
+        finding_type=_required_string(data, "findingType"),
+        title=_required_string(data, "title"),
+        description=_required_string(data, "description"),
+        severity=_required_string(data, "severity"),
+        confidence=_optional_number(data, "confidence"),
+        detector_name=_required_string(detector, "name"),
+        detector_version=_required_string(detector, "version"),
+        processing_run_id=_optional_string(data, "processingRunId"),
+        observation_status=_optional_string(data, "observationStatus") or "detected",
+        subjects=subjects,
+        source_reference_ids=_optional_string_array(data, "sourceReferenceIds"),
+        details=details,
+    )
+
+
+def parse_review_finding(finding_id: str, payload: object) -> ReviewFindingCommand:
+    data = _object(payload)
+    _reject_unknown(
+        data,
+        {
+            "decision",
+            "newStatus",
+            "actorId",
+            "expectedVersion",
+            "sourceReferenceIds",
+            "note",
+        },
+    )
+    return ReviewFindingCommand(
+        finding_id=finding_id,
+        decision=_required_string(data, "decision"),
+        new_status=_required_string(data, "newStatus"),
+        actor_id=_required_string(data, "actorId"),
+        expected_version=_required_integer(data, "expectedVersion"),
+        source_reference_ids=_optional_string_array(data, "sourceReferenceIds"),
+        note=_optional_string(data, "note"),
+    )
+
+
+def _evidence_memberships(data: Mapping[str, object]) -> tuple[EvidenceMembershipInput, ...]:
+    memberships: list[EvidenceMembershipInput] = []
+    for index, raw in enumerate(_optional_array(data, "memberships")):
+        item = _object_at(raw, f"memberships[{index}]")
+        _reject_unknown(
+            item,
+            {
+                "contextType",
+                "contextId",
+                "role",
+                "isPrimary",
+                "sourceReferenceId",
+                "reviewStatus",
+                "note",
+            },
+        )
+        memberships.append(
+            EvidenceMembershipInput(
+                context_type=_required_string(item, "contextType"),
+                context_id=_required_string(item, "contextId"),
+                role=_required_string(item, "role"),
+                is_primary=_optional_bool(item, "isPrimary", False),
+                source_reference_id=_optional_string(item, "sourceReferenceId"),
+                review_status=_optional_string(item, "reviewStatus") or "unreviewed",
+                note=_optional_string(item, "note"),
+            )
+        )
+    return tuple(memberships)
+
+
+def _entity_reference(data: Mapping[str, object], field: str) -> EntityReferenceInput:
+    return _entity_reference_from_object(data.get(field), field)
+
+
+def _entity_reference_from_object(value: object, field: str) -> EntityReferenceInput:
+    item = _object_at(value, field)
+    _reject_unknown(item, {"type", "id"})
+    return EntityReferenceInput(
+        entity_type=_required_string(item, "type"),
+        entity_id=_required_string(item, "id"),
     )
 
 
@@ -491,6 +883,24 @@ def _required_number(data: Mapping[str, object], field: str) -> float:
     if not isinstance(value, (int, float)) or isinstance(value, bool):
         raise RequestValidationError("Поле має бути числом", {"field": field})
     return float(value)
+
+
+def _optional_number(data: Mapping[str, object], field: str) -> float | None:
+    value = data.get(field)
+    if value is None:
+        return None
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        raise RequestValidationError("Поле має бути числом або null", {"field": field})
+    return float(value)
+
+
+def _required_integer(data: Mapping[str, object], field: str) -> int:
+    if field not in data:
+        raise RequestValidationError("Відсутнє обов’язкове поле", {"field": field})
+    value = data[field]
+    if not isinstance(value, int) or isinstance(value, bool):
+        raise RequestValidationError("Поле має бути integer", {"field": field})
+    return value
 
 
 def _required_array(data: Mapping[str, object], field: str) -> list[object]:

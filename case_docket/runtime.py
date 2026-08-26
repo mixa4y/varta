@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from case_docket.application import (
+    EvidenceService,
     IntakeService,
     OriginalStorageService,
     SystemClock,
@@ -23,6 +24,7 @@ class IntakeRuntime:
     original_storage_service: OriginalStorageService
     intake_service: IntakeService
     workspace_service: WorkspaceService
+    evidence_service: EvidenceService
 
 
 class WorkspaceDatabaseConflictError(RuntimeError):
@@ -48,6 +50,7 @@ def build_intake_runtime(workspace_root: Path) -> IntakeRuntime:
     source = FilesystemIntakeSource(filesystem.layout.zone("temp") / "intake")
     intake = IntakeService(factory, originals, source, ids, clock)
     workspace_service = WorkspaceService(factory, ids, clock)
+    evidence_service = EvidenceService(factory, ids, clock)
     return IntakeRuntime(
         database_path=database_path,
         unit_of_work_factory=factory,
@@ -55,4 +58,5 @@ def build_intake_runtime(workspace_root: Path) -> IntakeRuntime:
         original_storage_service=originals,
         intake_service=intake,
         workspace_service=workspace_service,
+        evidence_service=evidence_service,
     )

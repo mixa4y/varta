@@ -157,9 +157,11 @@ def test_c06_database_upgrade_backfills_pending_bootstrap_for_every_accepted_fil
         (occurred, occurred),
     )
 
+    c07_migration = next(MIGRATIONS.glob("0009_*.sql"))
+    shutil.copyfile(c07_migration, migration_subset / c07_migration.name)
     applied = MigrationRunner(
         connection,
-        MIGRATIONS,
+        migration_subset,
         schema_floor=2,
         schema_ceiling=9,
         enforce_scopes=True,

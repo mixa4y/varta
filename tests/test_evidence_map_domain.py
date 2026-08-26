@@ -36,6 +36,16 @@ def test_evidence_map_domain_migration_creates_formal_tables() -> None:
         "amounts",
         "evidence_map_exports",
         "evidence_map_export_artifacts",
+        "event_actor_links",
+        "evidence_findings",
+        "finding_observations",
+        "finding_subjects",
+        "finding_source_references",
+        "finding_review_decisions",
+        "finding_review_decision_sources",
+        "compatibility_review_states",
+        "compatibility_review_decisions",
+        "compatibility_review_imports",
     }
     actual = {
         row["name"]
@@ -45,7 +55,7 @@ def test_evidence_map_domain_migration_creates_formal_tables() -> None:
     assert expected.issubset(actual)
     assert [row["version"] for row in connection.execute(
         "SELECT version FROM schema_migrations ORDER BY version"
-    )] == [1, 2, 3, 4, 5, 6, 7, 8, 9]
+    )] == list(range(1, 11))
     connection.close()
 
 

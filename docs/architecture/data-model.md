@@ -76,13 +76,35 @@ bytes/hash залишаються у `file_objects`; однаковий hash н�
 
 Зв'язок між документами: `source_document_id`, `target_document_id`, `relation_type`, `confidence`, `review_status`.
 
+### `source_references`, `claims` і `evidence_relations`
+
+`source_references` фіксує typed source entity, optional file/hash, точну
+location, excerpt, provenance та review status. `claims` має polymorphic
+subject, formal classification, assertors, document/source basis і explicit
+case/proceeding memberships. `evidence_relations` має typed endpoints,
+relation type, classification, document/source basis, validity interval та
+review status. C08 application layer перевіряє existence/type і вимагає
+evidence basis для confirmed claim/relation.
+
 ### `processing_runs`
 
 Відтворювана операція: `id`, `run_type`, `tool_name`, `tool_version`, `parameters_json`, `started_at`, `completed_at`, `status`, `error_details`.
 
 ### `findings`
 
-Структурований результат аналізу: `id`, `finding_type`, `severity`, `subject_type`, `subject_id`, `message`, `evidence_json`, `review_status`.
+`evidence_findings` зберігає stable fingerprint, detector/version, current
+automatic status/version і незалежний user review status/version. Кожен
+automatic result додається до append-only `finding_observations`; subjects і
+sources зберігаються many-to-many. User decisions додаються окремо до
+`finding_review_decisions` та не стираються наступним processor run.
+
+### `review_decisions`
+
+Append-only transition history для reviewable evidence aggregate:
+`subject_type`, `subject_id`, decision, previous/new status, actor, time,
+source basis, `subject_version` та origin. Aggregate update використовує
+optimistic `expectedVersion` і виконується в одній transaction з decision та
+audit row.
 
 ### `audit_log`
 
@@ -95,7 +117,8 @@ bytes/hash залишаються у `file_objects`; однаковий hash н�
 - `import_batch` має багато `files`.
 - `document` пов'язаний із файлами через `document_files`.
 - `document` може мати багато `attachments`, `signatures` і relations.
-- `processing_run` пов'язує входи, виходи та findings через окремі таблиці зв'язків, які ще треба визначити.
+- `processing_run` може бути пов'язаний з кожним finding observation; повний
+  durable job/input/output contract належить C10.
 
 ## Assumptions
 
@@ -109,8 +132,9 @@ bytes/hash залишаються у `file_objects`; однаковий hash н�
 
 | Question | Owner stage | Closing gate |
 |---|---|---|
-| Чи потрібна історичність beyond append-only audit/review history? | `C08` | `C08 PASS` |
-| Які персональні поля справді необхідні? | `C08`, `C16` | model gate + final privacy gate |
+| Які додаткові персональні поля справді необхідні beyond мінімального C08 actor DTO? | `C16` | final privacy gate |
 | Як моделювати сторінки, OCR-фрагменти й координати тексту? | `P01` | `P01 PASS` |
 
 Формат identity/cardinality більше не open; його закриває `ADR-004`.
+Історичність evidence review закрита C08: automatic observations, user review
+decisions і audit зберігаються окремими append-only rows.

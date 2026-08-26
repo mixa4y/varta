@@ -4,7 +4,7 @@
 |---|---|
 | Status | `ACTIVE` |
 | Version | `v1.0` |
-| Date | `2026-08-18` |
+| Date | `2026-08-25` |
 
 ## Approved C02 decision package
 
@@ -31,6 +31,7 @@
 | `managed-storage.md` | `ACTIVE` | C05 layout v1, immutable originals, streaming SHA-256 і reconciliation contract |
 | `intake-v1.md` | `ACTIVE` | C06 file/folder/top-level-ZIP intake, idempotency, statuses та SQLite inventory contract |
 | `workspace-v1.md` | `ACTIVE` | C07 multi-case workspace, temporary intake case, manual confirmation і active-case preference |
+| `evidence-domain-v1.md` | `ACTIVE` | C08 evidence repositories/services, invariants, SQLite review authority, read DTO та compatibility sunset |
 
 ## Supporting legacy/target documents
 

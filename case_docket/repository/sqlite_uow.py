@@ -15,6 +15,7 @@ from case_docket.application.dto import (
     ProceedingOptionDTO,
 )
 from case_docket.application.errors import ConflictError, NotFoundError, ValidationError
+from case_docket.application.evidence_ports import EvidenceRepositoryPort
 from case_docket.application.ports import (
     ContactRepositoryPort,
     IntakeRepositoryPort,
@@ -24,6 +25,7 @@ from case_docket.application.workspace_ports import WorkspaceRepositoryPort
 from case_docket.models.contact import CaseParticipant, Contact
 
 from .sqlite_connection import SQLiteConnectionPolicy
+from .sqlite_evidence import SQLiteEvidenceRepository
 from .sqlite_intake import SQLiteIntakeRepository
 from .sqlite_repository import SQLiteRepository
 from .sqlite_storage import SQLiteManagedFileRepository
@@ -188,6 +190,7 @@ class SQLiteUnitOfWork:
         self._files: SQLiteManagedFileRepository | None = None
         self._intake: SQLiteIntakeRepository | None = None
         self._workspace: SQLiteWorkspaceRepository | None = None
+        self._evidence: SQLiteEvidenceRepository | None = None
         self._finished = False
         self._entered = False
 
@@ -215,6 +218,12 @@ class SQLiteUnitOfWork:
             raise RuntimeError("Unit of Work is not active")
         return self._workspace
 
+    @property
+    def evidence(self) -> EvidenceRepositoryPort:
+        if self._evidence is None or self._finished:
+            raise RuntimeError("Unit of Work is not active")
+        return self._evidence
+
     def __enter__(self) -> Self:
         if self._entered:
             raise RuntimeError("Unit of Work cannot be entered twice")
@@ -237,6 +246,7 @@ class SQLiteUnitOfWork:
         self._files = SQLiteManagedFileRepository(repository)
         self._intake = SQLiteIntakeRepository(repository)
         self._workspace = SQLiteWorkspaceRepository(repository)
+        self._evidence = SQLiteEvidenceRepository(repository)
         self._finished = False
         return self
 
@@ -252,6 +262,7 @@ class SQLiteUnitOfWork:
             self._files = None
             self._intake = None
             self._workspace = None
+            self._evidence = None
 
     def commit(self) -> None:
         repository = self._active_repository()

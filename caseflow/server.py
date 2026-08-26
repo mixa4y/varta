@@ -30,23 +30,29 @@ from email.parser import BytesHeaderParser
 from email.policy import default as email_policy
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path, PurePosixPath
-from typing import Any
+from typing import Any, Mapping
 
 from case_docket.application import (
     ApplicationError,
     ContactService,
+    EvidenceService,
+    GetCaseEvidenceQuery,
     GetContactQuery,
     GetContactsContextQuery,
     GetActiveCaseQuery,
+    GetSourceContextQuery,
     IntakeCommand,
     IntakeService,
     ListContactsQuery,
+    ListEvidenceTimelineQuery,
     ListIntakeInventoryQuery,
     ListPendingBootstrapReviewsQuery,
+    ListReviewHistoryQuery,
     ListWorkspaceCasesQuery,
     SystemClock,
     UuidProvider,
     WorkspaceService,
+    SetCompatibilityReviewCommand,
 )
 from case_docket.repository import SQLiteRepository
 from case_docket.runtime import build_intake_runtime
@@ -60,18 +66,28 @@ from caseflow.api_v1 import (
     error_envelope,
     error_status,
     match_contact_route,
+    match_evidence_route,
     match_intake_route,
     match_workspace_route,
     parse_add_document_memberships,
     parse_add_file_memberships,
     parse_assign_contact_role,
     parse_create_contact,
+    parse_create_claim,
+    parse_create_evidence_actor,
+    parse_create_evidence_document,
+    parse_create_evidence_event,
+    parse_create_evidence_relation,
+    parse_create_source_reference,
     parse_create_workspace_case,
     parse_create_workspace_proceeding,
     parse_confirm_case_bootstrap,
     parse_idempotency_key,
+    parse_record_finding,
     parse_register_candidate_sources,
     parse_select_active_case,
+    parse_review_evidence,
+    parse_review_finding,
     parse_update_contact,
     success_envelope,
 )
@@ -144,7 +160,9 @@ def safe_segment(value: str, fallback: str = "БЕЗ_НАЗВИ") -> str:
     return value or fallback
 
 
-def run_worker(script: Path, worker_args: list[str], cwd: Path, timeout: int) -> subprocess.CompletedProcess[str]:
+def run_worker(
+    script: Path, worker_args: list[str], cwd: Path, timeout: int
+) -> subprocess.CompletedProcess[str]:
     """Run a pipeline worker from source or directly from a frozen EXE bundle."""
     if not getattr(sys, "frozen", False):
         return subprocess.run(
@@ -477,12 +495,58 @@ class CaseFlowState:
         return self._intake_runtime.workspace_service
 
     @property
+    def evidence_service(self) -> EvidenceService:
+        return self._intake_runtime.evidence_service
+
+    @property
     def intake_upload_root(self) -> Path:
         return self._intake_runtime.filesystem.layout.zone("temp") / "http-intake"
 
     def prepare_database(self) -> None:
         """Complete legacy bootstrap before HTTP threads open short-lived UoWs."""
         self._database_factory.prepare()
+        self._import_compatibility_review_state()
+
+    def _import_compatibility_review_state(self) -> None:
+        sources = (
+            ("legacy_document", self.root / ".caseflow" / "document_status.json"),
+            ("legacy_finding", self.root / ".caseflow" / "anomaly_status.json"),
+        )
+        for subject_type, path in sources:
+            if not path.is_file():
+                continue
+            raw = path.read_bytes()
+            try:
+                payload = json.loads(raw.decode("utf-8-sig"))
+            except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+                raise RuntimeError(f"Некоректний compatibility review JSON: {path.name}") from exc
+            if not isinstance(payload, dict):
+                raise RuntimeError(f"Compatibility review JSON має бути object: {path.name}")
+            values = {
+                str(key): value
+                for key, value in payload.items()
+                if isinstance(key, str) and isinstance(value, dict)
+            }
+            self.evidence_service.import_compatibility_reviews(
+                subject_type=subject_type,
+                source_token=hashlib.sha256(subject_type.encode("utf-8") + b"\0" + raw).hexdigest(),
+                values=values,
+            )
+
+    def compatibility_review_overrides(self, subject_type: str) -> dict[str, dict[str, object]]:
+        return {
+            item.record.external_id: {
+                "status": item.record.current_status,
+                "note": item.record.note or "",
+                "updated_at": item.record.updated_at.isoformat(),
+                "version": item.record.version,
+            }
+            for item in self.evidence_service.list_compatibility_reviews(subject_type)
+        }
+
+    def write_anomaly_review_projection(self) -> None:
+        path = self.root / ".caseflow" / "anomaly_status.json"
+        write_json(path, self.compatibility_review_overrides("legacy_finding"))
 
     def database_summary(self) -> dict[str, int]:
         """Read status through a short-lived thread-owned repository connection."""
@@ -542,7 +606,12 @@ class CaseFlowState:
             active = self.active_job or read_json(self.job_path, {})
             raise BusyError(f"Уже виконується операція: {active.get('kind', 'невідома')}")
         descriptor = None
-        metadata = {"kind": kind, "pid": os.getpid(), "started_at": now_iso(), "root": str(self.root)}
+        metadata = {
+            "kind": kind,
+            "pid": os.getpid(),
+            "started_at": now_iso(),
+            "root": str(self.root),
+        }
         try:
             self.job_path.parent.mkdir(parents=True, exist_ok=True)
             try:
@@ -576,7 +645,9 @@ class CaseFlowState:
             raise RuntimeError("Google Drive ще не підключено")
         expires_at = token.get("expires_at")
         if token.get("access_token") and expires_at:
-            if datetime.fromisoformat(expires_at) > datetime.now(timezone.utc) + timedelta(seconds=60):
+            if datetime.fromisoformat(expires_at) > datetime.now(timezone.utc) + timedelta(
+                seconds=60
+            ):
                 return token["access_token"]
         refresh_token = token.get("refresh_token")
         if not refresh_token:
@@ -612,7 +683,9 @@ def urlopen_json(request: urllib.request.Request) -> dict:
 def post_form(url: str, fields: dict) -> dict:
     data = urllib.parse.urlencode(fields).encode("utf-8")
     return urlopen_json(
-        urllib.request.Request(url, data=data, headers={"Content-Type": "application/x-www-form-urlencoded"})
+        urllib.request.Request(
+            url, data=data, headers={"Content-Type": "application/x-www-form-urlencoded"}
+        )
     )
 
 
@@ -631,10 +704,14 @@ def create_drive_folder(token: str, name: str, parent_id: str | None) -> dict:
     }
     if parent_id:
         metadata["parents"] = [parent_id]
-    return google_json("POST", f"{GOOGLE_DRIVE_API}/files?fields=id,name,webViewLink", token, metadata)
+    return google_json(
+        "POST", f"{GOOGLE_DRIVE_API}/files?fields=id,name,webViewLink", token, metadata
+    )
 
 
-def resumable_upload(token: str, path: Path, name: str, parent_id: str, file_id: str | None = None) -> dict:
+def resumable_upload(
+    token: str, path: Path, name: str, parent_id: str, file_id: str | None = None
+) -> dict:
     mime = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
     metadata = {"name": name, "parents": [parent_id]}
     if file_id:
@@ -667,7 +744,11 @@ def resumable_upload(token: str, path: Path, name: str, parent_id: str, file_id:
         location,
         data=data,
         method="PUT",
-        headers={"Authorization": f"Bearer {token}", "Content-Type": mime, "Content-Length": str(len(data))},
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Content-Type": mime,
+            "Content-Length": str(len(data)),
+        },
     )
     return urlopen_json(upload_request)
 
@@ -681,7 +762,9 @@ def sync_to_drive(state: CaseFlowState, selections: list[str]) -> dict:
     index = read_json(state.drive_index_path, {"folders": {}, "files": {}})
     folders = index.setdefault("folders", {})
     files_index = index.setdefault("files", {})
-    case_name = f"VARTA__{safe_segment(state.config.get('case_number', state.root.name), state.root.name)}"
+    case_name = (
+        f"VARTA__{safe_segment(state.config.get('case_number', state.root.name), state.root.name)}"
+    )
     if "__ROOT__" not in folders:
         folders["__ROOT__"] = create_drive_folder(token, case_name, None)["id"]
 
@@ -719,7 +802,12 @@ def sync_to_drive(state: CaseFlowState, selections: list[str]) -> dict:
             links.append(result.get("webViewLink"))
             uploaded += 1
             write_json(state.drive_index_path, index)
-    return {"uploaded": uploaded, "skipped": skipped, "rootFolderId": folders["__ROOT__"], "links": [x for x in links if x]}
+    return {
+        "uploaded": uploaded,
+        "skipped": skipped,
+        "rootFolderId": folders["__ROOT__"],
+        "links": [x for x in links if x],
+    }
 
 
 def latest_register(root: Path) -> Path | None:
@@ -751,7 +839,9 @@ def document_work_status(completeness: str, next_action: str) -> str:
         return "needs_review"
     if "КОМПЛЕКТ" in normalized:
         return "completed"
-    if action and any(marker in action.casefold() for marker in ("очіку", "отримати", "контрол", "дочек")):
+    if action and any(
+        marker in action.casefold() for marker in ("очіку", "отримати", "контрол", "дочек")
+    ):
         return "waiting"
     if action:
         return "in_progress"
@@ -822,7 +912,11 @@ def seven_zip_tree_entries(path: Path, seven_zip: Path) -> list[dict]:
         if not member_name or record.get("Folder") == "+":
             return
         member = PurePosixPath(member_name.replace("\\", "/"))
-        if member.is_absolute() or not member.parts or any(part in {"", ".", ".."} for part in member.parts):
+        if (
+            member.is_absolute()
+            or not member.parts
+            or any(part in {"", ".", ".."} for part in member.parts)
+        ):
             return
         component, section = archive_component(member_name)
         try:
@@ -866,7 +960,9 @@ def archive_tree_entries(path: Path, seven_zip: Path | None = None) -> list[dict
                 if not item.flag_bits & 0x800:
                     try:
                         candidate = item.filename.encode("cp437").decode("windows-1251")
-                        if sum("А" <= char <= "я" or char in "ІіЇїЄєҐґ" for char in candidate) > sum("А" <= char <= "я" or char in "ІіЇїЄєҐґ" for char in item.filename):
+                        if sum(
+                            "А" <= char <= "я" or char in "ІіЇїЄєҐґ" for char in candidate
+                        ) > sum("А" <= char <= "я" or char in "ІіЇїЄєҐґ" for char in item.filename):
                             member_name = candidate
                     except (UnicodeEncodeError, UnicodeDecodeError):
                         pass
@@ -874,25 +970,30 @@ def archive_tree_entries(path: Path, seven_zip: Path | None = None) -> list[dict
                 if member.is_absolute() or any(part in {"", ".", ".."} for part in member.parts):
                     continue
                 component, section = archive_component(member_name)
-                entries.append({
-                    "component": component,
-                    "name": member.name,
-                    "path": f"{path.name} › {member.as_posix()}",
-                    "bytes": item.file_size,
-                    "integrity": "У ZIP",
-                    "section": section,
-                })
+                entries.append(
+                    {
+                        "component": component,
+                        "name": member.name,
+                        "path": f"{path.name} › {member.as_posix()}",
+                        "bytes": item.file_size,
+                        "integrity": "У ZIP",
+                        "section": section,
+                    }
+                )
     except (OSError, zipfile.BadZipFile):
         return []
     return entries
 
 
-def build_document_tree(root: Path) -> dict:
+def build_document_tree(
+    root: Path,
+    status_overrides: Mapping[str, Mapping[str, object]] | None = None,
+) -> dict:
     """Build a read-only proceeding/document/file tree from the latest register and INBOX."""
     register = latest_register(root)
     config = read_json(root / ".caseflow" / "config.json", {})
     seven_zip = find_7zip(str(config.get("seven_zip_path", "")))
-    status_overrides = read_json(root / ".caseflow" / "document_status.json", {})
+    status_overrides = status_overrides or {}
     groups: dict[str, dict] = {}
 
     def group_for(number: str, raw_status: str = "") -> dict:
@@ -907,13 +1008,18 @@ def build_document_tree(root: Path) -> dict:
 
         workbook = load_workbook(register, read_only=True, data_only=True)
         try:
+
             def sheet_rows(name: str) -> list[dict]:
                 if name not in workbook.sheetnames:
                     return []
                 sheet = workbook[name]
                 values = sheet.iter_rows(values_only=True)
                 headers = [str(value or "").strip() for value in next(values)]
-                return [dict(zip(headers, row)) for row in values if any(value is not None for value in row)]
+                return [
+                    dict(zip(headers, row))
+                    for row in values
+                    if any(value is not None for value in row)
+                ]
 
             files_by_doc: dict[str, list[dict]] = {}
             for row in sheet_rows("Файли"):
@@ -923,7 +1029,9 @@ def build_document_tree(root: Path) -> dict:
                 files_by_doc.setdefault(doc_id, []).append(
                     {
                         "component": row.get("Компонент") or "Інше",
-                        "name": row.get("Оригінальна назва") or row.get("Нормалізована назва") or "Файл",
+                        "name": row.get("Оригінальна назва")
+                        or row.get("Нормалізована назва")
+                        or "Файл",
                         "path": row.get("Відносний шлях") or "",
                         "bytes": row.get("Розмір, байт") or 0,
                         "integrity": row.get("Цілісність") or "",
@@ -931,7 +1039,9 @@ def build_document_tree(root: Path) -> dict:
                 )
 
             proceeding_status = {
-                str(row.get("Номер провадження") or "").strip(): str(row.get("Статус") or "").strip()
+                str(row.get("Номер провадження") or "").strip(): str(
+                    row.get("Статус") or ""
+                ).strip()
                 for row in sheet_rows("Провадження")
                 if row.get("Номер провадження")
             }
@@ -943,7 +1053,11 @@ def build_document_tree(root: Path) -> dict:
                 completeness = str(row.get("Статус комплектності") or "").strip()
                 next_action = str(row.get("Наступна дія") or "").strip()
                 date_value = row.get("Дата документа") or row.get("Дата надходження/подання")
-                date_text = date_value.date().isoformat() if isinstance(date_value, datetime) else str(date_value or "")
+                date_text = (
+                    date_value.date().isoformat()
+                    if isinstance(date_value, datetime)
+                    else str(date_value or "")
+                )
                 group_for(proceeding, proceeding_status.get(proceeding, ""))["documents"].append(
                     {
                         "id": doc_id,
@@ -966,24 +1080,46 @@ def build_document_tree(root: Path) -> dict:
     if inbox.exists():
         for manifest_path in inbox.rglob("caseflow_upload.json"):
             manifest = read_json(manifest_path, {})
-            proceeding = str(manifest.get("proceeding_folder") or manifest_path.relative_to(inbox).parts[0])
+            proceeding = str(
+                manifest.get("proceeding_folder") or manifest_path.relative_to(inbox).parts[0]
+            )
             files = manifest.get("files", [])
             uploaded_at = str(manifest.get("uploaded_at") or "")
             packet_id = f"INBOX_{manifest_path.parent.name.split('__', 1)[0]}"
             packet_files = []
             for item in files:
                 suffix = Path(str(item.get("name", ""))).suffix.casefold()
-                component = "RAR-архів" if suffix == ".rar" else "ZIP-архів" if suffix == ".zip" else "Вхідний файл"
-                packet_files.append({"component": component, "name": item.get("name", "Файл"), "path": item.get("path", ""), "bytes": item.get("bytes", 0), "integrity": ""})
+                component = (
+                    "RAR-архів"
+                    if suffix == ".rar"
+                    else "ZIP-архів"
+                    if suffix == ".zip"
+                    else "Вхідний файл"
+                )
+                packet_files.append(
+                    {
+                        "component": component,
+                        "name": item.get("name", "Файл"),
+                        "path": item.get("path", ""),
+                        "bytes": item.get("bytes", 0),
+                        "integrity": "",
+                    }
+                )
                 local_path = root / str(item.get("path", ""))
                 if local_path.suffix.lower() in {".zip", ".rar"} and local_path.is_file():
                     packet_files.extend(archive_tree_entries(local_path, seven_zip))
-            single_suffix = Path(str(files[0].get("name", ""))).suffix.casefold() if len(files) == 1 else ""
+            single_suffix = (
+                Path(str(files[0].get("name", ""))).suffix.casefold() if len(files) == 1 else ""
+            )
             group_for(proceeding, "В роботі")["documents"].append(
                 {
                     "id": packet_id,
-                    "name": files[0].get("name", "Новий пакет") if len(files) == 1 else f"Новий пакет: {len(files)} файлів",
-                    "type": f"{single_suffix.lstrip('.').upper()}-архів" if single_suffix in {".zip", ".rar"} else "Вхідний пакет",
+                    "name": files[0].get("name", "Новий пакет")
+                    if len(files) == 1
+                    else f"Новий пакет: {len(files)} файлів",
+                    "type": f"{single_suffix.lstrip('.').upper()}-архів"
+                    if single_suffix in {".zip", ".rar"}
+                    else "Вхідний пакет",
                     "flow": manifest.get("flow", ""),
                     "date": uploaded_at[:10],
                     "summary": "Завантажено до 00_INBOX; очікує запуску обробки.",
@@ -1005,15 +1141,28 @@ def build_document_tree(root: Path) -> dict:
                 document["statusManual"] = True
                 document["statusNote"] = str(override.get("note", ""))
                 document["statusUpdatedAt"] = override.get("updated_at")
-        group["documents"].sort(key=lambda item: (item.get("date", ""), item.get("id", "")), reverse=True)
-        group["counts"] = {status: sum(item["status"] == status for item in group["documents"]) for status in counts}
+        group["documents"].sort(
+            key=lambda item: (item.get("date", ""), item.get("id", "")), reverse=True
+        )
+        group["counts"] = {
+            status: sum(item["status"] == status for item in group["documents"])
+            for status in counts
+        }
         for status, value in group["counts"].items():
             counts[status] += value
         proceedings.append(group)
-    proceedings.sort(key=lambda item: (item["counts"]["in_progress"] + item["counts"]["needs_review"] > 0, item["number"]), reverse=True)
+    proceedings.sort(
+        key=lambda item: (
+            item["counts"]["in_progress"] + item["counts"]["needs_review"] > 0,
+            item["number"],
+        ),
+        reverse=True,
+    )
     return {
         "ok": True,
-        "register": str(register.relative_to(root)) if register and root in register.parents else str(register or ""),
+        "register": str(register.relative_to(root))
+        if register and root in register.parents
+        else str(register or ""),
         "generatedAt": now_iso(),
         "archiveSupport": {"zip": True, "rar": bool(seven_zip), "sevenZip": str(seven_zip or "")},
         "counts": {**counts, "all": sum(counts.values())},
@@ -1026,7 +1175,9 @@ def build_preflight(state: CaseFlowState) -> dict:
     root = state.root
     checks: list[dict] = []
 
-    def add(code: str, label: str, weight: int, status: str, detail: str, earned: int | None = None) -> None:
+    def add(
+        code: str, label: str, weight: int, status: str, detail: str, earned: int | None = None
+    ) -> None:
         checks.append(
             {
                 "code": code,
@@ -1061,12 +1212,23 @@ def build_preflight(state: CaseFlowState) -> dict:
         "Структура справи та право запису",
         15,
         "passed" if writable else "blocker",
-        "Усі обов’язкові папки доступні для запису." if writable else f"Немає папок або запису: {', '.join(missing) or 'корінь недоступний'}.",
+        "Усі обов’язкові папки доступні для запису."
+        if writable
+        else f"Немає папок або запису: {', '.join(missing) or 'корінь недоступний'}.",
     )
 
-    missing_modules = [name for name in ("openpyxl", "pypdf") if importlib.util.find_spec(name) is None]
-    scripts = [state.root / "scripts" / "caseflow_process.py", state.root / "scripts" / "anomaly_detector.py"]
-    missing_scripts = [] if getattr(sys, "frozen", False) else [str(path.relative_to(root)) for path in scripts if not path.exists()]
+    missing_modules = [
+        name for name in ("openpyxl", "pypdf") if importlib.util.find_spec(name) is None
+    ]
+    scripts = [
+        state.root / "scripts" / "caseflow_process.py",
+        state.root / "scripts" / "anomaly_detector.py",
+    ]
+    missing_scripts = (
+        []
+        if getattr(sys, "frozen", False)
+        else [str(path.relative_to(root)) for path in scripts if not path.exists()]
+    )
     runtime_status = "passed"
     runtime_detail = f"Python {sys.version_info.major}.{sys.version_info.minor}; openpyxl і pypdf доступні; скрипти на місці."
     if "openpyxl" in missing_modules or missing_scripts:
@@ -1075,7 +1237,14 @@ def build_preflight(state: CaseFlowState) -> dict:
     elif missing_modules:
         runtime_status = "warning"
         runtime_detail = "Немає pypdf: PDF оброблятимуться без надійного читання тексту."
-    add("RUNTIME", "Python, залежності та скрипти", 15, runtime_status, runtime_detail, 10 if runtime_status == "warning" else 0)
+    add(
+        "RUNTIME",
+        "Python, залежності та скрипти",
+        15,
+        runtime_status,
+        runtime_detail,
+        10 if runtime_status == "warning" else 0,
+    )
 
     register = latest_register(root)
     register_valid = False
@@ -1131,7 +1300,15 @@ def build_preflight(state: CaseFlowState) -> dict:
         for clean_path in [str(entry.get("source", "")).replace("\\", "/")]
         if clean_path
     }
-    incoming = [path for path in inbox.rglob("*") if path.is_file() and path.name != "caseflow_upload.json"] if inbox.exists() else []
+    incoming = (
+        [
+            path
+            for path in inbox.rglob("*")
+            if path.is_file() and path.name != "caseflow_upload.json"
+        ]
+        if inbox.exists()
+        else []
+    )
     new_documents = []
     archive_packages = []
     for path in incoming:
@@ -1142,7 +1319,12 @@ def build_preflight(state: CaseFlowState) -> dict:
             relative_inbox = path.relative_to(inbox)
             try:
                 digest = sha256_path(path)[:12]
-                unpacked = root / "02_РОЗПАКОВАНО" / relative_inbox.parent / f"{safe_segment(path.stem)}__{digest}"
+                unpacked = (
+                    root
+                    / "02_РОЗПАКОВАНО"
+                    / relative_inbox.parent
+                    / f"{safe_segment(path.stem)}__{digest}"
+                )
                 if not unpacked.exists():
                     archive_packages.append(path)
             except OSError:
@@ -1158,7 +1340,9 @@ def build_preflight(state: CaseFlowState) -> dict:
         new_detail = f"Нових основних документів: {len(new_documents)}; ZIP: {len(zip_packages)}; RAR: {len(rar_packages)}."
     else:
         new_status = "blocker"
-        new_detail = "Нових підтримуваних документів, ZIP або RAR після попередньої обробки не знайдено."
+        new_detail = (
+            "Нових підтримуваних документів, ZIP або RAR після попередньої обробки не знайдено."
+        )
     add("NEW_INPUT", "Нові матеріали після дедуплікації", 10, new_status, new_detail)
 
     seven_zip = find_7zip(str(state.config.get("seven_zip_path", "")))
@@ -1168,7 +1352,13 @@ def build_preflight(state: CaseFlowState) -> dict:
         "Підтримка RAR через 7-Zip",
         0,
         "passed" if rar_ready else "blocker",
-        f"7-Zip: {seven_zip}." if seven_zip else ("RAR у новому пакеті немає." if not rar_packages else "Знайдено RAR, але 7-Zip недоступний."),
+        f"7-Zip: {seven_zip}."
+        if seven_zip
+        else (
+            "RAR у новому пакеті немає."
+            if not rar_packages
+            else "Знайдено RAR, але 7-Zip недоступний."
+        ),
     )
 
     metadata_issues = []
@@ -1180,7 +1370,9 @@ def build_preflight(state: CaseFlowState) -> dict:
         folded = {part.casefold() for part in relative_parts}
         if not ({"01_від_суду".casefold(), "02_мої_документи".casefold()} & folded):
             metadata_issues.append(str(path.relative_to(root)))
-    metadata_status = "passed" if new_count and not metadata_issues else ("warning" if new_count else "blocker")
+    metadata_status = (
+        "passed" if new_count and not metadata_issues else ("warning" if new_count else "blocker")
+    )
     metadata_detail = (
         "Провадження/папка, потік і канал мають достатній контекст."
         if metadata_status == "passed"
@@ -1188,20 +1380,31 @@ def build_preflight(state: CaseFlowState) -> dict:
         if new_count
         else "Немає нового пакета для перевірки контексту."
     )
-    add("PACKAGE_CONTEXT", "Провадження, потік і канал", 10, metadata_status, metadata_detail, 5 if metadata_status == "warning" else 0)
+    add(
+        "PACKAGE_CONTEXT",
+        "Провадження, потік і канал",
+        10,
+        metadata_status,
+        metadata_detail,
+        5 if metadata_status == "warning" else 0,
+    )
 
     total_bytes = sum(path.stat().st_size for path in incoming if path.exists())
     zip_unpacked = 0
     for archive_path in zip_packages[:100]:
         try:
             with zipfile.ZipFile(archive_path) as archive:
-                zip_unpacked += sum(item.file_size for item in archive.infolist()[:10000] if not item.is_dir())
+                zip_unpacked += sum(
+                    item.file_size for item in archive.infolist()[:10000] if not item.is_dir()
+                )
         except (OSError, zipfile.BadZipFile):
             pass
     for archive_path in rar_packages[:100]:
         if not seven_zip:
             break
-        zip_unpacked += sum(item.get("bytes", 0) for item in seven_zip_tree_entries(archive_path, seven_zip))
+        zip_unpacked += sum(
+            item.get("bytes", 0) for item in seven_zip_tree_entries(archive_path, seven_zip)
+        )
     required_bytes = max(250 * 1024 * 1024, total_bytes * 2 + zip_unpacked)
     free_bytes = shutil.disk_usage(root).free
     disk_ok = free_bytes >= required_bytes
@@ -1220,14 +1423,14 @@ def build_preflight(state: CaseFlowState) -> dict:
         "Відсутність паралельного запуску",
         10,
         "passed" if lock_free else "blocker",
-        "Активних операцій немає." if lock_free else f"Активна/залишкова операція: {(lock_metadata or state.active_job or {}).get('kind', 'невідома')}.",
+        "Активних операцій немає."
+        if lock_free
+        else f"Активна/залишкова операція: {(lock_metadata or state.active_job or {}).get('kind', 'невідома')}.",
     )
 
     evidence_names = [path.name.casefold() for path in incoming]
     evidence_count = sum(
-        path.suffix.lower() in EVIDENCE_EXTENSIONS
-        or "картк" in name
-        or "протокол" in name
+        path.suffix.lower() in EVIDENCE_EXTENSIONS or "картк" in name or "протокол" in name
         for path, name in zip(incoming, evidence_names)
     )
     evidence_status = "passed" if evidence_count else "warning"
@@ -1236,7 +1439,9 @@ def build_preflight(state: CaseFlowState) -> dict:
         "Локальні картки, КЕП або скриншоти",
         5,
         evidence_status,
-        f"Локальних доказових компонентів: {evidence_count}." if evidence_count else "Доказових компонентів не знайдено; частина правил буде not verifiable.",
+        f"Локальних доказових компонентів: {evidence_count}."
+        if evidence_count
+        else "Доказових компонентів не знайдено; частина правил буде not verifiable.",
         2 if evidence_status == "warning" else 0,
     )
 
@@ -1251,7 +1456,11 @@ def build_preflight(state: CaseFlowState) -> dict:
         "new_documents": len(new_documents),
         "new_zip_packages": len(zip_packages),
         "new_rar_packages": len(rar_packages),
-        "register": str(register.relative_to(root)) if register and root in register.parents else str(register) if register else None,
+        "register": str(register.relative_to(root))
+        if register and root in register.parents
+        else str(register)
+        if register
+        else None,
         "checks": checks,
     }
 
@@ -1259,8 +1468,7 @@ def build_preflight(state: CaseFlowState) -> dict:
 def anomaly_summary(findings: list[dict[str, Any]]) -> dict[str, int]:
     open_items = [item for item in findings if item.get("status", "open") == "open"]
     severities = [
-        severity if isinstance(severity := item.get("severity"), str) else ""
-        for item in open_items
+        severity if isinstance(severity := item.get("severity"), str) else "" for item in open_items
     ]
     counts = {level: severities.count(level) for level in ANOMALY_WEIGHTS}
     return {
@@ -1360,6 +1568,7 @@ class Handler(BaseHTTPRequestHandler):
         contact_route = match_contact_route(parsed.path)
         intake_route = match_intake_route(parsed.path)
         workspace_route = match_workspace_route(parsed.path)
+        evidence_route = match_evidence_route(parsed.path)
         try:
             if parsed.path == "/api/status":
                 self.handle_status()
@@ -1391,6 +1600,28 @@ class Handler(BaseHTTPRequestHandler):
                     return
                 if workspace_route.action == "bootstrap_reviews":
                     self.handle_bootstrap_reviews()
+                    return
+                self._send_route_not_found(versioned=True)
+                return
+            if evidence_route is not None:
+                query = urllib.parse.parse_qs(parsed.query)
+                if (
+                    evidence_route.action == "case_read_model"
+                    and evidence_route.resource_id is not None
+                ):
+                    self.handle_evidence_case(evidence_route.resource_id, query)
+                    return
+                if evidence_route.action == "timeline":
+                    self.handle_evidence_timeline(query)
+                    return
+                if (
+                    evidence_route.action == "source_context"
+                    and evidence_route.resource_id is not None
+                ):
+                    self.handle_source_context(evidence_route.resource_id)
+                    return
+                if evidence_route.action == "reviews":
+                    self.handle_evidence_review_history(query)
                     return
                 self._send_route_not_found(versioned=True)
                 return
@@ -1433,6 +1664,7 @@ class Handler(BaseHTTPRequestHandler):
         contact_route = match_contact_route(route)
         intake_route = match_intake_route(route)
         workspace_route = match_workspace_route(route)
+        evidence_route = match_evidence_route(route)
         try:
             self.require_csrf()
             if intake_route is not None and intake_route.action == "collection":
@@ -1459,12 +1691,33 @@ class Handler(BaseHTTPRequestHandler):
                 self.handle_bootstrap_confirm(workspace_route.intake_case_id)
             elif workspace_route is not None and workspace_route.action == "memberships":
                 self.handle_workspace_memberships()
-            elif (
-                workspace_route is not None
-                and workspace_route.action == "document_memberships"
-            ):
+            elif workspace_route is not None and workspace_route.action == "document_memberships":
                 self.handle_document_memberships()
             elif workspace_route is not None:
+                self._send_route_not_found(versioned=True)
+            elif evidence_route is not None and evidence_route.action == "actors":
+                self.handle_evidence_actor_create()
+            elif evidence_route is not None and evidence_route.action == "documents":
+                self.handle_evidence_document_create()
+            elif evidence_route is not None and evidence_route.action == "events":
+                self.handle_evidence_event_create()
+            elif evidence_route is not None and evidence_route.action == "source_references":
+                self.handle_source_reference_create()
+            elif evidence_route is not None and evidence_route.action == "claims":
+                self.handle_claim_create()
+            elif evidence_route is not None and evidence_route.action == "relations":
+                self.handle_evidence_relation_create()
+            elif evidence_route is not None and evidence_route.action == "findings":
+                self.handle_finding_record()
+            elif evidence_route is not None and evidence_route.action == "reviews":
+                self.handle_evidence_review()
+            elif (
+                evidence_route is not None
+                and evidence_route.action == "finding_reviews"
+                and evidence_route.resource_id is not None
+            ):
+                self.handle_finding_review(evidence_route.resource_id)
+            elif evidence_route is not None:
                 self._send_route_not_found(versioned=True)
             elif contact_route is not None and contact_route.action == "collection":
                 self.handle_contact_create(versioned=contact_route.versioned)
@@ -1576,7 +1829,9 @@ class Handler(BaseHTTPRequestHandler):
             return
         data = candidate.read_bytes()
         self.send_response(200)
-        self.send_header("Content-Type", mimetypes.guess_type(candidate.name)[0] or "application/octet-stream")
+        self.send_header(
+            "Content-Type", mimetypes.guess_type(candidate.name)[0] or "application/octet-stream"
+        )
         self.send_header("Content-Length", str(len(data)))
         self.send_header("Cache-Control", "no-cache")
         if candidate.name == "legal-case-map.html":
@@ -1595,7 +1850,9 @@ class Handler(BaseHTTPRequestHandler):
         runs_dir = self.state.root / "tmp" / "caseflow_runs"
         runs = sorted(runs_dir.glob("*.json"), reverse=True) if runs_dir.exists() else []
         last_run = read_json(runs[0], None) if runs else None
-        anomaly_report = read_json(self.state.root / "tmp" / "caseflow_anomalies" / "latest.json", None)
+        anomaly_report = read_json(
+            self.state.root / "tmp" / "caseflow_anomalies" / "latest.json", None
+        )
         google = self.state.config.get("google", {})
         database = self.state.database_summary()
         database["contacts"] = len(self.state.contact_service.list(ListContactsQuery()))
@@ -1603,28 +1860,46 @@ class Handler(BaseHTTPRequestHandler):
             200,
             {
                 "ok": True,
-                "server": {"product": "VARTA", "version": VARTA_VERSION, "root": str(self.state.root)},
+                "server": {
+                    "product": "VARTA",
+                    "version": VARTA_VERSION,
+                    "root": str(self.state.root),
+                },
                 "csrfToken": self.state.csrf_token,
                 "root": str(self.state.root),
                 "caseNumber": self.state.config.get("case_number", self.state.root.name),
                 "inbox": {"files": len(files), "bytes": sum(p.stat().st_size for p in files)},
                 "recent": [
-                    {"name": p.name, "path": str(p.relative_to(self.state.root)), "bytes": p.stat().st_size, "modified": datetime.fromtimestamp(p.stat().st_mtime).isoformat(timespec="seconds")}
+                    {
+                        "name": p.name,
+                        "path": str(p.relative_to(self.state.root)),
+                        "bytes": p.stat().st_size,
+                        "modified": datetime.fromtimestamp(p.stat().st_mtime).isoformat(
+                            timespec="seconds"
+                        ),
+                    }
                     for p in recent
                 ],
                 "lastRun": last_run,
-                "activeJob": self.state.active_job or (read_json(self.state.job_path, None) if self.state.job_path.exists() else None),
+                "activeJob": self.state.active_job
+                or (read_json(self.state.job_path, None) if self.state.job_path.exists() else None),
                 "anomalies": {
                     "available": bool(anomaly_report),
                     "generatedAt": anomaly_report.get("generated_at") if anomaly_report else None,
                     "register": anomaly_report.get("register") if anomaly_report else None,
                     "summary": anomaly_report.get("summary") if anomaly_report else None,
                 },
-                "google": {"configured": bool(google.get("client_id")), "connected": self.state.google_connected(), "clientId": google.get("client_id", "")},
+                "google": {
+                    "configured": bool(google.get("client_id")),
+                    "connected": self.state.google_connected(),
+                    "clientId": google.get("client_id", ""),
+                },
                 "archiveSupport": {
                     "zip": True,
                     "rar": bool(find_7zip(str(self.state.config.get("seven_zip_path", "")))),
-                    "sevenZip": str(find_7zip(str(self.state.config.get("seven_zip_path", ""))) or ""),
+                    "sevenZip": str(
+                        find_7zip(str(self.state.config.get("seven_zip_path", ""))) or ""
+                    ),
                 },
                 "database": database,
                 "ui": self.state.config.get("ui", {}),
@@ -1635,7 +1910,13 @@ class Handler(BaseHTTPRequestHandler):
         self.send_json(200, {"ok": True, **build_preflight(self.state)})
 
     def handle_document_tree(self) -> None:
-        self.send_json(200, build_document_tree(self.state.root))
+        self.send_json(
+            200,
+            build_document_tree(
+                self.state.root,
+                self.state.compatibility_review_overrides("legacy_document"),
+            ),
+        )
 
     def handle_contacts(self, query: dict[str, list[str]], *, versioned: bool) -> None:
         search = str(query.get("q", [""])[0])
@@ -1650,9 +1931,7 @@ class Handler(BaseHTTPRequestHandler):
         )
 
     def handle_contact(self, contact_id: str, *, versioned: bool) -> None:
-        contact = self.state.contact_service.get(
-            GetContactQuery(urllib.parse.unquote(contact_id))
-        )
+        contact = self.state.contact_service.get(GetContactQuery(urllib.parse.unquote(contact_id)))
         self.send_contract_success(
             200,
             {"contact": contact.to_dict()},
@@ -1698,9 +1977,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def handle_intake_inventory(self, query: dict[str, list[str]]) -> None:
         batch_id = str(query.get("batchId", [""])[0]).strip() or None
-        inventory = self.state.intake_service.inventory(
-            ListIntakeInventoryQuery(batch_id=batch_id)
-        )
+        inventory = self.state.intake_service.inventory(ListIntakeInventoryQuery(batch_id=batch_id))
         self.send_json(200, success_envelope({"inventory": inventory.to_dict()}))
 
     def handle_intake_batch(self, batch_id: str) -> None:
@@ -1827,9 +2104,7 @@ class Handler(BaseHTTPRequestHandler):
                 "Відсутній preferenceId",
                 {"query": "preferenceId"},
             )
-        active = self.state.workspace_service.get_active_case(
-            GetActiveCaseQuery(preference_id)
-        )
+        active = self.state.workspace_service.get_active_case(GetActiveCaseQuery(preference_id))
         self.send_json(200, success_envelope({"activeCase": active.to_dict()}))
 
     def handle_bootstrap_reviews(self) -> None:
@@ -1886,9 +2161,7 @@ class Handler(BaseHTTPRequestHandler):
         memberships = self.state.workspace_service.add_file_memberships(command)
         self.send_json(
             201,
-            success_envelope(
-                {"memberships": [membership.to_dict() for membership in memberships]}
-            ),
+            success_envelope({"memberships": [membership.to_dict() for membership in memberships]}),
         )
 
     def handle_document_memberships(self) -> None:
@@ -1896,10 +2169,147 @@ class Handler(BaseHTTPRequestHandler):
         memberships = self.state.workspace_service.add_document_memberships(command)
         self.send_json(
             201,
+            success_envelope({"memberships": [membership.to_dict() for membership in memberships]}),
+        )
+
+    def handle_evidence_actor_create(self) -> None:
+        actor = self.state.evidence_service.create_actor(
+            parse_create_evidence_actor(self.read_command_body())
+        )
+        self.send_json(201, success_envelope({"actor": actor.to_dict()}))
+
+    def handle_evidence_document_create(self) -> None:
+        document = self.state.evidence_service.create_document(
+            parse_create_evidence_document(self.read_command_body())
+        )
+        self.send_json(201, success_envelope({"document": document.to_dict()}))
+
+    def handle_evidence_event_create(self) -> None:
+        event = self.state.evidence_service.create_event(
+            parse_create_evidence_event(self.read_command_body())
+        )
+        self.send_json(201, success_envelope({"event": event.to_dict()}))
+
+    def handle_source_reference_create(self) -> None:
+        source = self.state.evidence_service.create_source_reference(
+            parse_create_source_reference(self.read_command_body())
+        )
+        self.send_json(201, success_envelope({"sourceReference": source.to_dict()}))
+
+    def handle_claim_create(self) -> None:
+        claim = self.state.evidence_service.create_claim(
+            parse_create_claim(self.read_command_body())
+        )
+        self.send_json(201, success_envelope({"claim": claim.to_dict()}))
+
+    def handle_evidence_relation_create(self) -> None:
+        relation = self.state.evidence_service.create_relation(
+            parse_create_evidence_relation(self.read_command_body())
+        )
+        self.send_json(201, success_envelope({"relation": relation.to_dict()}))
+
+    def handle_finding_record(self) -> None:
+        finding = self.state.evidence_service.record_finding(
+            parse_record_finding(self.read_command_body())
+        )
+        self.send_json(201, success_envelope({"finding": finding.to_dict()}))
+
+    def handle_evidence_review(self) -> None:
+        decision = self.state.evidence_service.review(
+            parse_review_evidence(self.read_command_body())
+        )
+        self.send_json(201, success_envelope({"reviewDecision": decision.to_dict()}))
+
+    def handle_finding_review(self, finding_id: str) -> None:
+        finding = self.state.evidence_service.review_finding(
+            parse_review_finding(
+                urllib.parse.unquote(finding_id),
+                self.read_command_body(),
+            )
+        )
+        self.send_json(201, success_envelope({"finding": finding.to_dict()}))
+
+    def handle_evidence_case(
+        self,
+        case_id: str,
+        query: dict[str, list[str]],
+    ) -> None:
+        limit, offset = self._evidence_page(query)
+        evidence = self.state.evidence_service.get_case_evidence(
+            GetCaseEvidenceQuery(
+                case_id=urllib.parse.unquote(case_id),
+                limit=limit,
+                offset=offset,
+            )
+        )
+        self.send_json(200, success_envelope({"evidence": evidence.to_dict()}))
+
+    def handle_evidence_timeline(self, query: dict[str, list[str]]) -> None:
+        case_id = str(query.get("caseId", [""])[0]).strip()
+        if not case_id:
+            raise RequestValidationError("Відсутній caseId", {"query": "caseId"})
+        limit, offset = self._evidence_page(query)
+        timeline = self.state.evidence_service.list_timeline(
+            ListEvidenceTimelineQuery(case_id=case_id, limit=limit, offset=offset)
+        )
+        self.send_json(
+            200,
             success_envelope(
-                {"memberships": [membership.to_dict() for membership in memberships]}
+                {
+                    "timeline": [item.to_dict() for item in timeline],
+                    "page": {"limit": limit, "offset": offset},
+                    "ordering": "occurredAt,entity.type,entity.id",
+                    "authority": "sqlite",
+                }
             ),
         )
+
+    def handle_source_context(self, source_reference_id: str) -> None:
+        context = self.state.evidence_service.get_source_context(
+            GetSourceContextQuery(urllib.parse.unquote(source_reference_id))
+        )
+        self.send_json(200, success_envelope({"sourceContext": context.to_dict()}))
+
+    def handle_evidence_review_history(self, query: dict[str, list[str]]) -> None:
+        subject_type = str(query.get("subjectType", [""])[0]).strip()
+        subject_id = str(query.get("subjectId", [""])[0]).strip()
+        if not subject_type or not subject_id:
+            raise RequestValidationError(
+                "Потрібні subjectType і subjectId",
+                {"query": "subjectType,subjectId"},
+            )
+        limit, offset = self._evidence_page(query)
+        decisions = self.state.evidence_service.list_review_history(
+            ListReviewHistoryQuery(
+                subject_type=subject_type,
+                subject_id=subject_id,
+                limit=limit,
+                offset=offset,
+            )
+        )
+        self.send_json(
+            200,
+            success_envelope(
+                {
+                    "reviewDecisions": [item.to_dict() for item in decisions],
+                    "page": {"limit": limit, "offset": offset},
+                    "ordering": "decidedAt,id",
+                    "authority": "sqlite",
+                }
+            ),
+        )
+
+    @staticmethod
+    def _evidence_page(query: dict[str, list[str]]) -> tuple[int, int]:
+        try:
+            limit = int(str(query.get("limit", ["100"])[0]))
+            offset = int(str(query.get("offset", ["0"])[0]))
+        except ValueError as exc:
+            raise RequestValidationError(
+                "limit/offset мають бути integer",
+                {"query": "limit,offset"},
+            ) from exc
+        return limit, offset
 
     def handle_document_status(self) -> None:
         payload = self.read_json_body()
@@ -1910,7 +2320,8 @@ class Handler(BaseHTTPRequestHandler):
             raise ValueError("Некоректний ідентифікатор документа")
         if status not in DOCUMENT_WORK_STATUSES:
             raise ValueError("Невідомий статус документа")
-        tree = build_document_tree(self.state.root)
+        overrides = self.state.compatibility_review_overrides("legacy_document")
+        tree = build_document_tree(self.state.root, overrides)
         known_ids = {
             str(document.get("id", ""))
             for proceeding in tree.get("proceedings", [])
@@ -1918,19 +2329,50 @@ class Handler(BaseHTTPRequestHandler):
         }
         if doc_id not in known_ids:
             raise ValueError("Документ не знайдено у поточному дереві")
-        with self.state.lock:
-            path = self.state.root / ".caseflow" / "document_status.json"
-            statuses = read_json(path, {})
-            statuses[doc_id] = {"status": status, "note": note, "updated_at": now_iso()}
-            write_json(path, statuses)
-        self.send_json(200, {"ok": True, "docId": doc_id, "status": status, "note": note})
+        expected_raw = payload.get("expectedVersion")
+        if expected_raw is not None and (
+            not isinstance(expected_raw, int) or isinstance(expected_raw, bool)
+        ):
+            raise ValueError("expectedVersion має бути integer")
+        review = self.state.evidence_service.set_compatibility_review(
+            SetCompatibilityReviewCommand(
+                subject_type="legacy_document",
+                external_id=doc_id,
+                status=status,
+                actor_id=str(payload.get("actorId") or "user:local-document-review"),
+                note=note,
+                expected_version=expected_raw,
+            )
+        )
+        self.send_json(
+            200,
+            {
+                "ok": True,
+                "docId": doc_id,
+                "status": status,
+                "note": note,
+                "version": review.record.version,
+                "authority": "sqlite",
+            },
+        )
 
     def handle_anomalies_latest(self) -> None:
         path = self.state.root / "tmp" / "caseflow_anomalies" / "latest.json"
         report = read_json(path, None)
         if not report:
-            self.send_json(200, {"ok": True, "available": False, "findings": [], "summary": anomaly_summary([])})
+            self.send_json(
+                200,
+                {"ok": True, "available": False, "findings": [], "summary": anomaly_summary([])},
+            )
             return
+        reviews = self.state.compatibility_review_overrides("legacy_finding")
+        for item in report.get("findings", []):
+            review = reviews.get(str(item.get("fingerprint", "")).upper())
+            if review is not None:
+                item["status"] = review["status"]
+                item["status_note"] = review["note"]
+                item["review_version"] = review["version"]
+        report["summary"] = anomaly_summary(report.get("findings", []))
         self.send_json(200, {"ok": True, "available": True, **report})
 
     def handle_upload(self) -> None:
@@ -2024,13 +2466,20 @@ class Handler(BaseHTTPRequestHandler):
         settings = payload.get("settings", {})
         preflight = build_preflight(self.state)
         if not preflight["can_start"]:
-            blockers = "; ".join(item["detail"] for item in preflight["checks"] if item["status"] == "blocker")
+            blockers = "; ".join(
+                item["detail"] for item in preflight["checks"] if item["status"] == "blocker"
+            )
             raise RuntimeError(f"Запуск заблоковано передстартовою перевіркою: {blockers}")
         with self.state.exclusive_job("process"):
             script = self.state.root / "scripts" / "caseflow_process.py"
             if not script.exists():
                 script = APP_DIR / "caseflow_process.py"
-            worker_args = ["--root", str(self.state.root), "--settings-json", json.dumps(settings, ensure_ascii=False)]
+            worker_args = [
+                "--root",
+                str(self.state.root),
+                "--settings-json",
+                json.dumps(settings, ensure_ascii=False),
+            ]
             result = run_worker(script, worker_args, self.state.root, 60 * 60)
             if result.returncode != 0:
                 raise RuntimeError((result.stderr or result.stdout or "Помилка обробки")[-4000:])
@@ -2043,7 +2492,16 @@ class Handler(BaseHTTPRequestHandler):
                     anomaly = self._execute_anomaly(response["register"])
                 except Exception as exc:  # noqa: BLE001
                     anomaly_error = str(exc)
-        self.send_json(200, {"ok": True, **response, "preflight": preflight, "anomalies": anomaly, "anomaly_error": anomaly_error})
+        self.send_json(
+            200,
+            {
+                "ok": True,
+                **response,
+                "preflight": preflight,
+                "anomalies": anomaly,
+                "anomaly_error": anomaly_error,
+            },
+        )
 
     def _execute_anomaly(self, register: str | None = None) -> dict:
         script = self.state.root / "scripts" / "anomaly_detector.py"
@@ -2057,12 +2515,18 @@ class Handler(BaseHTTPRequestHandler):
             if not register_path.is_absolute():
                 register_path = self.state.root / register_path
             register_path = register_path.resolve()
-            if self.state.root not in register_path.parents or register_path.suffix.lower() != ".xlsx":
+            if (
+                self.state.root not in register_path.parents
+                or register_path.suffix.lower() != ".xlsx"
+            ):
                 raise ValueError("Некоректний шлях Реєстру для контролю нестиковок")
             worker_args.extend(["--register", str(register_path)])
+        self.state.write_anomaly_review_projection()
         result = run_worker(script, worker_args, self.state.root, 60 * 60)
         if result.returncode != 0:
-            raise RuntimeError((result.stderr or result.stdout or "Помилка контролю нестиковок")[-4000:])
+            raise RuntimeError(
+                (result.stderr or result.stdout or "Помилка контролю нестиковок")[-4000:]
+            )
         report = read_json(self.state.root / "tmp" / "caseflow_anomalies" / "latest.json", None)
         if not report:
             raise RuntimeError("Аналізатор не створив latest.json")
@@ -2084,32 +2548,63 @@ class Handler(BaseHTTPRequestHandler):
         allowed = {"open", "acknowledged", "resolved", "false_positive"}
         if status not in allowed:
             raise ValueError("Невідомий статус ручної перевірки")
+        expected_raw = payload.get("expectedVersion")
+        if expected_raw is not None and (
+            not isinstance(expected_raw, int) or isinstance(expected_raw, bool)
+        ):
+            raise ValueError("expectedVersion має бути integer")
+        latest_path = self.state.root / "tmp" / "caseflow_anomalies" / "latest.json"
+        report = read_json(latest_path, None)
+        if not report:
+            raise ValueError("Останній звіт нестиковок відсутній")
+        matched = next(
+            (
+                item
+                for item in report.get("findings", [])
+                if str(item.get("fingerprint", "")).upper() == fingerprint
+            ),
+            None,
+        )
+        if matched is None:
+            raise ValueError("Картку нестиковки не знайдено в останньому звіті")
+        review = self.state.evidence_service.set_compatibility_review(
+            SetCompatibilityReviewCommand(
+                subject_type="legacy_finding",
+                external_id=fingerprint,
+                status=status,
+                actor_id=str(payload.get("actorId") or "user:local-finding-review"),
+                note=note,
+                expected_version=expected_raw,
+            )
+        )
         with self.state.lock:
-            status_path = self.state.root / ".caseflow" / "anomaly_status.json"
-            statuses = read_json(status_path, {})
-            statuses[fingerprint] = {"status": status, "note": note, "updated_at": now_iso()}
-            write_json(status_path, statuses)
-            latest_path = self.state.root / "tmp" / "caseflow_anomalies" / "latest.json"
-            report = read_json(latest_path, None)
-            if report:
-                found = False
-                for item in report.get("findings", []):
-                    if item.get("fingerprint") == fingerprint:
-                        item["status"] = status
-                        item["status_note"] = note
-                        found = True
-                if not found:
-                    raise ValueError("Картку нестиковки не знайдено в останньому звіті")
-                report["summary"] = anomaly_summary(report.get("findings", []))
-                write_json(latest_path, report)
-        self.send_json(200, {"ok": True, "status": status, "summary": report.get("summary") if report else None})
+            matched["status"] = status
+            matched["status_note"] = note
+            matched["review_version"] = review.record.version
+            report["summary"] = anomaly_summary(report.get("findings", []))
+            write_json(latest_path, report)
+            self.state.write_anomaly_review_projection()
+        self.send_json(
+            200,
+            {
+                "ok": True,
+                "status": status,
+                "version": review.record.version,
+                "summary": report.get("summary"),
+                "authority": "sqlite",
+            },
+        )
 
     def handle_settings(self) -> None:
         payload = self.read_json_body()
         if "caseNumber" in payload:
-            self.state.config["case_number"] = safe_segment(payload["caseNumber"], self.state.root.name)
+            self.state.config["case_number"] = safe_segment(
+                payload["caseNumber"], self.state.root.name
+            )
         if "panelOpacity" in payload:
-            self.state.config.setdefault("ui", {})["panel_opacity"] = max(45, min(98, int(payload["panelOpacity"])))
+            self.state.config.setdefault("ui", {})["panel_opacity"] = max(
+                45, min(98, int(payload["panelOpacity"]))
+            )
         self.state.save_config()
         self.send_json(200, {"ok": True})
 
@@ -2133,10 +2628,19 @@ class Handler(BaseHTTPRequestHandler):
         if not client_id:
             raise ValueError("Спочатку збережіть OAuth Client ID")
         verifier = secrets.token_urlsafe(64)[:96]
-        challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode("ascii")).digest()).decode("ascii").rstrip("=")
+        challenge = (
+            base64.urlsafe_b64encode(hashlib.sha256(verifier.encode("ascii")).digest())
+            .decode("ascii")
+            .rstrip("=")
+        )
         state_value = secrets.token_urlsafe(32)
         redirect_uri = f"http://127.0.0.1:{self.state.port}/oauth/google/callback"
-        self.state.oauth_pending = {"state": state_value, "verifier": verifier, "redirect_uri": redirect_uri, "created": str(time.time())}
+        self.state.oauth_pending = {
+            "state": state_value,
+            "verifier": verifier,
+            "redirect_uri": redirect_uri,
+            "created": str(time.time()),
+        }
         params = {
             "client_id": client_id,
             "redirect_uri": redirect_uri,
@@ -2148,12 +2652,16 @@ class Handler(BaseHTTPRequestHandler):
             "code_challenge": challenge,
             "code_challenge_method": "S256",
         }
-        self.send_json(200, {"ok": True, "url": f"{GOOGLE_AUTH_URL}?{urllib.parse.urlencode(params)}"})
+        self.send_json(
+            200, {"ok": True, "url": f"{GOOGLE_AUTH_URL}?{urllib.parse.urlencode(params)}"}
+        )
 
     def handle_google_callback(self, query: dict[str, list[str]]) -> None:
         pending = self.state.oauth_pending
         if not pending or query.get("state", [""])[0] != pending.get("state"):
-            self.send_html_message("Підключення відхилено", "Недійсний або прострочений параметр state.", False)
+            self.send_html_message(
+                "Підключення відхилено", "Недійсний або прострочений параметр state.", False
+            )
             return
         if query.get("error"):
             self.send_html_message("Google Drive не підключено", query["error"][0], False)
@@ -2172,16 +2680,22 @@ class Handler(BaseHTTPRequestHandler):
             form["client_secret"] = client_secret
         try:
             token = post_form(GOOGLE_TOKEN_URL, form)
-            token["expires_at"] = (datetime.now(timezone.utc) + timedelta(seconds=int(token.get("expires_in", 3600)))).isoformat()
+            token["expires_at"] = (
+                datetime.now(timezone.utc) + timedelta(seconds=int(token.get("expires_in", 3600)))
+            ).isoformat()
             self.state.save_google_token(token)
             self.state.oauth_pending = {}
-            self.send_html_message("Google Drive підключено", "Можна закрити це вікно й повернутися до VARTA.", True)
+            self.send_html_message(
+                "Google Drive підключено", "Можна закрити це вікно й повернутися до VARTA.", True
+            )
         except Exception as exc:  # noqa: BLE001
             self.send_html_message("Помилка Google OAuth", str(exc), False)
 
     def send_html_message(self, title: str, message: str, success: bool) -> None:
         color = "#35d07f" if success else "#ff6b6b"
-        html = f"<!doctype html><meta charset='utf-8'><title>{title}</title><body style='font:16px \"Segoe UI Variable Text\",\"Segoe UI\",Arial,sans-serif;background:#0d1624;color:#f5f7fb;display:grid;place-items:center;height:100vh;margin:0'><main style='max-width:620px;padding:32px;border:1px solid #30445f;border-radius:22px;background:#17263a'><h1 style='color:{color}'>{title}</h1><p>{message}</p></main></body>".encode("utf-8")
+        html = f"<!doctype html><meta charset='utf-8'><title>{title}</title><body style='font:16px \"Segoe UI Variable Text\",\"Segoe UI\",Arial,sans-serif;background:#0d1624;color:#f5f7fb;display:grid;place-items:center;height:100vh;margin:0'><main style='max-width:620px;padding:32px;border:1px solid #30445f;border-radius:22px;background:#17263a'><h1 style='color:{color}'>{title}</h1><p>{message}</p></main></body>".encode(
+            "utf-8"
+        )
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Content-Length", str(len(html)))
@@ -2208,7 +2722,11 @@ def main() -> int:
         if (candidate / "03_РЕЄСТР").exists() or (candidate / "00_INBOX").exists():
             frozen_root = candidate
             break
-    parser.add_argument("--root", type=Path, default=frozen_root if getattr(sys, "frozen", False) else APP_DIR.parent)
+    parser.add_argument(
+        "--root",
+        type=Path,
+        default=frozen_root if getattr(sys, "frozen", False) else APP_DIR.parent,
+    )
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8768)
     parser.add_argument("--open", action="store_true")
@@ -2217,7 +2735,15 @@ def main() -> int:
     if args.host not in {"127.0.0.1", "localhost"}:
         raise ValueError("За замовчуванням VARTA дозволено слухати лише loopback")
     root = args.root.resolve()
-    for folder in ["00_INBOX", "01_ОПРАЦЬОВАНО", "02_РОЗПАКОВАНО", "03_РЕЄСТР", "99_ПОТРЕБУЄ_ПЕРЕВІРКИ", "tmp/caseflow_runs", ".caseflow/logs"]:
+    for folder in [
+        "00_INBOX",
+        "01_ОПРАЦЬОВАНО",
+        "02_РОЗПАКОВАНО",
+        "03_РЕЄСТР",
+        "99_ПОТРЕБУЄ_ПЕРЕВІРКИ",
+        "tmp/caseflow_runs",
+        ".caseflow/logs",
+    ]:
         (root / folder).mkdir(parents=True, exist_ok=True)
     state = CaseFlowState(root, args.host, args.port)
     state.prepare_database()
@@ -2226,7 +2752,9 @@ def main() -> int:
     pid_path = root / ".caseflow" / "server.pid"
     pid_path.write_text(str(os.getpid()), encoding="ascii")
     url = f"http://127.0.0.1:{args.port}/"
-    print(json.dumps({"ready": True, "url": url, "root": str(root)}, ensure_ascii=False), flush=True)
+    print(
+        json.dumps({"ready": True, "url": url, "root": str(root)}, ensure_ascii=False), flush=True
+    )
     if (args.open or getattr(sys, "frozen", False)) and not args.no_open:
         threading.Timer(0.7, lambda: webbrowser.open(url)).start()
     try:
