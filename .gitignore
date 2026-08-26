@@ -42,6 +42,7 @@ temp/
 99_ПОТРЕБУЄ_ПЕРЕВІРКИ/
 workspaces/
 tmp/
+.tmp/
 
 # Case material and generated exports must never enter the product repo
 *.p7s
