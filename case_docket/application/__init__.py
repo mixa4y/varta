@@ -69,6 +69,7 @@ from .intake import (
     IntakeService,
     ListIntakeInventoryQuery,
 )
+from .jobs import JobService, Job, ProcessorRequest, synthetic_reference_processor
 from .originals import (
     AcceptOriginalCommand,
     AcceptedOriginal,
@@ -142,6 +143,7 @@ from .workspace_ports import (
 )
 
 __all__ = [
+    "JobService", "Job", "ProcessorRequest", "synthetic_reference_processor",
     "AcceptOriginalCommand",
     "AcceptedOriginal",
     "ActiveCaseDTO",
