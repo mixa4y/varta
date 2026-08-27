@@ -52,6 +52,24 @@ def test_caseflow_duplicate_external_reference_is_explained(tmp_path: Path) -> N
     repository.close()
 
 
+@pytest.mark.parametrize(
+    "payload",
+    [
+        '{"records": null}',
+        '{"items": {"id": "synthetic-record"}}',
+    ],
+)
+def test_caseflow_records_and_items_must_be_arrays(
+    tmp_path: Path,
+    payload: str,
+) -> None:
+    source = tmp_path / "invalid.caseflow"
+    source.write_text(payload, encoding="utf-8")
+
+    with pytest.raises(ValueError, match="records/items.*array"):
+        dry_run(source)
+
+
 def test_import_requires_verified_backup_destination(tmp_path: Path) -> None:
     source = tmp_path / "synthetic.caseflow"
     source.write_text('{"records": [{"id": "one"}]}', encoding="utf-8")

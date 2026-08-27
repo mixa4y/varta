@@ -56,11 +56,14 @@ def _xlsx(path: Path) -> list[dict[str, Any]]:
 def _caseflow(path: Path) -> list[dict[str, Any]]:
     payload = json.loads(path.read_text(encoding="utf-8"))
     if isinstance(payload, list):
-        items = payload
+        raw_items: Any = payload
     elif isinstance(payload, dict):
-        items = payload.get("records", payload.get("items", [payload]))
+        raw_items = payload.get("records", payload.get("items", [payload]))
     else:
         raise ValueError(".caseflow має містити JSON object або array")
+    if not isinstance(raw_items, list):
+        raise ValueError(".caseflow records/items мають бути JSON array")
+    items: list[Any] = raw_items
     result = []
     for index, item in enumerate(items):
         if not isinstance(item, dict):
