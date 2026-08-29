@@ -105,6 +105,20 @@ from .ports import (
 )
 from .providers import SystemClock, UuidProvider
 from .queries import GetContactQuery, GetContactsContextQuery, ListContactsQuery
+from .profile import (
+    CaseProfileService,
+    GetCaseProfileQuery,
+    InvalidProfileError,
+    MissingProfileError,
+    MissingProfileVersionError,
+    UnknownCaseError,
+)
+from .profile_ports import (
+    CaseProfileDTO,
+    CaseProfileRepositoryPort,
+    CaseProfileUnitOfWork,
+    CaseProfileUnitOfWorkFactory,
+)
 from .workspace import (
     ActiveCaseDTO,
     AddDocumentMembershipsCommand,
@@ -170,6 +184,11 @@ __all__ = [
     "CaseCandidateDTO",
     "CaseCandidateRecord",
     "CaseNumberDetector",
+    "CaseProfileDTO",
+    "CaseProfileRepositoryPort",
+    "CaseProfileService",
+    "CaseProfileUnitOfWork",
+    "CaseProfileUnitOfWorkFactory",
     "ConfirmCaseBootstrapCommand",
     "CreateWorkspaceCaseCommand",
     "CreateWorkspaceProceedingCommand",
@@ -203,6 +222,7 @@ __all__ = [
     "GetContactQuery",
     "GetContactsContextQuery",
     "GetCaseEvidenceQuery",
+    "GetCaseProfileQuery",
     "GetSourceContextQuery",
     "GetActiveCaseQuery",
     "IdProvider",
@@ -220,6 +240,7 @@ __all__ = [
     "IntakeSourcePort",
     "IntakeUnitOfWork",
     "IntakeUnitOfWorkFactory",
+    "InvalidProfileError",
     "FindingDTO",
     "FindingRecord",
     "JobPort",
@@ -232,6 +253,8 @@ __all__ = [
     "ListWorkspaceCasesQuery",
     "ManagedFileRecord",
     "ManagedFileRepositoryPort",
+    "MissingProfileError",
+    "MissingProfileVersionError",
     "NotFoundError",
     "OriginalStorageService",
     "ReconciliationItem",
@@ -261,6 +284,7 @@ __all__ = [
     "UnitOfWork",
     "UnitOfWorkFactory",
     "UpdateContactCommand",
+    "UnknownCaseError",
     "UuidProvider",
     "ValidationError",
     "ExternalReferenceInput",

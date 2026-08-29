@@ -26,6 +26,7 @@ from .sqlite_connection import (
 
 _KNOWN_TABLES = {
     "cases",
+    "case_profiles",
     "proceedings",
     "contacts",
     "documents",
@@ -275,9 +276,11 @@ class SQLiteRepository(Repository):
         values: dict[str, Any] = {
             "id": record_id,
             "created_at": now,
-            "updated_at": now,
-            "legacy_payload": json.dumps(payload, ensure_ascii=False),
         }
+        if "updated_at" in columns:
+            values["updated_at"] = now
+        if "legacy_payload" in columns:
+            values["legacy_payload"] = json.dumps(payload, ensure_ascii=False)
         for key, value in payload.items():
             if key in columns and key not in _SYSTEM_COLUMNS:
                 values[key] = self._sqlite_value(value)
@@ -303,7 +306,7 @@ class SQLiteRepository(Repository):
         row = self._conn.execute(f"SELECT * FROM {table} WHERE id = ?", (record_id,)).fetchone()
         if row is None:
             return None
-        item = self._decode_payload(row["legacy_payload"])
+        item = self._decode_payload(row["legacy_payload"]) if "legacy_payload" in row.keys() else {}
         for key in row.keys():
             if key in _SYSTEM_COLUMNS or key == "legacy_payload":
                 continue

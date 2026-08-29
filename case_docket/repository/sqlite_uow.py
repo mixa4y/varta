@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sqlite3
 import threading
 from dataclasses import dataclass, field
@@ -21,6 +22,7 @@ from case_docket.application.ports import (
     IntakeRepositoryPort,
     ManagedFileRepositoryPort,
 )
+from case_docket.application.profile_ports import CaseProfileDTO, CaseProfileRepositoryPort
 from case_docket.application.workspace_ports import WorkspaceRepositoryPort
 from case_docket.models.contact import CaseParticipant, Contact
 
@@ -166,6 +168,50 @@ class SQLiteContactRepository(ContactRepositoryPort):
         return tuple(item for item in cls._sequence(value) if isinstance(item, Mapping))
 
 
+class SQLiteCaseProfileRepository(CaseProfileRepositoryPort):
+    def __init__(self, repository: SQLiteRepository):
+        self._repository = repository
+
+    def get(self, case_id: str, profile_version: str) -> CaseProfileDTO | None:
+        rows = tuple(
+            self._repository.query(
+                "case_profiles",
+                {"case_id": case_id, "profile_version": profile_version},
+            )
+        )
+        if not rows:
+            return None
+        row = rows[0]
+        profile = json.loads(str(row["profile_json"]))
+        if not isinstance(profile, dict):
+            raise ValueError("case_profiles.profile_json має містити JSON object")
+        return CaseProfileDTO(
+            case_id=str(row["case_id"]),
+            profile_version=str(row["profile_version"]),
+            schema_version=str(row["schema_version"]),
+            profile=profile,
+            profile_sha256=str(row["profile_sha256"]),
+            status=str(row["status"]),
+            created_by=str(row["created_by"]),
+            created_at=str(row["created_at"]),
+            activated_at=(
+                str(row["activated_at"])
+                if row.get("activated_at")
+                else None
+            ),
+        )
+
+    def case_exists(self, case_id: str) -> bool:
+        return self._repository.get("cases", case_id) is not None
+
+    def versions(self, case_id: str) -> tuple[str, ...]:
+        versions = {
+            str(row["profile_version"])
+            for row in self._repository.query("case_profiles", {"case_id": case_id})
+        }
+        return tuple(sorted(versions))
+
+
 class SQLiteUnitOfWork:
     """Short-lived connection and explicit transaction for one application operation."""
 
@@ -191,6 +237,7 @@ class SQLiteUnitOfWork:
         self._intake: SQLiteIntakeRepository | None = None
         self._workspace: SQLiteWorkspaceRepository | None = None
         self._evidence: SQLiteEvidenceRepository | None = None
+        self._case_profiles: SQLiteCaseProfileRepository | None = None
         self._finished = False
         self._entered = False
 
@@ -224,6 +271,12 @@ class SQLiteUnitOfWork:
             raise RuntimeError("Unit of Work is not active")
         return self._evidence
 
+    @property
+    def case_profiles(self) -> CaseProfileRepositoryPort:
+        if self._case_profiles is None or self._finished:
+            raise RuntimeError("Unit of Work is not active")
+        return self._case_profiles
+
     def __enter__(self) -> Self:
         if self._entered:
             raise RuntimeError("Unit of Work cannot be entered twice")
@@ -247,6 +300,7 @@ class SQLiteUnitOfWork:
         self._intake = SQLiteIntakeRepository(repository)
         self._workspace = SQLiteWorkspaceRepository(repository)
         self._evidence = SQLiteEvidenceRepository(repository)
+        self._case_profiles = SQLiteCaseProfileRepository(repository)
         self._finished = False
         return self
 
@@ -263,6 +317,7 @@ class SQLiteUnitOfWork:
             self._intake = None
             self._workspace = None
             self._evidence = None
+            self._case_profiles = None
 
     def commit(self) -> None:
         repository = self._active_repository()
