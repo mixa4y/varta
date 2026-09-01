@@ -50,9 +50,13 @@ $arguments = @(
     "--distpath", $outputRoot,
     "--workpath", $workRoot,
     "--specpath", $workRoot,
-    "--paths", (Join-Path $sourceRoot "caseflow"),
+    "--paths", $sourceRoot,
+    "--hidden-import", "caseflow.caseflow_process",
+    "--hidden-import", "caseflow.anomaly_detector",
     "--add-data", "$(Join-Path $sourceRoot 'caseflow\static');static",
     "--add-data", "$(Join-Path $sourceRoot 'caseflow\version.json');.",
+    "--add-data", "$(Join-Path $sourceRoot 'config\airtable_schema.json');config",
+    "--add-data", "$(Join-Path $sourceRoot 'case_docket\repository\migrations');case_docket/repository/migrations",
     (Join-Path $sourceRoot "caseflow\server.py")
 )
 

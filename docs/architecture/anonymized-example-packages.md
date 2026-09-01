@@ -53,5 +53,7 @@ duplicate_and_version/
 
 ## Open questions
 
-- Хто затверджує достатність знеособлення?
-- Чи допускаються повністю синтетичні PDF/DOCX як основний fixture set?
+| Question | Owner stage | Closing gate |
+|---|---|---|
+| Хто/як затверджує достатність знеособлення? | `C16` | final privacy gate |
+| Чи є повністю synthetic PDF/DOCX основним fixture set? | `C16` | acceptance profile before TECH PASS |

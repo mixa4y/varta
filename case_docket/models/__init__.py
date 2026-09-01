@@ -5,9 +5,18 @@
 """
 
 from .actor import Actor
+from .contact import CaseParticipant, Contact
 from .dates import DocumentDates
 from .document import Document
 from .document_file import DocumentFile
 from .event import Event
 
-__all__ = ["Document", "DocumentFile", "Actor", "Event", "DocumentDates"]
+__all__ = [
+    "Actor",
+    "CaseParticipant",
+    "Contact",
+    "Document",
+    "DocumentDates",
+    "DocumentFile",
+    "Event",
+]

@@ -15,6 +15,7 @@ dependencies = [
 
 [project.scripts]
 varta = "caseflow.server:main"
+varta-intake = "case_docket.intake_cli:main"
 
 [project.optional-dependencies]
 dev = [
@@ -22,6 +23,8 @@ dev = [
     "mypy>=1.11",
     "pytest>=8.0",
     "ruff>=0.6",
+    "types-jsonschema>=4.23",
+    "types-openpyxl>=3.1",
 ]
 future = [
     "pydantic>=2.6",
@@ -32,8 +35,11 @@ future = [
 include = ["case_docket*", "caseflow*"]
 
 [tool.setuptools.package-data]
-case_docket = ["dictionaries/*.json"]
+case_docket = ["dictionaries/*.json", "repository/migrations/*.sql"]
 caseflow = ["static/*", "version.json"]
+
+[tool.setuptools.data-files]
+config = ["config/airtable_schema.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
