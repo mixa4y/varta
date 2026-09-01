@@ -43,6 +43,17 @@ from .evidence import (
     SourceReferenceDTO,
     TimelineItemDTO,
 )
+from .evidence_map_source import (
+    CaseScopedSourceItem,
+    EvidenceMapExclusionDTO,
+    EvidenceMapEvidenceDTO,
+    EvidenceMapSourceDTO,
+    EvidenceMapSourceError,
+    EvidenceMapSourcePorts,
+    EvidenceMapSourceQuery,
+    EvidenceMapSourceQueryService,
+    PagedSourceProvider,
+)
 from .evidence_ports import (
     ClaimRecord,
     CompatibilityReviewRecord,
@@ -216,6 +227,15 @@ __all__ = [
     "EvidenceRelationRecord",
     "EvidenceRepositoryPort",
     "EvidenceService",
+    "CaseScopedSourceItem",
+    "EvidenceMapExclusionDTO",
+    "EvidenceMapEvidenceDTO",
+    "EvidenceMapSourceDTO",
+    "EvidenceMapSourceError",
+    "EvidenceMapSourcePorts",
+    "EvidenceMapSourceQuery",
+    "EvidenceMapSourceQueryService",
+    "PagedSourceProvider",
     "EvidenceUnitOfWork",
     "EvidenceUnitOfWorkFactory",
     "CreateContactCommand",

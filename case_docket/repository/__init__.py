@@ -29,6 +29,7 @@ from .sqlite_connection import (
     checkpoint_wal,
     inspect_connection_settings,
 )
+from .sqlite_evidence_map_source import SQLiteEvidenceMapSourcePorts
 from .sqlite_evidence import SQLiteEvidenceRepository
 from .sqlite_intake import SQLiteIntakeRepository
 from .sqlite_repository import SQLiteRepository
@@ -51,6 +52,7 @@ __all__ = [
     "SQLiteConnectionSettings",
     "SQLiteIntegrityError",
     "SQLiteEvidenceRepository",
+    "SQLiteEvidenceMapSourcePorts",
     "SQLiteIntakeRepository",
     "SQLiteLifecycleError",
     "SQLiteManagedFileRepository",
