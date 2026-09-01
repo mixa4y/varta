@@ -43,6 +43,12 @@ from .evidence import (
     SourceReferenceDTO,
     TimelineItemDTO,
 )
+from .evidence_map_export import (
+    EvidenceMapExportAudit,
+    EvidenceMapExportAuditError,
+    EvidenceMapExportAuditPort,
+    RecordEvidenceMapExportCommand,
+)
 from .evidence_map_source import (
     CaseScopedSourceItem,
     EvidenceMapExclusionDTO,
@@ -234,6 +240,10 @@ __all__ = [
     "EvidenceMapSourceError",
     "EvidenceMapSourcePorts",
     "EvidenceMapSourceQuery",
+    "EvidenceMapExportAudit",
+    "EvidenceMapExportAuditError",
+    "EvidenceMapExportAuditPort",
+    "RecordEvidenceMapExportCommand",
     "EvidenceMapSourceQueryService",
     "PagedSourceProvider",
     "EvidenceUnitOfWork",

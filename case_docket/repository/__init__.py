@@ -30,6 +30,7 @@ from .sqlite_connection import (
     inspect_connection_settings,
 )
 from .sqlite_evidence_map_source import SQLiteEvidenceMapSourcePorts
+from .sqlite_evidence_map_export import SQLiteEvidenceMapExportRepository
 from .sqlite_evidence import SQLiteEvidenceRepository
 from .sqlite_intake import SQLiteIntakeRepository
 from .sqlite_repository import SQLiteRepository
@@ -53,6 +54,7 @@ __all__ = [
     "SQLiteIntegrityError",
     "SQLiteEvidenceRepository",
     "SQLiteEvidenceMapSourcePorts",
+    "SQLiteEvidenceMapExportRepository",
     "SQLiteIntakeRepository",
     "SQLiteLifecycleError",
     "SQLiteManagedFileRepository",

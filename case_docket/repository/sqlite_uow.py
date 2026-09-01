@@ -28,6 +28,7 @@ from case_docket.models.contact import CaseParticipant, Contact
 
 from .sqlite_connection import SQLiteConnectionPolicy
 from .sqlite_evidence import SQLiteEvidenceRepository
+from .sqlite_evidence_map_export import SQLiteEvidenceMapExportRepository
 from .sqlite_intake import SQLiteIntakeRepository
 from .sqlite_repository import SQLiteRepository
 from .sqlite_storage import SQLiteManagedFileRepository
@@ -238,6 +239,7 @@ class SQLiteUnitOfWork:
         self._workspace: SQLiteWorkspaceRepository | None = None
         self._evidence: SQLiteEvidenceRepository | None = None
         self._case_profiles: SQLiteCaseProfileRepository | None = None
+        self._evidence_map_exports: SQLiteEvidenceMapExportRepository | None = None
         self._finished = False
         self._entered = False
 
@@ -277,6 +279,12 @@ class SQLiteUnitOfWork:
             raise RuntimeError("Unit of Work is not active")
         return self._case_profiles
 
+    @property
+    def evidence_map_exports(self) -> SQLiteEvidenceMapExportRepository:
+        if self._evidence_map_exports is None or self._finished:
+            raise RuntimeError("Unit of Work is not active")
+        return self._evidence_map_exports
+
     def __enter__(self) -> Self:
         if self._entered:
             raise RuntimeError("Unit of Work cannot be entered twice")
@@ -301,6 +309,7 @@ class SQLiteUnitOfWork:
         self._workspace = SQLiteWorkspaceRepository(repository)
         self._evidence = SQLiteEvidenceRepository(repository)
         self._case_profiles = SQLiteCaseProfileRepository(repository)
+        self._evidence_map_exports = SQLiteEvidenceMapExportRepository(repository)
         self._finished = False
         return self
 
@@ -318,6 +327,7 @@ class SQLiteUnitOfWork:
             self._workspace = None
             self._evidence = None
             self._case_profiles = None
+            self._evidence_map_exports = None
 
     def commit(self) -> None:
         repository = self._active_repository()
