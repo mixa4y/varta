@@ -14,7 +14,30 @@ case_docket.plugins.base
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, Protocol
+
+
+class ProcessorPlugin(Protocol):
+    name: str
+    version: str
+
+    def process(self, request: dict[str, Any]) -> dict[str, Any]: ...
+
+
+def discover_plugins(candidates: dict[str, str]) -> dict[str, str]:
+    """Explicit discovery: failures are capability states, never silent imports."""
+    import importlib
+
+    states: dict[str, str] = {}
+    for name, module in candidates.items():
+        try:
+            importlib.import_module(module)
+            states[name] = "available"
+        except ModuleNotFoundError:
+            states[name] = "unavailable_dependency"
+        except Exception:
+            states[name] = "failed"
+    return states
 
 
 class OCRPlugin(ABC):

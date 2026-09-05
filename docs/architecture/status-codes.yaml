@@ -1,8 +1,22 @@
 metadata:
   document: status-codes
   status: DRAFT
-  version: v0.1
-  date: 2026-07-24
+  version: v0.2
+  date: 2026-08-18
+
+intake_entry_status:
+  - discovered
+  - accepted
+  - duplicate
+  - failed
+  - skipped
+
+import_batch_status:
+  - enumerating
+  - processing
+  - succeeded
+  - partial
+  - failed
 
 document_lifecycle:
   - draft

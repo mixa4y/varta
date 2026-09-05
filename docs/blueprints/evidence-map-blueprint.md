@@ -2,7 +2,7 @@
 
 **Тип документа:** універсальна специфікація реалізації
 
-**Версія:** 3.0
+**Версія:** 3.1
 
 **Дата актуалізації:** 08.08.2026
 
@@ -175,26 +175,67 @@ document_relation(from_document_id, to_document_id, relation_type, context_id)
 `config/schemas/case-profile.schema.json`. Базовий шаблон міститься в
 `templates/case/case-profile.example.json`.
 
-Мінімальні поля:
+Поточний формальний контракт має `schemaVersion: 1.1.0` і розділяє
+конфігурацію справи, bootstrap, очікувані провадження, правила мапи,
+налаштування експорту та правила валідації:
 
 ```json
 {
-  "schemaVersion": "1.0.0",
+  "schemaVersion": "1.1.0",
+  "profileVersion": "1",
   "case": {
     "id": "case_example",
     "number": null,
+    "numberStatus": "unknown",
     "folderKey": "new_case",
     "title": "Нова справа",
-    "aliases": []
+    "aliases": [],
+    "caseType": null,
+    "jurisdiction": null,
+    "primaryCourtName": null,
+    "description": null,
+    "tags": []
+  },
+  "bootstrap": {
+    "firstDocumentId": null,
+    "temporaryIntakeCaseId": null,
+    "numberDetectionSources": ["document_text", "ocr", "manual"],
+    "requireManualReviewForMultipleCandidates": true,
+    "allowFilenameAsSoleEvidence": false,
+    "expectedNumberAfterReview": null,
+    "instructions": null
   },
   "proceedings": [],
   "evidenceMap": {
     "rootDocumentId": null,
+    "rootSelector": null,
     "keyDocumentRules": [],
-    "relations": []
-  }
+    "relationHypotheses": []
+  },
+  "exportDefaults": {
+    "profile": "metadata_only",
+    "includeFullText": false,
+    "includeOriginalFiles": false,
+    "sealed": true,
+    "redactionPolicyId": null,
+    "language": "uk"
+  },
+  "validationRules": {
+    "requireSourceForConfirmedFacts": true,
+    "requireAllRequiredProceedings": true,
+    "requireReferentialIntegrity": true,
+    "requireUniqueIds": true,
+    "blockExternalNetworkInSealedExport": true,
+    "requiredRelationHypothesisIds": []
+  },
+  "notes": null
 }
 ```
+
+Профіль містить очікування й правила, але не дублює фактичні картки
+документів, учасників, подій і тверджень із SQLite. `relationHypotheses` є
+завданнями для перевірки; підтверджені relations читаються з авторитетних
+даних.
 
 До підтвердження номера матеріал приймається у тимчасовий intake context.
 Система не повинна втрачати файл, SHA-256 або provenance через відсутність
@@ -217,10 +258,16 @@ schemaVersion
 export
 case
 proceedings[]
+actors[]
+files[]
 documents[]
 events[]
+claims[]
 relations[]
+sourceReferences[]
+reviewDecisions[]
 inventory
+exclusions[]
 ```
 
 `export` повинен містити:
@@ -231,6 +278,11 @@ inventory
 - версію схеми;
 - профіль редагування або `read_only`;
 - hash джерельного snapshot, коли його обчислено.
+
+Schema `1.1.0` формально описує максимальні картки справи, проваджень,
+actors, files, documents, events, claims, relations, source references і
+review decisions. Невідоме значення подається як `null` або порожній масив,
+якщо це дозволено контрактом, і ніколи не заповнюється припущенням.
 
 ### 7.2. Вузли
 

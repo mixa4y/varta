@@ -1,149 +1,320 @@
-"""
-case_docket.repository.sqlite_repository
-===========================================
-Основна реалізація Repository. SQLite — п.7 і п.9 оригінальних вимог
-CSMD ("SQLite — основна локальна БД"; "Airtable не є частиною основної
-архітектури"), підтверджено як Рек.8 в ADR-001.
-
-СТАТУС: каркас Патча 0. Схема таблиць — чорнова (generic id/created_at/
-payload-json), буде уточнена предметними полями по мірі реалізації
-Патчів 2/4/5/7/8. Мета цього патча — довести, що Repository Layer
-реально працює наскрізно (insert → get → update → audit log), а не
-залишається абстракцією на папері.
-"""
-
 from __future__ import annotations
 
 import json
 import sqlite3
 import uuid
-from datetime import datetime, timezone
+from contextlib import contextmanager
+from datetime import date, datetime, timezone
 from pathlib import Path
-from typing import Any, Iterable, Optional
+from typing import Any, Iterable, Iterator, Optional
+
+from case_docket.airtable import (
+    AirtableImportSummary,
+    import_airtable_snapshot,
+    install_airtable_catalog,
+)
+from case_docket.models.contact import Contact
 
 from .base import Repository
+from .migrations import MigrationRunner, SchemaCompatibility
+from .sqlite_connection import (
+    SQLiteConnectionFactory,
+    SQLiteConnectionPolicy,
+    raise_bounded_busy,
+)
 
-# Чорнова схема. Кожна таблиця: id (PK) + created_at + payload (JSON-блоб
-# з рештою полів). Це свідомо мінімально на цьому етапі — фіксувати
-# конкретні колонки зараз означало б передбачати рішення Патчів 2-8,
-# які ще не ухвалені в деталях. payload дозволяє еволюціонувати поля
-# без міграції схеми на кожному кроці; перехід на "тверді" колонки —
-# окрема задача, коли модель кожної сутності стабілізується.
-_SCHEMA = """
-CREATE TABLE IF NOT EXISTS documents (
-    id TEXT PRIMARY KEY,
-    created_at TEXT NOT NULL,
-    payload TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS document_files (
-    id TEXT PRIMARY KEY,
-    document_id TEXT NOT NULL REFERENCES documents(id),
-    created_at TEXT NOT NULL,
-    payload TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS actors (
-    id TEXT PRIMARY KEY,
-    created_at TEXT NOT NULL,
-    payload TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS events (
-    id TEXT PRIMARY KEY,
-    created_at TEXT NOT NULL,
-    payload TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS document_links (
-    id TEXT PRIMARY KEY,
-    created_at TEXT NOT NULL,
-    payload TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS compliance_flags (
-    id TEXT PRIMARY KEY,
-    created_at TEXT NOT NULL,
-    payload TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS document_version_match (
-    id TEXT PRIMARY KEY,
-    created_at TEXT NOT NULL,
-    payload TEXT NOT NULL
-);
--- Audit Log: append-only, ніколи UPDATE/DELETE (п.11 CSMD; Рек.7 ADR-001).
-CREATE TABLE IF NOT EXISTS audit_log (
-    id TEXT PRIMARY KEY,
-    ts TEXT NOT NULL,
-    action TEXT NOT NULL,
-    entity_table TEXT NOT NULL,
-    entity_id TEXT,
-    details TEXT
-);
-CREATE TRIGGER IF NOT EXISTS audit_log_no_update
-BEFORE UPDATE ON audit_log
-BEGIN
-    SELECT RAISE(ABORT, 'audit_log is append-only');
-END;
-CREATE TRIGGER IF NOT EXISTS audit_log_no_delete
-BEFORE DELETE ON audit_log
-BEGIN
-    SELECT RAISE(ABORT, 'audit_log is append-only');
-END;
-"""
 
 _KNOWN_TABLES = {
-    "documents", "document_files", "actors", "events",
-    "document_links", "compliance_flags", "document_version_match",
+    "cases",
+    "case_profiles",
+    "proceedings",
+    "contacts",
+    "documents",
+    "document_files",
+    "actors",
+    "events",
+    "case_participants",
+    "document_links",
+    "compliance_flags",
+    "document_version_match",
+}
+
+_LEGACY_CONFLICT_TABLES = (
+    "document_files",
+    "documents",
+    "actors",
+    "events",
+    "document_links",
+    "compliance_flags",
+    "document_version_match",
+)
+
+_SYSTEM_COLUMNS = {
+    "id",
+    "airtable_record_id",
+    "created_at",
+    "updated_at",
+    "legacy_payload",
 }
 
 
 class SQLiteRepository(Repository):
-    def __init__(self, db_path: str | Path = "case_docket.sqlite3"):
+    def __init__(
+        self,
+        db_path: str | Path = "case_docket.sqlite3",
+        *,
+        airtable_schema_path: Path | None = None,
+        migrations_path: Path | None = None,
+        auto_commit: bool = True,
+        connection_policy: SQLiteConnectionPolicy | None = None,
+        initialize: bool = True,
+    ):
         self.db_path = Path(db_path)
-        self._conn = sqlite3.connect(self.db_path)
-        self._conn.row_factory = sqlite3.Row
-        self._conn.execute("PRAGMA foreign_keys = ON;")
-        self._conn.executescript(_SCHEMA)
-        self._conn.commit()
+        self._auto_commit = auto_commit
+        self._connection_policy = connection_policy or SQLiteConnectionPolicy()
+        self._migrations_path = migrations_path
+        self._conn = SQLiteConnectionFactory(
+            self.db_path,
+            self._connection_policy,
+        ).connect()
+        try:
+            runner = MigrationRunner(self._conn, migrations_path)
+            if initialize:
+                self._prepare_legacy_tables()
+                runner.migrate()
+                install_airtable_catalog(self._conn, airtable_schema_path)
+                self._restore_legacy_records()
+            else:
+                runner.assert_supported(require_current=True)
+        except Exception:
+            self._conn.close()
+            raise
 
     def close(self) -> None:
+        if self._conn.in_transaction:
+            self._conn.rollback()
         self._conn.close()
+
+    def begin(self, *, write: bool = True) -> None:
+        if self._conn.in_transaction:
+            raise RuntimeError("SQLite transaction already active")
+        mode = "IMMEDIATE" if write else "DEFERRED"
+        try:
+            self._conn.execute(f"BEGIN {mode}")
+        except sqlite3.OperationalError as exc:
+            raise_bounded_busy(
+                exc,
+                operation=f"BEGIN {mode}",
+                policy=self._connection_policy,
+            )
+
+    def commit(self) -> None:
+        try:
+            self._conn.commit()
+        except sqlite3.OperationalError as exc:
+            raise_bounded_busy(
+                exc,
+                operation="COMMIT",
+                policy=self._connection_policy,
+            )
+
+    def rollback(self) -> None:
+        self._conn.rollback()
+
+    def schema_compatibility(self) -> SchemaCompatibility:
+        return MigrationRunner(self._conn, self._migrations_path).assert_supported(
+            require_current=True
+        )
+
+    @contextmanager
+    def _transaction_scope(self, *, write: bool) -> Iterator[None]:
+        self.begin(write=write)
+        try:
+            yield
+        except Exception:
+            self.rollback()
+            raise
+        else:
+            try:
+                self.commit()
+            except Exception:
+                self.rollback()
+                raise
+
+    @contextmanager
+    def _write_scope(self):
+        if not self._auto_commit:
+            yield
+            return
+        with self._transaction_scope(write=True):
+            yield
 
     def _check_table(self, table: str) -> None:
         if table not in _KNOWN_TABLES:
             raise ValueError(f"Невідома таблиця '{table}'. Дозволені: {sorted(_KNOWN_TABLES)}")
 
-    # --- generic record access ------------------------------------------------
+    def _table_columns(self, table: str) -> set[str]:
+        return {
+            str(row["name"])
+            for row in self._conn.execute(f"PRAGMA table_info({table})").fetchall()
+        }
+
+    def _table_exists(self, table: str) -> bool:
+        return (
+            self._conn.execute(
+                "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (table,)
+            ).fetchone()
+            is not None
+        )
+
+    def _prepare_legacy_tables(self) -> None:
+        if self._table_exists("schema_migrations"):
+            return
+        with self._transaction_scope(write=True):
+            for table in _LEGACY_CONFLICT_TABLES:
+                if not self._table_exists(table):
+                    continue
+                columns = self._table_columns(table)
+                if "payload" not in columns or "legacy_payload" in columns:
+                    continue
+                legacy_table = f"legacy_generic_{table}"
+                if self._table_exists(legacy_table):
+                    raise RuntimeError(
+                        f"Одночасно існують {table} і {legacy_table}; "
+                        "автоматичну migration зупинено"
+                    )
+                self._conn.execute(f"ALTER TABLE {table} RENAME TO {legacy_table}")
+
+    def _restore_legacy_records(self) -> None:
+        restored: dict[str, int] = {}
+        table_columns = {
+            "documents": ("title", "category"),
+            "events": ("title",),
+            "document_links": ("title", "link_type"),
+            "compliance_flags": ("title", "flag_type", "severity", "detected_by"),
+            "document_version_match": (
+                "title",
+                "hashes_equal",
+                "text_similarity_score",
+                "mismatch_type",
+                "needs_review",
+            ),
+            "actors": (),
+        }
+        with self._transaction_scope(write=True):
+            for table, copied_columns in table_columns.items():
+                legacy_table = f"legacy_generic_{table}"
+                if not self._table_exists(legacy_table):
+                    continue
+                count = 0
+                rows = self._conn.execute(
+                    f"SELECT id, created_at, payload FROM {legacy_table}"
+                ).fetchall()
+                for row in rows:
+                    payload = self._decode_payload(row["payload"])
+                    values: dict[str, Any] = {
+                        "id": row["id"],
+                        "created_at": row["created_at"],
+                        "updated_at": row["created_at"],
+                        "legacy_payload": json.dumps(payload, ensure_ascii=False),
+                    }
+                    for column in copied_columns:
+                        if column in payload:
+                            values[column] = self._sqlite_value(payload[column])
+                    cursor = self._insert_or_ignore(table, values)
+                    count += max(cursor.rowcount, 0)
+                restored[table] = count
+
+            legacy_files = "legacy_generic_document_files"
+            if self._table_exists(legacy_files):
+                count = 0
+                rows = self._conn.execute(
+                    f"SELECT id, document_id, created_at, payload FROM {legacy_files}"
+                ).fetchall()
+                for row in rows:
+                    payload = self._decode_payload(row["payload"])
+                    cursor = self._insert_or_ignore(
+                        "document_files",
+                        {
+                            "id": row["id"],
+                            "document_id": row["document_id"],
+                            "created_at": row["created_at"],
+                            "updated_at": row["created_at"],
+                            "legacy_payload": json.dumps(payload, ensure_ascii=False),
+                        },
+                    )
+                    count += max(cursor.rowcount, 0)
+                restored["document_files"] = count
+
+            for table, count in restored.items():
+                if count:
+                    self._record_audit_event(
+                        "migrate_legacy",
+                        table,
+                        None,
+                        {"records": count, "source": f"legacy_generic_{table}"},
+                    )
+
+    def _insert_or_ignore(
+        self,
+        table: str,
+        values: dict[str, Any],
+    ) -> sqlite3.Cursor:
+        return self._conn.execute(
+            f"INSERT OR IGNORE INTO {table} ({', '.join(values)}) "
+            f"VALUES ({', '.join('?' for _ in values)})",
+            list(values.values()),
+        )
+
+    # --- generic compatibility CRUD -----------------------------------------
     def insert(self, table: str, record: dict[str, Any]) -> str:
         self._check_table(table)
-        record_id = record.get("id") or str(uuid.uuid4())
+        record_id = str(record.get("id") or uuid.uuid4())
         now = datetime.now(timezone.utc).isoformat()
-        payload = {k: v for k, v in record.items() if k not in ("id", "created_at")}
-
-        with self._conn:
-            if table == "document_files":
-                if "document_id" not in record:
-                    raise ValueError("document_files: обов'язкове поле 'document_id' (Рек.1 ADR-001)")
-                self._conn.execute(
-                    "INSERT INTO document_files "
-                    "(id, document_id, created_at, payload) VALUES (?, ?, ?, ?)",
-                    (record_id, record["document_id"], now, json.dumps(payload, ensure_ascii=False)),
-                )
-            else:
-                self._conn.execute(
-                    f"INSERT INTO {table} (id, created_at, payload) VALUES (?, ?, ?)",
-                    (record_id, now, json.dumps(payload, ensure_ascii=False)),
-                )
+        payload = {key: value for key, value in record.items() if key not in {"id", "created_at"}}
+        columns = self._table_columns(table)
+        values: dict[str, Any] = {
+            "id": record_id,
+            "created_at": now,
+        }
+        if "updated_at" in columns:
+            values["updated_at"] = now
+        if "legacy_payload" in columns:
+            values["legacy_payload"] = json.dumps(payload, ensure_ascii=False)
+        for key, value in payload.items():
+            if key in columns and key not in _SYSTEM_COLUMNS:
+                values[key] = self._sqlite_value(value)
+        if table == "document_files" and not record.get("document_id"):
+            raise ValueError("document_files: обов'язкове поле 'document_id'")
+        if table == "contacts":
+            if not str(record.get("full_name") or "").strip():
+                raise ValueError("contacts.full_name є обов'язковим")
+            participant_type = record.get("participant_type")
+            if participant_type not in {"person", "organization"}:
+                raise ValueError("contacts.participant_type має бути person або organization")
+        with self._write_scope():
+            self._conn.execute(
+                f"INSERT INTO {table} ({', '.join(values)}) "
+                f"VALUES ({', '.join('?' for _ in values)})",
+                list(values.values()),
+            )
             self._record_audit_event("insert", table, record_id, {"fields": sorted(payload)})
         return record_id
 
     def get(self, table: str, record_id: str) -> Optional[dict[str, Any]]:
         self._check_table(table)
-        row = self._conn.execute(
-            f"SELECT id, created_at, payload FROM {table} WHERE id = ?", (record_id,)
-        ).fetchone()
+        row = self._conn.execute(f"SELECT * FROM {table} WHERE id = ?", (record_id,)).fetchone()
         if row is None:
             return None
-        data = json.loads(row["payload"])
-        data["id"] = row["id"]
-        data["created_at"] = row["created_at"]
-        return data
+        item = self._decode_payload(row["legacy_payload"]) if "legacy_payload" in row.keys() else {}
+        for key in row.keys():
+            if key in _SYSTEM_COLUMNS or key == "legacy_payload":
+                continue
+            if row[key] is not None:
+                item[key] = row[key]
+        item["id"] = row["id"]
+        item["created_at"] = row["created_at"]
+        return item
 
     def update(self, table: str, record_id: str, fields: dict[str, Any]) -> None:
         self._check_table(table)
@@ -151,34 +322,219 @@ class SQLiteRepository(Repository):
         if current is None:
             raise KeyError(f"{table}:{record_id} не знайдено")
         current.update(fields)
-        current.pop("id", None)
-        current.pop("created_at", None)
-        payload_json = json.dumps(current, ensure_ascii=False)
-        with self._conn:
-            if table == "document_files" and "document_id" in fields:
-                self._conn.execute(
-                    "UPDATE document_files SET document_id = ?, payload = ? WHERE id = ?",
-                    (fields["document_id"], payload_json, record_id),
-                )
-            else:
-                self._conn.execute(
-                    f"UPDATE {table} SET payload = ? WHERE id = ?",
-                    (payload_json, record_id),
-                )
+        payload = {
+            key: value for key, value in current.items() if key not in {"id", "created_at"}
+        }
+        columns = self._table_columns(table)
+        updates: dict[str, Any] = {
+            "legacy_payload": json.dumps(payload, ensure_ascii=False),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+        for key, value in fields.items():
+            if key in columns and key not in _SYSTEM_COLUMNS:
+                updates[key] = self._sqlite_value(value)
+        assignments = ", ".join(f"{column} = ?" for column in updates)
+        with self._write_scope():
+            cursor = self._conn.execute(
+                f"UPDATE {table} SET {assignments} WHERE id = ?",
+                [*updates.values(), record_id],
+            )
+            if cursor.rowcount == 0:
+                raise KeyError(f"{table}:{record_id} не знайдено")
             self._record_audit_event("update", table, record_id, {"fields": sorted(fields)})
 
-    def query(self, table: str, where: Optional[dict[str, Any]] = None) -> Iterable[dict[str, Any]]:
+    def query(
+        self,
+        table: str,
+        where: Optional[dict[str, Any]] = None,
+    ) -> Iterable[dict[str, Any]]:
         self._check_table(table)
-        rows = self._conn.execute(f"SELECT id, created_at, payload FROM {table}").fetchall()
-        for row in rows:
-            data = json.loads(row["payload"])
-            data["id"] = row["id"]
-            data["created_at"] = row["created_at"]
-            if where and any(data.get(k) != v for k, v in where.items()):
+        for row in self._conn.execute(f"SELECT id FROM {table} ORDER BY created_at").fetchall():
+            item = self.get(table, str(row["id"]))
+            assert item is not None
+            if where and any(item.get(key) != value for key, value in where.items()):
                 continue
-            yield data
+            yield item
 
-    # --- audit log --------------------------------------------------------
+    # --- contacts ------------------------------------------------------------
+    def create_contact(self, record: dict[str, Any]) -> str:
+        validated = self._validate_contact(record)
+        return self.insert("contacts", validated)
+
+    def get_contact(self, contact_id: str) -> Optional[dict[str, Any]]:
+        item = self.get("contacts", contact_id)
+        if item is not None:
+            item["roles"] = self.list_contact_roles(contact_id)
+        return item
+
+    def list_contacts(self, search: str | None = None) -> list[dict[str, Any]]:
+        sql = "SELECT id FROM contacts"
+        params: list[Any] = []
+        if search:
+            sql += (
+                " WHERE full_name LIKE ? OR short_name LIKE ? OR email LIKE ? "
+                "OR phone LIKE ? OR additional_phone LIKE ?"
+            )
+            needle = f"%{search}%"
+            params = [needle] * 5
+        sql += " ORDER BY full_name COLLATE NOCASE"
+        contacts: list[dict[str, Any]] = []
+        for row in self._conn.execute(sql, params).fetchall():
+            item = self.get_contact(str(row["id"]))
+            assert item is not None
+            contacts.append(item)
+        return contacts
+
+    def update_contact(self, contact_id: str, fields: dict[str, Any]) -> None:
+        allowed = self._table_columns("contacts") - _SYSTEM_COLUMNS
+        unknown = set(fields) - allowed
+        if unknown:
+            raise ValueError(f"Невідомі contact fields: {sorted(unknown)}")
+        current = self.get("contacts", contact_id)
+        if current is None:
+            raise KeyError(f"contacts:{contact_id} не знайдено")
+        merged = {key: current.get(key) for key in allowed}
+        merged.update(fields)
+        validated = self._validate_contact({"id": contact_id, **merged})
+        self.update("contacts", contact_id, validated)
+
+    def contacts_context(self) -> dict[str, Any]:
+        cases = [
+            dict(row)
+            for row in self._conn.execute(
+                "SELECT id, case_number, name FROM cases ORDER BY case_number, name"
+            ).fetchall()
+        ]
+        proceedings = [
+            dict(row)
+            for row in self._conn.execute(
+                """
+                SELECT
+                    p.id,
+                    p.proceeding_number,
+                    p.name,
+                    GROUP_CONCAT(cp.case_id) AS case_ids
+                FROM proceedings AS p
+                LEFT JOIN case_proceedings AS cp ON cp.proceeding_id = p.id
+                GROUP BY p.id
+                ORDER BY p.proceeding_number, p.name
+                """
+            ).fetchall()
+        ]
+        for proceeding in proceedings:
+            raw_case_ids = proceeding.pop("case_ids", None)
+            proceeding["caseIds"] = raw_case_ids.split(",") if raw_case_ids else []
+        roles = [
+            str(row["choice_name"])
+            for row in self._conn.execute(
+                """
+                SELECT choice_name
+                FROM airtable_select_choices
+                WHERE airtable_field_id = 'fldnQfVMsMWOXwJRV'
+                ORDER BY position
+                """
+            ).fetchall()
+        ]
+        return {"cases": cases, "proceedings": proceedings, "roles": roles}
+
+    def assign_contact_role(self, record: dict[str, Any]) -> str:
+        required = ("contact_id", "case_id", "role")
+        if any(not record.get(field) for field in required):
+            raise ValueError("case_participants потребує contact_id, case_id і role")
+        participant_id = str(record.get("id") or uuid.uuid4())
+        now = str(record.get("created_at") or datetime.now(timezone.utc).isoformat())
+        values = {
+            "id": participant_id,
+            "contact_id": record["contact_id"],
+            "case_id": record["case_id"],
+            "proceeding_id": record.get("proceeding_id"),
+            "role": record["role"],
+            "active": int(record.get("active", True)),
+            "notes": record.get("notes"),
+            "created_at": now,
+            "updated_at": now,
+            "legacy_payload": "{}",
+        }
+        with self._write_scope():
+            self._conn.execute(
+                f"INSERT INTO case_participants ({', '.join(values)}) "
+                f"VALUES ({', '.join('?' for _ in values)})",
+                list(values.values()),
+            )
+            self._record_audit_event(
+                "assign_role",
+                "contacts",
+                str(record["contact_id"]),
+                {
+                    "case_id": record["case_id"],
+                    "proceeding_id": record.get("proceeding_id"),
+                    "role": record["role"],
+                },
+            )
+        return participant_id
+
+    def list_contact_roles(self, contact_id: str) -> list[dict[str, Any]]:
+        rows = self._conn.execute(
+            """
+            SELECT id, case_id, proceeding_id, role, active, notes, created_at
+            FROM case_participants
+            WHERE contact_id = ?
+            ORDER BY created_at
+            """,
+            (contact_id,),
+        ).fetchall()
+        return [dict(row) for row in rows]
+
+    # --- Airtable migration adapter ------------------------------------------
+    def import_airtable_snapshot(self, snapshot: dict[str, Any]) -> AirtableImportSummary:
+        return import_airtable_snapshot(self._conn, snapshot, self._record_audit_event)
+
+    def airtable_catalog_counts(self) -> dict[str, int]:
+        return {
+            "tables": int(
+                self._conn.execute("SELECT COUNT(*) FROM airtable_table_mappings").fetchone()[0]
+            ),
+            "fields": int(
+                self._conn.execute("SELECT COUNT(*) FROM airtable_field_mappings").fetchone()[0]
+            ),
+            "relations": int(
+                self._conn.execute(
+                    "SELECT COUNT(*) FROM airtable_relationship_mappings"
+                ).fetchone()[0]
+            ),
+            "computed": int(
+                self._conn.execute(
+                    """
+                    SELECT COUNT(*) FROM airtable_field_mappings
+                    WHERE sql_kind IN ('lookup', 'formula')
+                    """
+                ).fetchone()[0]
+            ),
+        }
+
+    @staticmethod
+    def _validate_contact(record: dict[str, Any]) -> dict[str, object]:
+        raw_date = record.get("birth_or_registration_date")
+        parsed_date = date.fromisoformat(str(raw_date)) if raw_date else None
+        model = Contact(
+            id=str(record.get("id") or uuid.uuid4()),
+            full_name=str(record.get("full_name") or ""),
+            participant_type=str(record.get("participant_type") or ""),
+            short_name=record.get("short_name"),
+            active=bool(record.get("active", True)),
+            email=record.get("email"),
+            phone=record.get("phone"),
+            additional_phone=record.get("additional_phone"),
+            address=record.get("address"),
+            tax_id=record.get("tax_id"),
+            edrpou=record.get("edrpou"),
+            birth_or_registration_date=parsed_date,
+            representative_or_contact_person=record.get("representative_or_contact_person"),
+            notes=record.get("notes"),
+        )
+        return model.to_record()
+
+    # --- audit log ------------------------------------------------------------
     def record_audit_event(
         self,
         action: str,
@@ -186,7 +542,7 @@ class SQLiteRepository(Repository):
         entity_id: Optional[str],
         details: Optional[dict[str, Any]] = None,
     ) -> None:
-        with self._conn:
+        with self._write_scope():
             self._record_audit_event(action, entity_table, entity_id, details)
 
     def _record_audit_event(
@@ -196,11 +552,11 @@ class SQLiteRepository(Repository):
         entity_id: Optional[str],
         details: Optional[dict[str, Any]] = None,
     ) -> None:
-        # Умисно НЕ через self.insert() — інакше запис у audit_log сам
-        # породжував би новий запис у audit_log до нескінченності.
         self._conn.execute(
-            "INSERT INTO audit_log (id, ts, action, entity_table, entity_id, details) "
-            "VALUES (?, ?, ?, ?, ?, ?)",
+            """
+            INSERT INTO audit_log(id, ts, action, entity_table, entity_id, details)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
             (
                 str(uuid.uuid4()),
                 datetime.now(timezone.utc).isoformat(),
@@ -217,7 +573,8 @@ class SQLiteRepository(Repository):
         entity_id: Optional[str] = None,
     ) -> Iterable[dict[str, Any]]:
         query = "SELECT * FROM audit_log"
-        conditions, params = [], []
+        conditions: list[str] = []
+        params: list[str] = []
         if entity_table:
             conditions.append("entity_table = ?")
             params.append(entity_table)
@@ -229,5 +586,22 @@ class SQLiteRepository(Repository):
         query += " ORDER BY ts ASC"
         for row in self._conn.execute(query, params).fetchall():
             item = dict(row)
-            item["details"] = json.loads(item["details"])
+            item["details"] = self._decode_payload(item.get("details"))
             yield item
+
+    @staticmethod
+    def _decode_payload(value: Any) -> dict[str, Any]:
+        if not value:
+            return {}
+        if isinstance(value, dict):
+            return dict(value)
+        decoded = json.loads(str(value))
+        return decoded if isinstance(decoded, dict) else {"value": decoded}
+
+    @staticmethod
+    def _sqlite_value(value: Any) -> Any:
+        if isinstance(value, bool):
+            return int(value)
+        if isinstance(value, (dict, list)):
+            return json.dumps(value, ensure_ascii=False)
+        return value

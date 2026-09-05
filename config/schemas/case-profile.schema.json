@@ -2,45 +2,183 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://varta.local/schemas/case-profile.schema.json",
   "title": "VARTA case profile",
+  "description": "Versioned, case-specific configuration. Factual case records remain authoritative in SQLite.",
   "type": "object",
-  "required": ["schemaVersion", "case", "proceedings", "evidenceMap"],
+  "required": ["schemaVersion", "profileVersion", "case", "bootstrap", "proceedings", "evidenceMap", "exportDefaults", "validationRules"],
   "properties": {
-    "schemaVersion": {"type": "string", "const": "1.0.0"},
-    "case": {
-      "type": "object",
-      "required": ["id", "number", "folderKey", "title"],
-      "properties": {
-        "id": {"type": "string", "minLength": 1},
-        "number": {"type": ["string", "null"]},
-        "folderKey": {"type": "string", "minLength": 1},
-        "title": {"type": "string", "minLength": 1},
-        "aliases": {"type": "array", "items": {"type": "string"}}
-      },
-      "additionalProperties": true
+    "schemaVersion": {"type": "string", "const": "1.1.0"},
+    "profileVersion": {"type": "string", "minLength": 1},
+    "case": {"$ref": "#/$defs/caseProfile"},
+    "bootstrap": {"$ref": "#/$defs/bootstrap"},
+    "proceedings": {"type": "array", "items": {"$ref": "#/$defs/proceedingProfile"}, "default": []},
+    "evidenceMap": {"$ref": "#/$defs/evidenceMap"},
+    "exportDefaults": {"$ref": "#/$defs/exportDefaults"},
+    "validationRules": {"$ref": "#/$defs/validationRules"},
+    "notes": {"type": ["string", "null"]}
+  },
+  "$defs": {
+    "nonEmptyString": {"type": "string", "minLength": 1},
+    "nullableString": {"type": ["string", "null"]},
+    "stringArray": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true, "default": []},
+    "caseNumberStatus": {"type": "string", "enum": ["unknown", "candidate", "manual_review_required", "confirmed", "rejected"]},
+    "reviewStatus": {"type": "string", "enum": ["unreviewed", "manual_review_required", "in_review", "confirmed", "rejected", "superseded"]},
+    "classification": {
+      "type": "string",
+      "enum": ["confirmed_fact", "party_position", "user_position", "court_reasoning", "legal_conclusion", "contradiction", "open_question", "unverified"]
     },
-    "proceedings": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": ["id", "number", "folderKey"],
-        "properties": {
-          "id": {"type": "string", "minLength": 1},
-          "number": {"type": "string", "minLength": 1},
-          "folderKey": {"type": "string", "minLength": 1},
-          "aliases": {"type": "array", "items": {"type": "string"}}
+    "caseProfile": {
+      "type": "object",
+      "required": ["id", "number", "numberStatus", "folderKey", "title", "aliases"],
+      "properties": {
+        "id": {"$ref": "#/$defs/nonEmptyString"},
+        "number": {"type": ["string", "null"]},
+        "numberStatus": {"$ref": "#/$defs/caseNumberStatus"},
+        "folderKey": {"$ref": "#/$defs/nonEmptyString"},
+        "title": {"$ref": "#/$defs/nonEmptyString"},
+        "aliases": {"$ref": "#/$defs/stringArray"},
+        "caseType": {"$ref": "#/$defs/nullableString"},
+        "jurisdiction": {"$ref": "#/$defs/nullableString"},
+        "primaryCourtName": {"$ref": "#/$defs/nullableString"},
+        "description": {"$ref": "#/$defs/nullableString"},
+        "tags": {"$ref": "#/$defs/stringArray"}
+      },
+      "additionalProperties": false
+    },
+    "bootstrap": {
+      "type": "object",
+      "required": ["firstDocumentId", "temporaryIntakeCaseId", "numberDetectionSources", "requireManualReviewForMultipleCandidates", "allowFilenameAsSoleEvidence"],
+      "properties": {
+        "firstDocumentId": {"type": ["string", "null"]},
+        "temporaryIntakeCaseId": {"type": ["string", "null"]},
+        "numberDetectionSources": {
+          "type": "array",
+          "items": {"type": "string", "enum": ["structured_metadata", "document_text", "ocr", "verified_manifest", "filename", "folder", "manual"]},
+          "uniqueItems": true
         },
-        "additionalProperties": true
-      }
+        "requireManualReviewForMultipleCandidates": {"type": "boolean"},
+        "allowFilenameAsSoleEvidence": {"type": "boolean", "const": false},
+        "expectedNumberAfterReview": {"type": ["string", "null"]},
+        "instructions": {"type": ["string", "null"]}
+      },
+      "additionalProperties": false
+    },
+    "courtExpectation": {
+      "type": "object",
+      "required": ["name", "instance"],
+      "properties": {
+        "name": {"type": ["string", "null"]},
+        "instance": {"type": ["string", "null"], "enum": [null, "first_instance", "appeal", "cassation", "enforcement", "other"]},
+        "jurisdiction": {"type": ["string", "null"]}
+      },
+      "additionalProperties": false
+    },
+    "proceedingProfile": {
+      "type": "object",
+      "required": ["id", "number", "folderKey", "aliases", "required", "reviewStatus"],
+      "properties": {
+        "id": {"$ref": "#/$defs/nonEmptyString"},
+        "number": {"$ref": "#/$defs/nonEmptyString"},
+        "folderKey": {"$ref": "#/$defs/nonEmptyString"},
+        "aliases": {"$ref": "#/$defs/stringArray"},
+        "required": {"type": "boolean"},
+        "reviewStatus": {"$ref": "#/$defs/reviewStatus"},
+        "expectedKind": {"type": ["string", "null"]},
+        "expectedTitle": {"type": ["string", "null"]},
+        "expectedCourt": {"$ref": "#/$defs/courtExpectation"},
+        "expectedParentProceedingId": {"type": ["string", "null"]},
+        "verificationInstructions": {"type": ["string", "null"]},
+        "tags": {"$ref": "#/$defs/stringArray"}
+      },
+      "additionalProperties": false
+    },
+    "entitySelector": {
+      "type": "object",
+      "required": ["entityType"],
+      "properties": {
+        "entityType": {"type": "string", "enum": ["case", "proceeding", "document", "event", "actor", "claim"]},
+        "entityId": {"type": ["string", "null"]},
+        "canonicalNumber": {"type": ["string", "null"]},
+        "documentRole": {"type": ["string", "null"]},
+        "titlePattern": {"type": ["string", "null"]},
+        "dateRole": {"type": ["string", "null"]},
+        "dateValue": {"type": ["string", "null"], "format": "date"}
+      },
+      "additionalProperties": false,
+      "anyOf": [
+        {"properties": {"entityId": {"type": "string", "minLength": 1}}, "required": ["entityId"]},
+        {"properties": {"canonicalNumber": {"type": "string", "minLength": 1}}, "required": ["canonicalNumber"]},
+        {"properties": {"documentRole": {"type": "string", "minLength": 1}}, "required": ["documentRole"]},
+        {"properties": {"titlePattern": {"type": "string", "minLength": 1}}, "required": ["titlePattern"]}
+      ]
+    },
+    "keyDocumentRule": {
+      "type": "object",
+      "required": ["id", "selector", "required", "priority", "reviewStatus"],
+      "properties": {
+        "id": {"$ref": "#/$defs/nonEmptyString"},
+        "selector": {"$ref": "#/$defs/entitySelector"},
+        "required": {"type": "boolean"},
+        "priority": {"type": "integer", "minimum": 0},
+        "reviewStatus": {"$ref": "#/$defs/reviewStatus"},
+        "instructions": {"type": ["string", "null"]}
+      },
+      "additionalProperties": false
+    },
+    "relationHypothesis": {
+      "type": "object",
+      "required": ["id", "from", "to", "expectedRelationType", "initialClassification", "reviewStatus", "basisRequired"],
+      "properties": {
+        "id": {"$ref": "#/$defs/nonEmptyString"},
+        "from": {"$ref": "#/$defs/entitySelector"},
+        "to": {"$ref": "#/$defs/entitySelector"},
+        "expectedRelationType": {"$ref": "#/$defs/nonEmptyString"},
+        "label": {"type": ["string", "null"]},
+        "initialClassification": {"$ref": "#/$defs/classification"},
+        "reviewStatus": {"$ref": "#/$defs/reviewStatus"},
+        "basisRequired": {"type": "boolean"},
+        "basisDocumentIds": {"$ref": "#/$defs/stringArray"},
+        "sourceReferenceIds": {"$ref": "#/$defs/stringArray"},
+        "verificationInstructions": {"type": ["string", "null"]},
+        "uncertaintyNote": {"type": ["string", "null"]}
+      },
+      "additionalProperties": false
     },
     "evidenceMap": {
       "type": "object",
-      "required": ["rootDocumentId", "relations"],
+      "required": ["rootDocumentId", "rootSelector", "keyDocumentRules", "relationHypotheses"],
       "properties": {
         "rootDocumentId": {"type": ["string", "null"]},
-        "keyDocumentRules": {"type": "array", "items": {"type": "object"}},
-        "relations": {"type": "array", "items": {"type": "object"}}
+        "rootSelector": {"anyOf": [{"$ref": "#/$defs/entitySelector"}, {"type": "null"}]},
+        "keyDocumentRules": {"type": "array", "items": {"$ref": "#/$defs/keyDocumentRule"}, "default": []},
+        "relationHypotheses": {"type": "array", "items": {"$ref": "#/$defs/relationHypothesis"}, "default": []}
       },
-      "additionalProperties": true
+      "additionalProperties": false
+    },
+    "exportDefaults": {
+      "type": "object",
+      "required": ["profile", "includeFullText", "includeOriginalFiles", "sealed"],
+      "properties": {
+        "profile": {"type": "string", "enum": ["full_local", "redacted", "metadata_only"]},
+        "includeFullText": {"type": "boolean", "const": false},
+        "includeOriginalFiles": {"type": "boolean"},
+        "sealed": {"type": "boolean"},
+        "redactionPolicyId": {"type": ["string", "null"]},
+        "language": {"type": "string", "default": "uk"}
+      },
+      "additionalProperties": false
+    },
+    "validationRules": {
+      "type": "object",
+      "required": ["requireSourceForConfirmedFacts", "requireAllRequiredProceedings", "requireReferentialIntegrity", "requireUniqueIds", "blockExternalNetworkInSealedExport"],
+      "properties": {
+        "requireSourceForConfirmedFacts": {"type": "boolean", "const": true},
+        "requireAllRequiredProceedings": {"type": "boolean"},
+        "requireReferentialIntegrity": {"type": "boolean", "const": true},
+        "requireUniqueIds": {"type": "boolean", "const": true},
+        "blockExternalNetworkInSealedExport": {"type": "boolean", "const": true},
+        "requiredRelationHypothesisIds": {"$ref": "#/$defs/stringArray"}
+      },
+      "additionalProperties": false
     }
   },
   "additionalProperties": false
