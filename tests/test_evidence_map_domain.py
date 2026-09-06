@@ -53,9 +53,10 @@ def test_evidence_map_domain_migration_creates_formal_tables() -> None:
     }
 
     assert expected.issubset(actual)
-    assert [row["version"] for row in connection.execute(
-        "SELECT version FROM schema_migrations ORDER BY version"
-    )] == list(range(1, 12))
+    assert [
+        row["version"]
+        for row in connection.execute("SELECT version FROM schema_migrations ORDER BY version")
+    ] == list(range(1, 13))
     connection.close()
 
 

@@ -53,6 +53,7 @@ $arguments = @(
     "--paths", $sourceRoot,
     "--hidden-import", "caseflow.caseflow_process",
     "--hidden-import", "caseflow.anomaly_detector",
+    "--hidden-import", "case_docket.processing.synthetic_worker",
     "--add-data", "$(Join-Path $sourceRoot 'caseflow\static');static",
     "--add-data", "$(Join-Path $sourceRoot 'caseflow\version.json');.",
     "--add-data", "$(Join-Path $sourceRoot 'config\airtable_schema.json');config",

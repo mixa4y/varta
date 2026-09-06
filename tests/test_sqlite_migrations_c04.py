@@ -70,10 +70,10 @@ def test_fresh_database_reaches_scoped_schema_ceiling(tmp_path: Path) -> None:
     migrations = MigrationRunner(repository._conn).discover()
 
     assert APPLICATION_SCHEMA_FLOOR == 2
-    assert APPLICATION_SCHEMA_CEILING == 11
+    assert APPLICATION_SCHEMA_CEILING == 12
     assert compatibility.current_version == APPLICATION_SCHEMA_CEILING
     assert compatibility.pending_versions == ()
-    assert [migration.version for migration in migrations] == list(range(1, 12))
+    assert [migration.version for migration in migrations] == list(range(1, 13))
     assert [migration.scope for migration in migrations] == [
         "legacy",
         "evidence",
@@ -83,10 +83,11 @@ def test_fresh_database_reaches_scoped_schema_ceiling(tmp_path: Path) -> None:
         "evidence",
         "intake",
         "intake",
-            "case",
-            "evidence",
-            "system",
-        ]
+        "case",
+        "evidence",
+        "system",
+        "system",
+    ]
     repository.close()
 
 
@@ -101,15 +102,13 @@ def test_previous_v2_fixture_upgrades_additively_and_matches_fresh_schema(
     upgraded_fingerprint = _schema_fingerprint(upgraded._conn)
     versions = [
         int(row[0])
-        for row in upgraded._conn.execute(
-            "SELECT version FROM schema_migrations ORDER BY version"
-        )
+        for row in upgraded._conn.execute("SELECT version FROM schema_migrations ORDER BY version")
     ]
 
     fresh = SQLiteRepository(tmp_path / "fresh.sqlite3")
     fresh_fingerprint = _schema_fingerprint(fresh._conn)
 
-    assert versions == list(range(1, 12))
+    assert versions == list(range(1, 13))
     assert preserved is not None
     assert preserved["name"] == "Синтетична справа для upgrade"
     assert upgraded_fingerprint == fresh_fingerprint
@@ -208,16 +207,25 @@ def test_previous_v9_evidence_rows_upgrade_to_c08_defaults(tmp_path: Path) -> No
             ("actor-synthetic-v9",),
         ).fetchone()
     ) == ("unknown", "unreviewed", 1)
-    assert connection.execute(
-        "SELECT version FROM documents WHERE id = ?", ("document-synthetic-v9",)
-    ).fetchone()[0] == 1
-    assert connection.execute(
-        "SELECT version FROM claims WHERE id = ?", ("claim-synthetic-v9",)
-    ).fetchone()[0] == 1
-    assert connection.execute(
-        "SELECT version FROM evidence_relations WHERE id = ?",
-        ("relation-synthetic-v9",),
-    ).fetchone()[0] == 1
+    assert (
+        connection.execute(
+            "SELECT version FROM documents WHERE id = ?", ("document-synthetic-v9",)
+        ).fetchone()[0]
+        == 1
+    )
+    assert (
+        connection.execute(
+            "SELECT version FROM claims WHERE id = ?", ("claim-synthetic-v9",)
+        ).fetchone()[0]
+        == 1
+    )
+    assert (
+        connection.execute(
+            "SELECT version FROM evidence_relations WHERE id = ?",
+            ("relation-synthetic-v9",),
+        ).fetchone()[0]
+        == 1
+    )
     assert tuple(
         connection.execute(
             """
@@ -240,13 +248,13 @@ def test_newer_database_is_rejected_before_writable_repository_mode(tmp_path: Pa
     connection.execute(
         """
         INSERT INTO schema_migrations(version, name, checksum, applied_at)
-        VALUES (12, 'system_future', ?, '2026-01-01T00:00:00+00:00')
+        VALUES (13, 'system_future', ?, '2026-01-01T00:00:00+00:00')
         """,
         ("f" * 64,),
     )
     connection.close()
 
-    with pytest.raises(NewerSchemaError, match="новішу schema version 12"):
+    with pytest.raises(NewerSchemaError, match="новішу schema version 13"):
         SQLiteRepository(database)
 
 
@@ -291,7 +299,8 @@ def test_concurrent_fresh_startup_serializes_migrations(tmp_path: Path) -> None:
         (6, 1),
         (7, 1),
         (8, 1),
-            (9, 1),
-            (10, 1),
-            (11, 1),
-        ]
+        (9, 1),
+        (10, 1),
+        (11, 1),
+        (12, 1),
+    ]
