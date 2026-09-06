@@ -155,8 +155,7 @@ class SQLiteRepository(Repository):
 
     def _table_columns(self, table: str) -> set[str]:
         return {
-            str(row["name"])
-            for row in self._conn.execute(f"PRAGMA table_info({table})").fetchall()
+            str(row["name"]) for row in self._conn.execute(f"PRAGMA table_info({table})").fetchall()
         }
 
     def _table_exists(self, table: str) -> bool:
@@ -322,9 +321,7 @@ class SQLiteRepository(Repository):
         if current is None:
             raise KeyError(f"{table}:{record_id} не знайдено")
         current.update(fields)
-        payload = {
-            key: value for key, value in current.items() if key not in {"id", "created_at"}
-        }
+        payload = {key: value for key, value in current.items() if key not in {"id", "created_at"}}
         columns = self._table_columns(table)
         updates: dict[str, Any] = {
             "legacy_payload": json.dumps(payload, ensure_ascii=False),

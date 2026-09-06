@@ -54,7 +54,16 @@ class CaseProfileService:
         with self._uow_factory(write=False) as uow:
             if not uow.case_profiles.case_exists(query.case_id):
                 raise UnknownCaseError("Справу не знайдено", {"case_id": query.case_id})
-            profile = uow.case_profiles.get(query.case_id, query.profile_version)
+            try:
+                profile = uow.case_profiles.get(query.case_id, query.profile_version)
+            except ValueError as exc:
+                raise InvalidProfileError(
+                    "Профіль не відповідає case-profile schema",
+                    {
+                        "case_id": query.case_id,
+                        "profile_version": query.profile_version,
+                    },
+                ) from exc
             available_versions = uow.case_profiles.versions(query.case_id)
         if profile is None:
             if available_versions:

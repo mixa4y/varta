@@ -109,9 +109,7 @@ def test_missing_unknown_and_invalid_versions_are_explicit(tmp_path):
     bad_db = tmp_path / "bad.sqlite3"
     _seed(bad_db, payload=bad)
     with pytest.raises(InvalidProfileError):
-        CaseProfileService(SQLiteUnitOfWorkFactory(bad_db)).get(
-            GetCaseProfileQuery("case-a", "v1")
-        )
+        CaseProfileService(SQLiteUnitOfWorkFactory(bad_db)).get(GetCaseProfileQuery("case-a", "v1"))
 
 
 def test_case_without_any_profile_is_missing_profile(tmp_path):
@@ -128,3 +126,19 @@ def test_case_without_any_profile_is_missing_profile(tmp_path):
         uow.commit()
     with pytest.raises(MissingProfileError):
         CaseProfileService(repo).get(GetCaseProfileQuery("case-empty", "v1"))
+
+
+def test_invalid_profile_shape_and_cross_case_identity_are_explicit(tmp_path):
+    shape_db = tmp_path / "invalid-shape.sqlite3"
+    _seed(shape_db, payload=["synthetic-invalid-shape"])
+    with pytest.raises(InvalidProfileError):
+        CaseProfileService(SQLiteUnitOfWorkFactory(shape_db)).get(
+            GetCaseProfileQuery("case-a", "v1")
+        )
+
+    identity_db = tmp_path / "cross-case.sqlite3"
+    _seed(identity_db, payload=_profile("case-b", "v1"))
+    with pytest.raises(InvalidProfileError):
+        CaseProfileService(SQLiteUnitOfWorkFactory(identity_db)).get(
+            GetCaseProfileQuery("case-a", "v1")
+        )
