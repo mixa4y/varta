@@ -43,6 +43,7 @@ DAY_2 = datetime(2026, 1, 2, tzinfo=timezone.utc)
 DAY_3 = datetime(2026, 1, 3, tzinfo=timezone.utc)
 DAY_4 = datetime(2026, 1, 4, tzinfo=timezone.utc)
 DAY_5 = datetime(2026, 1, 5, tzinfo=timezone.utc)
+DAY_6 = datetime(2026, 1, 6, tzinfo=timezone.utc)
 
 
 def _profile() -> dict[str, object]:
@@ -452,6 +453,86 @@ def _seed_database(database: Path, *, reverse: bool = False) -> None:
         unit_of_work.commit()
 
 
+def _seed_other_case(database: Path) -> None:
+    other_case_id = "case-synthetic-r02-other"
+    other_file = _managed_file("file-other", "c")
+    other_membership = EvidenceMembershipRecord(
+        membership_id="membership-other-actor",
+        entity_type="actor",
+        entity_id="actor-other",
+        context_type="case",
+        context_id=other_case_id,
+        role="evidence",
+        is_primary=True,
+        source_reference_id=None,
+        review_status="unreviewed",
+        note=None,
+        created_at=DAY_6,
+        updated_at=DAY_6,
+    )
+    factory = SQLiteUnitOfWorkFactory(database)
+    with factory(write=True) as unit_of_work:
+        unit_of_work.workspace.add_case(
+            WorkspaceCaseRecord(
+                case_id=other_case_id,
+                case_number=None,
+                name="Synthetic R02 other case",
+                status="active",
+                created_at=DAY_6,
+                updated_at=DAY_6,
+            ),
+            actor_id=REVIEWER,
+        )
+        unit_of_work.files.add(other_file)
+        unit_of_work.workspace.add_file_membership(
+            FileContextMembershipRecord(
+                membership_id="file-membership-other",
+                file_id=other_file.file_id,
+                context_type="case",
+                context_id=other_case_id,
+                role="evidence",
+                origin="manual_command",
+                actor_id=REVIEWER,
+                note=None,
+                created_at=DAY_6,
+            )
+        )
+        unit_of_work.evidence.add_actor(
+            EvidenceActorRecord(
+                actor_id="actor-other",
+                actor_type="person",
+                display_name="Synthetic other-case actor",
+                normalized_name="synthetic other-case actor",
+                review_status="unreviewed",
+                notes=None,
+                version=1,
+                created_at=DAY_6,
+                updated_at=DAY_6,
+                memberships=(other_membership,),
+            ),
+            memberships=(other_membership,),
+            created_by=REVIEWER,
+        )
+        unit_of_work.evidence.add_review_decision(
+            ReviewDecisionRecord(
+                decision_id="review-other-actor",
+                subject_type="actor",
+                subject_id="actor-other",
+                decision="confirm",
+                previous_status="unreviewed",
+                new_status="confirmed",
+                actor_id=REVIEWER,
+                decided_at=DAY_6,
+                note="Synthetic other-case review",
+                subject_version=2,
+                decision_origin="user",
+                source_reference_ids=(),
+            ),
+            expected_version=1,
+        )
+        unit_of_work.commit()
+
+
 def _query() -> EvidenceMapSourceQuery:
     return EvidenceMapSourceQuery(
         case_id=CASE_ID,
@@ -515,6 +596,59 @@ def test_revision_ignores_insertion_order_and_page_boundaries(tmp_path: Path) ->
     )
 
     assert forward.source_revision == reverse.source_revision == unpaged.source_revision
+
+
+def test_sqlite_source_is_isolated_from_another_persisted_case(tmp_path: Path) -> None:
+    database = tmp_path / "case-isolation.sqlite3"
+    _seed_database(database)
+    service = EvidenceMapSourceQueryService(
+        SQLiteEvidenceMapSourcePorts(SQLiteUnitOfWorkFactory(database))
+    )
+    before = service.query(_query())
+
+    _seed_other_case(database)
+
+    after = EvidenceMapSourceQueryService(
+        SQLiteEvidenceMapSourcePorts(SQLiteUnitOfWorkFactory(database))
+    ).query(_query())
+    assert after == before
+    assert after.data_cutoff == DAY_5.isoformat()
+    assert {item.record.file_id for item in after.files} == {"file-a", "file-b"}
+    assert {item.record.actor_id for item in after.evidence.actors} == {"actor-a", "actor-b"}
+    assert {item.record.decision_id for item in after.reviews} == {
+        "review-claim-a",
+        "review-finding-a",
+    }
+
+
+def test_nested_source_pagination_is_complete_and_bounded() -> None:
+    reviews = tuple(
+        ReviewDecisionRecord(
+            decision_id=f"review-{index:03d}",
+            subject_type="claim",
+            subject_id="claim-a",
+            decision="confirm",
+            previous_status="unreviewed",
+            new_status="confirmed",
+            actor_id=REVIEWER,
+            decided_at=DAY_4,
+            note="Synthetic pagination review",
+            subject_version=index + 1,
+            decision_origin="user",
+            source_reference_ids=("source-a",),
+        )
+        for index in range(401)
+    )
+
+    complete = SQLiteEvidenceMapSourcePorts._all_pages(
+        lambda limit, offset: reviews[offset : offset + limit]
+    )
+    assert complete == reviews
+
+    with pytest.raises(EvidenceMapSourceError, match="Nested source pagination did not advance"):
+        SQLiteEvidenceMapSourcePorts._all_pages(
+            lambda limit, offset: reviews[:limit]
+        )
 
 
 def test_source_rejects_cross_case_rows_and_missing_provider(tmp_path: Path) -> None:

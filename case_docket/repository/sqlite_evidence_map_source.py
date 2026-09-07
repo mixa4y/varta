@@ -355,9 +355,17 @@ class SQLiteEvidenceMapSourcePorts(EvidenceMapSourcePorts):
         page_size = 200
         offset = 0
         result: list[Record] = []
+        seen_full_pages: list[tuple[Record, ...]] = []
         while True:
             page = provider(page_size, offset)
+            if not isinstance(page, tuple):
+                raise EvidenceMapSourceError("Nested source provider must return a tuple page")
+            if len(page) > page_size:
+                raise EvidenceMapSourceError("Nested source provider exceeded requested page size")
             result.extend(page)
             if len(page) < page_size:
                 return tuple(result)
+            if page in seen_full_pages:
+                raise EvidenceMapSourceError("Nested source pagination did not advance")
+            seen_full_pages.append(page)
             offset += page_size
