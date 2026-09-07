@@ -1,10 +1,14 @@
 """R04 populated SQLite -> application-query readiness gate."""
+
 from __future__ import annotations
 
 import sqlite3
 from dataclasses import InitVar, dataclass, field
 from pathlib import Path
 
+import pytest
+
+from case_docket.application.evidence_map_source import EvidenceMapSourceError
 from case_docket.application.evidence_map_export import RecordEvidenceMapExportCommand
 from case_docket.application.evidence_map_source import (
     EvidenceMapSourceQuery,
@@ -48,12 +52,14 @@ class _SafeSyntheticHandle:
 
 def _rows(database: Path) -> dict[str, tuple[tuple[object, ...], ...]]:
     with sqlite3.connect(database) as connection:
-        names = [row[0] for row in connection.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
-        )]
+        names = [
+            row[0]
+            for row in connection.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+            )
+        ]
         return {
-            name: tuple(connection.execute(f'SELECT * FROM "{name}"').fetchall())
-            for name in names
+            name: tuple(connection.execute(f'SELECT * FROM "{name}"').fetchall()) for name in names
         }
 
 
@@ -98,9 +104,7 @@ def test_populated_golden_contract_and_allowed_audit_db_diff(tmp_path: Path) -> 
         unit_of_work.commit()
 
     after = _rows(database)
-    changed = {
-        name for name in set(before) | set(after) if before.get(name) != after.get(name)
-    }
+    changed = {name for name in set(before) | set(after) if before.get(name) != after.get(name)}
     assert changed == {"evidence_map_exports"}
 
 
@@ -116,7 +120,7 @@ def test_golden_revision_is_independent_of_order_and_restart(tmp_path: Path) -> 
     assert first.source_revision == reversed_source.source_revision
 
 
-def test_local_smoke_uses_separate_safe_synthetic_handle(tmp_path: Path) -> None:
+def test_synthetic_smoke_uses_separate_safe_handle(tmp_path: Path) -> None:
     handle = _SafeSyntheticHandle(tmp_path)
 
     first = handle.query(page_size=1)
@@ -128,3 +132,60 @@ def test_local_smoke_uses_separate_safe_synthetic_handle(tmp_path: Path) -> None
     assert first.case.case_number is None
     assert all(item.record.proceeding_number is None for item in first.proceedings)
     assert {path.name for path in handle.database.parent.iterdir()} == {"varta.sqlite3"}
+
+
+@pytest.mark.parametrize(
+    ("statements", "message"),
+    [
+        (
+            (
+                "DELETE FROM claim_basis_documents WHERE claim_id = 'claim-a'",
+                "DELETE FROM claim_source_references WHERE claim_id = 'claim-a'",
+            ),
+            "Confirmed claim has no source basis",
+        ),
+        (
+            ("UPDATE claims SET subject_id = 'missing-event' WHERE id = 'claim-a'",),
+            "Broken reference in claim claim-a subject",
+        ),
+        (
+            ("UPDATE evidence_relations SET to_id = 'missing-claim' WHERE id = 'relation-a'",),
+            "Broken reference in relation relation-a to endpoint",
+        ),
+        (
+            (
+                "UPDATE source_references SET source_entity_id = 'missing-document' "
+                "WHERE id = 'source-a'",
+            ),
+            "Broken reference in source reference source-a entity",
+        ),
+        (
+            ("UPDATE source_references SET source_file_id = 'missing-file' WHERE id = 'source-a'",),
+            "Broken reference in source reference source-a file",
+        ),
+    ],
+)
+def test_consumer_source_rejects_missing_basis_and_broken_references(
+    tmp_path: Path,
+    statements: tuple[str, ...],
+    message: str,
+) -> None:
+    database = tmp_path / "r04-negative.sqlite3"
+    _seed_database(database)
+    with sqlite3.connect(database) as connection:
+        for statement in statements:
+            connection.execute(statement)
+
+    with pytest.raises(EvidenceMapSourceError, match=message):
+        _query(database)
+
+
+def test_sqlite_rejects_unsupported_consumer_classification(tmp_path: Path) -> None:
+    database = tmp_path / "r04-classification.sqlite3"
+    _seed_database(database)
+
+    with sqlite3.connect(database) as connection:
+        with pytest.raises(sqlite3.IntegrityError):
+            connection.execute(
+                "UPDATE claims SET classification = 'unsupported' WHERE id = 'claim-a'"
+            )

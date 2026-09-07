@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Generic, Protocol, TypeVar
@@ -27,6 +27,18 @@ from .workspace_ports import WorkspaceCaseRecord, WorkspaceProceedingRecord
 type JsonValue = None | bool | int | float | str | list["JsonValue"] | dict[str, "JsonValue"]
 
 _EXPORT_PROFILES = frozenset({"full_local", "redacted", "metadata_only"})
+_CLASSIFICATIONS = frozenset(
+    {
+        "confirmed_fact",
+        "party_position",
+        "user_position",
+        "court_reasoning",
+        "legal_conclusion",
+        "contradiction",
+        "open_question",
+        "unverified",
+    }
+)
 _TIMESTAMP_FIELDS = frozenset(
     {
         "activated_at",
@@ -234,6 +246,16 @@ class EvidenceMapSourceQueryService:
             self._ports.list_exclusions, case_id, request.page_size, "exclusions"
         )
 
+        self._validate_consumer_graph(
+            case_id=case_id,
+            proceedings=proceedings,
+            files=files,
+            evidence=evidence,
+            reviews=reviews,
+            findings=findings,
+            exclusions=exclusions,
+        )
+
         source_payload = {
             "case": case,
             "profile": profile,
@@ -312,6 +334,242 @@ class EvidenceMapSourceQueryService:
         for value in values:
             if value.case_id != case_id:
                 raise EvidenceMapSourceError(f"{component} provider returned another case")
+
+    @classmethod
+    def _validate_consumer_graph(
+        cls,
+        *,
+        case_id: str,
+        proceedings: tuple[CaseScopedSourceItem[WorkspaceProceedingRecord], ...],
+        files: tuple[CaseScopedSourceItem[ManagedFileRecord], ...],
+        evidence: EvidenceMapEvidenceDTO,
+        reviews: tuple[CaseScopedSourceItem[ReviewDecisionRecord], ...],
+        findings: tuple[CaseScopedSourceItem[FindingRecord], ...],
+        exclusions: tuple[CaseScopedSourceItem[EvidenceMapExclusionDTO], ...],
+    ) -> None:
+        known = {
+            "case": {case_id},
+            "proceeding": cls._unique_ids(
+                "proceedings", (item.record.proceeding_id for item in proceedings)
+            ),
+            "file": cls._unique_ids("files", (item.record.file_id for item in files)),
+            "actor": cls._unique_ids("actors", (item.record.actor_id for item in evidence.actors)),
+            "document": cls._unique_ids(
+                "documents", (item.record.document_id for item in evidence.documents)
+            ),
+            "event": cls._unique_ids("events", (item.record.event_id for item in evidence.events)),
+            "source_reference": cls._unique_ids(
+                "source_references",
+                (item.record.source_reference_id for item in evidence.source_references),
+            ),
+            "claim": cls._unique_ids("claims", (item.record.claim_id for item in evidence.claims)),
+            "relation": cls._unique_ids(
+                "relations", (item.record.relation_id for item in evidence.relations)
+            ),
+            "finding": cls._unique_ids("findings", (item.record.finding_id for item in findings)),
+        }
+        review_ids = cls._unique_ids("reviews", (item.record.decision_id for item in reviews))
+
+        for item in evidence.source_references:
+            source = item.record
+            if source.source_entity_type != "manual_note":
+                cls._require_reference(
+                    known,
+                    source.source_entity_type,
+                    source.source_entity_id,
+                    f"source reference {source.source_reference_id} entity",
+                )
+            if source.source_file_id is not None:
+                cls._require_reference(
+                    known,
+                    "file",
+                    source.source_file_id,
+                    f"source reference {source.source_reference_id} file",
+                )
+
+        for item in evidence.claims:
+            claim = item.record
+            cls._require_classification(claim.classification, f"claim {claim.claim_id}")
+            cls._require_reference(
+                known, claim.subject_type, claim.subject_id, f"claim {claim.claim_id} subject"
+            )
+            cls._require_ids(known, "actor", claim.asserted_by_actor_ids, f"claim {claim.claim_id}")
+            cls._require_ids(known, "document", claim.basis_document_ids, f"claim {claim.claim_id}")
+            cls._require_ids(
+                known,
+                "source_reference",
+                claim.source_reference_ids,
+                f"claim {claim.claim_id}",
+            )
+            cls._require_review_ids(
+                review_ids, claim.review_decision_ids, f"claim {claim.claim_id}"
+            )
+            if (
+                claim.classification == "confirmed_fact"
+                and not claim.basis_document_ids
+                and not claim.source_reference_ids
+            ):
+                raise EvidenceMapSourceError(
+                    f"Confirmed claim has no source basis: {claim.claim_id}"
+                )
+
+        for item in evidence.relations:
+            relation = item.record
+            cls._require_classification(relation.classification, f"relation {relation.relation_id}")
+            cls._require_reference(
+                known,
+                relation.from_type,
+                relation.from_id,
+                f"relation {relation.relation_id} from endpoint",
+            )
+            cls._require_reference(
+                known,
+                relation.to_type,
+                relation.to_id,
+                f"relation {relation.relation_id} to endpoint",
+            )
+            cls._require_ids(
+                known, "document", relation.basis_document_ids, f"relation {relation.relation_id}"
+            )
+            cls._require_ids(
+                known,
+                "source_reference",
+                relation.source_reference_ids,
+                f"relation {relation.relation_id}",
+            )
+            cls._require_review_ids(
+                review_ids, relation.review_decision_ids, f"relation {relation.relation_id}"
+            )
+            if (
+                relation.classification == "confirmed_fact"
+                and not relation.basis_document_ids
+                and not relation.source_reference_ids
+            ):
+                raise EvidenceMapSourceError(
+                    f"Confirmed relation has no source basis: {relation.relation_id}"
+                )
+
+        for item in evidence.documents:
+            document = item.record
+            cls._require_classification(document.classification, f"document {document.document_id}")
+            cls._require_ids(known, "file", document.file_ids, f"document {document.document_id}")
+            cls._require_ids(known, "actor", document.actor_ids, f"document {document.document_id}")
+            cls._require_ids(known, "event", document.event_ids, f"document {document.document_id}")
+            cls._require_ids(
+                known,
+                "document",
+                document.attachment_document_ids,
+                f"document {document.document_id}",
+            )
+            cls._require_ids(known, "claim", document.claim_ids, f"document {document.document_id}")
+            cls._require_ids(
+                known, "relation", document.relation_ids, f"document {document.document_id}"
+            )
+            cls._require_ids(
+                known,
+                "source_reference",
+                document.source_reference_ids,
+                f"document {document.document_id}",
+            )
+
+        for item in evidence.events:
+            event = item.record
+            cls._require_classification(event.classification, f"event {event.event_id}")
+            cls._require_ids(known, "actor", event.actor_ids, f"event {event.event_id}")
+            cls._require_ids(known, "document", event.document_ids, f"event {event.event_id}")
+            cls._require_ids(known, "claim", event.claim_ids, f"event {event.event_id}")
+            cls._require_ids(known, "relation", event.relation_ids, f"event {event.event_id}")
+            cls._require_ids(
+                known,
+                "source_reference",
+                event.source_reference_ids,
+                f"event {event.event_id}",
+            )
+
+        for item in reviews:
+            review = item.record
+            cls._require_reference(
+                known,
+                review.subject_type,
+                review.subject_id,
+                f"review {review.decision_id} subject",
+            )
+            cls._require_ids(
+                known,
+                "source_reference",
+                review.source_reference_ids,
+                f"review {review.decision_id}",
+            )
+
+        for item in findings:
+            finding = item.record
+            for subject in finding.subjects:
+                cls._require_reference(
+                    known,
+                    subject.entity_type,
+                    subject.entity_id,
+                    f"finding {finding.finding_id} subject",
+                )
+            cls._require_ids(
+                known,
+                "source_reference",
+                finding.source_reference_ids,
+                f"finding {finding.finding_id}",
+            )
+            cls._require_review_ids(
+                review_ids, finding.review_decision_ids, f"finding {finding.finding_id}"
+            )
+
+        for item in exclusions:
+            exclusion = item.record
+            cls._require_reference(
+                known,
+                exclusion.entity_type,
+                exclusion.entity_id,
+                f"exclusion {exclusion.entity_type}:{exclusion.entity_id}",
+            )
+            cls._require_ids(
+                known,
+                "source_reference",
+                exclusion.source_reference_ids,
+                f"exclusion {exclusion.entity_type}:{exclusion.entity_id}",
+            )
+
+    @staticmethod
+    def _unique_ids(component: str, values: Iterable[str]) -> set[str]:
+        identifiers = tuple(values)
+        if len(identifiers) != len(set(identifiers)):
+            raise EvidenceMapSourceError(f"{component} provider returned duplicate IDs")
+        return set(identifiers)
+
+    @staticmethod
+    def _require_classification(value: str, context: str) -> None:
+        if value not in _CLASSIFICATIONS:
+            raise EvidenceMapSourceError(f"Unsupported classification in {context}")
+
+    @staticmethod
+    def _require_reference(
+        known: Mapping[str, set[str]], entity_type: str, entity_id: str, context: str
+    ) -> None:
+        if entity_id not in known.get(entity_type, set()):
+            raise EvidenceMapSourceError(f"Broken reference in {context}")
+
+    @classmethod
+    def _require_ids(
+        cls,
+        known: Mapping[str, set[str]],
+        entity_type: str,
+        identifiers: tuple[str, ...],
+        context: str,
+    ) -> None:
+        for identifier in identifiers:
+            cls._require_reference(known, entity_type, identifier, context)
+
+    @staticmethod
+    def _require_review_ids(known: set[str], identifiers: tuple[str, ...], context: str) -> None:
+        for identifier in identifiers:
+            if identifier not in known:
+                raise EvidenceMapSourceError(f"Broken review reference in {context}")
 
     @staticmethod
     def _required_text(value: str, field_name: str) -> str:

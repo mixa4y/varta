@@ -12,26 +12,38 @@ R04 доводить populated synthetic SQLite → application queries →
   restart і insertion-order independence.
 - `tests/test_r04_consumer_readiness.py`: golden contract, populated counts,
   revision/data-cutoff read-back та точний DB diff; після valid audit змінюється
-  лише `evidence_map_exports`. Окремий test-only handle
+  лише `evidence_map_exports`; source boundary блокує missing source basis,
+  broken subject/endpoint/source/file references, а SQLite відхиляє unsupported
+  classifications. Окремий test-only handle
   `synthetic://r04/consumer-readiness/v1` створює ізольовану тимчасову SQLite,
-  не приймає шлях або case ID реальної справи та виконує фінальний local smoke
+  не приймає шлях або case ID реальної справи та перевіряє synthetic restart
   через новий `SQLiteUnitOfWorkFactory` без generated case artifacts.
 - `tests/test_evidence_map_export_r03.py`: valid audit restart, idempotency,
   hash conflict і invalid-hash rollback.
 
-Усі значення fixture є synthetic. Фінальний local smoke використовує тільки
-окремий safe synthetic handle; реальні case roots не читаються, їхні значення
-не логуються, а generated artifacts не створюються.
+Усі значення fixture є synthetic. Матеріалізація фактичної справи з повної
+Airtable base та immutable local corpus не є consumer-contract gate R04: її
+виділено в окремий R05, де real-case values, paths і local SQLite залишаються
+поза Git.
 
 ## Поточна перевірка
 
-- R02/R03/R04 targeted matrix: `12 passed`.
-- Повний pytest suite: `233 passed`.
-- Ruff для `case_docket`/`tests`, compileall та `git diff --check`: passed.
-- Privacy/path scan: case-specific values, user paths і secrets не знайдені.
+- Професійний перепрогін 2026-09-07 дав актуальні результати: R04 golden
+  contract — `9 passed`; R01 profile prerequisite — `4 passed`; R02 source
+  prerequisite — `6 passed`; R03 export-audit prerequisite — `13 passed`.
+- Ruff lint, Ruff format-check, mypy та compileall пройдені окремими
+  checkpoints §3.7. Historical Luna/low результати не використовуються як
+  transition evidence.
+- Synthetic restart перевірений через окремий safe handle; реальну database не
+  створювали й не використовували як прихований prerequisite readiness gate.
+- Повний authorized Airtable/corpus → SQLite import, reconciliation і real-case
+  restart smoke передані R05; жодні case values, paths або artifacts не записані
+  до report чи Git-owned fixtures.
 
 ## Gate
 
-R04 TECH PASS є обґрунтованим лише після targeted/full test run, privacy/path
-scan і `git diff --check`. Git checkpoint, commit, push та C11 unlock не є
-частиною цього turn.
+R04 transition gate закритий повним synthetic SQLite/application consumer
+contract: pagination, order independence, source-basis/reference negatives,
+restart та export-audit DB diff підтверджені. Реальна case database належить
+R05 і не блокує C11 consumer readiness. Git checkpoint і push виконуються лише
+за окремою прямою командою.
