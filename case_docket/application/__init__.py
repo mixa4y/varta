@@ -43,7 +43,6 @@ from .evidence import (
     SourceReferenceDTO,
     TimelineItemDTO,
 )
-from .evidence_map import EvidenceMapProjectionError, EvidenceMapProjectionService
 from .evidence_map_export import (
     EvidenceMapExportAudit,
     EvidenceMapExportAuditError,
@@ -234,8 +233,6 @@ __all__ = [
     "EvidenceRelationRecord",
     "EvidenceRepositoryPort",
     "EvidenceService",
-    "EvidenceMapProjectionError",
-    "EvidenceMapProjectionService",
     "EvidenceMapExportAudit",
     "EvidenceMapExportAuditError",
     "EvidenceMapExportAuditPort",
