@@ -370,8 +370,8 @@ class EvidenceMapSourceQueryService:
         }
         review_ids = cls._unique_ids("reviews", (item.record.decision_id for item in reviews))
 
-        for item in evidence.source_references:
-            source = item.record
+        for source_item in evidence.source_references:
+            source = source_item.record
             if source.source_entity_type != "manual_note":
                 cls._require_reference(
                     known,
@@ -387,8 +387,8 @@ class EvidenceMapSourceQueryService:
                     f"source reference {source.source_reference_id} file",
                 )
 
-        for item in evidence.claims:
-            claim = item.record
+        for claim_item in evidence.claims:
+            claim = claim_item.record
             cls._require_classification(claim.classification, f"claim {claim.claim_id}")
             cls._require_reference(
                 known, claim.subject_type, claim.subject_id, f"claim {claim.claim_id} subject"
@@ -413,8 +413,8 @@ class EvidenceMapSourceQueryService:
                     f"Confirmed claim has no source basis: {claim.claim_id}"
                 )
 
-        for item in evidence.relations:
-            relation = item.record
+        for relation_item in evidence.relations:
+            relation = relation_item.record
             cls._require_classification(relation.classification, f"relation {relation.relation_id}")
             cls._require_reference(
                 known,
@@ -449,8 +449,8 @@ class EvidenceMapSourceQueryService:
                     f"Confirmed relation has no source basis: {relation.relation_id}"
                 )
 
-        for item in evidence.documents:
-            document = item.record
+        for document_item in evidence.documents:
+            document = document_item.record
             cls._require_classification(document.classification, f"document {document.document_id}")
             cls._require_ids(known, "file", document.file_ids, f"document {document.document_id}")
             cls._require_ids(known, "actor", document.actor_ids, f"document {document.document_id}")
@@ -472,8 +472,8 @@ class EvidenceMapSourceQueryService:
                 f"document {document.document_id}",
             )
 
-        for item in evidence.events:
-            event = item.record
+        for event_item in evidence.events:
+            event = event_item.record
             cls._require_classification(event.classification, f"event {event.event_id}")
             cls._require_ids(known, "actor", event.actor_ids, f"event {event.event_id}")
             cls._require_ids(known, "document", event.document_ids, f"event {event.event_id}")
@@ -486,8 +486,8 @@ class EvidenceMapSourceQueryService:
                 f"event {event.event_id}",
             )
 
-        for item in reviews:
-            review = item.record
+        for review_item in reviews:
+            review = review_item.record
             cls._require_reference(
                 known,
                 review.subject_type,
@@ -501,8 +501,8 @@ class EvidenceMapSourceQueryService:
                 f"review {review.decision_id}",
             )
 
-        for item in findings:
-            finding = item.record
+        for finding_item in findings:
+            finding = finding_item.record
             for subject in finding.subjects:
                 cls._require_reference(
                     known,
@@ -520,8 +520,8 @@ class EvidenceMapSourceQueryService:
                 review_ids, finding.review_decision_ids, f"finding {finding.finding_id}"
             )
 
-        for item in exclusions:
-            exclusion = item.record
+        for exclusion_item in exclusions:
+            exclusion = exclusion_item.record
             cls._require_reference(
                 known,
                 exclusion.entity_type,

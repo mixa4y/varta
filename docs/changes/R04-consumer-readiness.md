@@ -28,12 +28,14 @@ Airtable base та immutable local corpus не є consumer-contract gate R04: ї
 
 ## Поточна перевірка
 
-- Професійний перепрогін 2026-09-07 дав актуальні результати: R04 golden
+- Професійний перепрогін 2026-09-08 дав актуальні результати: R04 golden
   contract — `9 passed`; R01 profile prerequisite — `4 passed`; R02 source
   prerequisite — `6 passed`; R03 export-audit prerequisite — `13 passed`.
-- Ruff lint, Ruff format-check, mypy та compileall пройдені окремими
-  checkpoints §3.7. Historical Luna/low результати не використовуються як
-  transition evidence.
+- Fresh mypy виявив reuse однієї loop-variable між heterogeneous
+  `CaseScopedSourceItem[T]`; type-specific renames усунули defect без зміни
+  runtime logic. Exact-scope mypy, повторні R04/R02 tests, Ruff lint,
+  Ruff format-check і compileall пройдені окремими checkpoints §3.7.
+  Historical Luna/low результати не використовуються як transition evidence.
 - Synthetic restart перевірений через окремий safe handle; реальну database не
   створювали й не використовували як прихований prerequisite readiness gate.
 - Повний authorized Airtable/corpus → SQLite import, reconciliation і real-case
