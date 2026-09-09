@@ -70,10 +70,10 @@ def test_fresh_database_reaches_scoped_schema_ceiling(tmp_path: Path) -> None:
     migrations = MigrationRunner(repository._conn).discover()
 
     assert APPLICATION_SCHEMA_FLOOR == 2
-    assert APPLICATION_SCHEMA_CEILING == 12
+    assert APPLICATION_SCHEMA_CEILING == 13
     assert compatibility.current_version == APPLICATION_SCHEMA_CEILING
     assert compatibility.pending_versions == ()
-    assert [migration.version for migration in migrations] == list(range(1, 13))
+    assert [migration.version for migration in migrations] == list(range(1, 14))
     assert [migration.scope for migration in migrations] == [
         "legacy",
         "evidence",
@@ -85,6 +85,7 @@ def test_fresh_database_reaches_scoped_schema_ceiling(tmp_path: Path) -> None:
         "intake",
         "case",
         "evidence",
+        "system",
         "system",
         "system",
     ]
