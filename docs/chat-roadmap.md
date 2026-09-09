@@ -109,11 +109,17 @@ commit, push, publication, release або remote changes.
 Для кожного package `Cxx` controller створює рівно один постійний Codex
 task/chat. Повторний запуск після blocker, помилки або interruption, а також
 GitHub checkpoint є новими turns у цьому самому чаті й не створюють дублікати.
+Ручний model-select перепрогін завершеного package також створює лише новий
+turn у цьому самому чаті. Новий task для перепрогону заборонений.
 Чат не починає наступний package через те, що залишився час або контекст. Якщо
 виявлено blocker, він документує його, виконує всі безпечні перевірки у своєму
 scope і передає handoff, не маскуючи `PARTIAL` як `DONE`.
 
-### 3.2. Обов'язковий старт кожного чату
+### 3.2. Перший старт серії та подальше продовження
+
+Наведений початковий inventory виконується на першому старті серії package.
+Для продовження після ліміту чи переривання застосовувати розділ 3.7: звірити
+checkpoint та зміни, зберегти чинні результати й почати з потрібного кроку.
 
 1. Прочитати `AGENTS.md`, `PROJECT_STATUS.md`, `docs/action-algorithm.md` і цей
    roadmap.
@@ -141,8 +147,11 @@ scope і передає handoff, не маскуючи `PARTIAL` як `DONE`.
 Звичайний stage task не виконує commit, push, PR, release або remote changes.
 Після технічного `PASS` користувач окремо натискає **GitHub checkpoint**; саме
 ця підтверджена дія є вузькою прямою командою на audit, exact staging, commit,
-push у приватну `codex/*` branch і створення/оновлення Draft PR. Merge, tag,
-release, force-push і зміна visibility цим не дозволяються.
+push у `codex/*` branch публічного `mixa4y/varta` і створення/оновлення Draft
+PR. Merge, tag, release, force-push і зміна visibility цим не дозволяються.
+Оскільки repository є `PUBLIC`, privacy/secret/case-data audit обов'язковий до
+кожного push; реальні матеріали справ і real acceptance corpus до Git не
+входять.
 
 ### 3.4. Двофазний stage gate
 
@@ -164,11 +173,13 @@ TECH RUN
 
 `TECH PASS` означає, що scope і тести етапу пройдені, але GitHub ще не
 оновлено. `GITHUB SYNCED` означає, що controller отримав валідний
-`VARTA_GIT_RESULT`: repository повторно підтверджено як `PRIVATE`, commit є на
+`VARTA_GIT_RESULT`: repository повторно підтверджено як `PUBLIC`, commit є на
 `origin`, branch має префікс `codex/`, а Draft PR існує. Локальний commit без
 push, push без перевірки remote або PR без підтвердженого commit не є synced.
 Controller не покладається лише на звіт Git turn: він read-only повторно
-звіряє local HEAD, `ls-remote`, private repository metadata і Draft PR head SHA.
+звіряє local HEAD, `ls-remote`, public repository metadata і Draft PR head SHA.
+Історичні C01–C08 checkpoint records із `PRIVATE` зберігають стан на момент їх
+виконання й не є твердженням про поточну visibility.
 
 ### 3.5. Статуси
 
@@ -178,6 +189,7 @@ Controller не покладається лише на звіт Git turn: він
 | `PARTIAL`             | частина реалізації є, але end-to-end gate не пройдено      |
 | `PLANNED`             | scope визначено, але prerequisite ще не завершено          |
 | `BLOCKED_BY_DECISION` | код передчасний до формального ADR/вибору                  |
+| `BLOCKED_BY_R04` | Історичний transition status C11 до завершення `R01`–`R04` |
 | `DONE`                | scope, tests, runtime evidence і документація підтверджені |
 
 ### 3.6. Керовані кнопки й автоматичний status
@@ -191,6 +203,10 @@ Controller не покладається лише на звіт Git turn: він
 - **Зупинити turn** — штатно перервати активне виконання;
 - **Скопіювати повний prompt** — отримати canonical machine prompt;
 - **Скопіювати Task ID** — звірити створений task у Codex project history.
+- **Перепрогнати на Sol 5.6** — після `TECH PASS` вибрати доступну модель і
+  reasoning effort та повторно виконати повний technical gate у тому самому
+  task. За замовчуванням controller використовує `gpt-5.6-sol` / `high`;
+  попередній Git checkpoint переноситься в history і має бути виконаний знову;
 - **GitHub checkpoint у цьому чаті** — після `TECH PASS` запустити новий turn у
   постійному package chat для privacy/ownership audit, exact staging, commit,
   push і Draft PR;
@@ -203,7 +219,12 @@ Controller не покладається лише на звіт Git turn: він
 валідного `VARTA_STAGE_RESULT` або `VARTA_GIT_RESULT`. Loopback UI оновлює ці
 дані щосекунди.
 
-Planning status (`READY/PARTIAL/PLANNED/BLOCKED_BY_DECISION`) не
+У summary кожного `Cxx`/`Rxx`/`Pxx` controller окремо показує модель і reasoning
+effort останнього фактичного technical turn. Для ще не запущеного package
+показується `PLAN`, а коли старе session metadata не відновлюється —
+`MODEL · НЕВІДОМО`; default ніколи не видається за історичний факт.
+
+Planning status (`READY/PARTIAL/PLANNED/BLOCKED_BY_DECISION/BLOCKED_BY_R04`) не
 перезаписується execution status. Окремо відображаються `not_started`,
 `starting`, `running`, `waiting`, `completed`, `blocked`, `failed`,
 `interrupted` і `needs_review`. Git lifecycle відображається окремо:
@@ -213,26 +234,168 @@ Planning status (`READY/PARTIAL/PLANNED/BLOCKED_BY_DECISION`) не
 Залежності повторно перевіряє localhost server. Наступний package не
 розблоковується лише тому, що Codex завершив генерацію: потрібен валідний
 structured result, фактичні tests і `outcome=passed`; після цього prerequisite
-вважається виконаним лише за `GITHUB SYNCED`. Одночасно в спільному `D:\VARTA`
-запускається лише один stage або Git turn. Детальний operation/security
-contract: `docs/roadmap-controller.md`.
+вважається виконаним лише за `GITHUB SYNCED`. Core-пакети залишаються
+послідовними, а кожний `Pxx` стає доступним одразу після власних dependencies,
+не чекаючи наступного `Cxx`. Одночасно в спільному `D:\VARTA` запускається лише
+один stage або Git turn. Детальний operation/security contract:
+`docs/roadmap-controller.md`.
+
+### 3.7. Єдина серія Cxx і продовження після ліміту
+
+**Обов'язкова вимога: серія кожного конкретного Cxx рахується від його
+першого фактичного старту. Вичерпання ліміту, пауза, новий turn, зміна моделі
+або перезапуск controller не починають нову серію і не обнуляють виконане.**
+Це правило також застосовується до Rxx/Pxx. Усі спроби, коригувальні
+перепрогони та Git checkpoint залишаються частинами серії свого package в
+одному канонічному task. TECH PASS і GITHUB SYNCED залишаються окремими gates.
+
+#### Облік від першого старту
+
+- Зберігати сталий `series_id`, `stage_id`, канонічний `thread_id` і
+  `series_started_at` першого підтвердженого запуску. Нові `turn_id` та номери
+  спроб додаються до цієї серії; її початок не замінюється початком resume.
+- Для вже розпочатого package відновити початок із наявної історії. Якщо
+  доказу немає, позначити його як невідомий, а не вигадувати нову дату старту.
+- Час від старту, активний час роботи та час очікування ліміту обліковувати
+  окремо. Пауза не обнуляє накопичені дії, результати або облік витрат серії.
+- Токени/витрати сумувати лише з доступних package-scoped записів усіх turns.
+  Зміна загальноакаунтної квоти не доводить витрат конкретного Cxx; відсутній
+  точний облік позначати як невідомий. Відсоток прогресу не є витратою квоти
+  або прогнозом часу.
+
+#### Контрольна точка після кожного завершеного кроку
+
+Агент веде короткий локальний журнал у
+`.varta/roadmap-controller/checkpoints/Cxx.md` (з фактичним ID package).
+Журнал зберігається поза Git, без матеріалів справ і секретів. Оновлювати його
+після кожної змістовної успішної дії або завершеної перевірки, не чекаючи
+наближення ліміту. Запис робити через тимчасовий файл та atomic replace,
+зберігаючи історію попередніх записів у журналі.
+
+Журнал повинен містити:
+
+- ідентичність серії, перший старт, поточний turn і час останнього запису;
+- впорядкований список обов'язкових кроків зі сталими IDs та статусами
+  `pending`, `running`, `passed`, `failed`, `interrupted`, `invalidated`;
+- для виконаної дії — конкретний результат або шлях до створеного артефакту;
+- для перевірки — точну команду, робочий каталог, фактичний набір тестів,
+  параметри/виключення з обґрунтуванням, час завершення, exit code і шлях до
+  короткого збереженого результату;
+- branch/HEAD, exact scope і SHA-256 перевірених файлів, тестів, конфігурації
+  та релевантних залежностей; для dirty tree одного HEAD недостатньо;
+- релевантні версії середовища, міграції, dependency/lockfile fingerprint та
+  інші входи, від яких залежить результат;
+- останній успішний крок, усі незакриті/неактуальні кроки та точну команду
+  для першого наступного кроку; незавершений процес позначати окремо.
+
+Частковий pytest output, відсоток у UI або відсутність повідомлень про помилку
+не є доказом успішної перевірки. Різні завершені перевірки можна накопичувати
+між turns цієї серії, якщо їхні докази залишаються чинними для фінального стану.
+Кожна незалежно виконувана перевірка отримує окремий сталий `step_id`, одну
+точну команду та власні fingerprints. Не об'єднувати pytest, browser smoke,
+Ruff, mypy, compileall, privacy або diff gates в один checkpoint: після failure
+повторюються лише `failed`, `interrupted`, `invalidated` або відсутні gates.
+Mandatory gate охоплює stage-owned scope, prerequisites і прямо зачеплені
+спільні contracts. Перевірки пізніших/downstream packages не запускаються та не
+виправляються наперед. Випадково виявлений foreign failure фіксується окремо й
+не блокує поточний package без доведеного causal link до його exact diff.
+
+#### Старт перевірки з конкретного етапу
+
+**Після відновлення квоти дозволено й потрібно продовжувати перевірки з
+конкретного незавершеного етапу після останнього чинного успішного кроку,
+без повторного запуску всієї серії від старту.** Якщо раніше залишився failed
+або invalidated крок, починати з першого такого обов'язкового кроку: пізніший
+успішний результат не дозволяє його пропустити.
+
+1. Прочитати коротку контрольну точку та актуальний scope. Перечитувати повні
+   правила/історію лише за відсутності попереднього контексту, їх зміни або
+   потреби розв'язати конкретну суперечність; доступні актуальні обов'язкові
+   інструкції все одно виконуються.
+2. Звірити канонічний task і фактичний активний turn/процес. Якщо попередня
+   команда ще працює, отримати її результат; не запускати другий writer або
+   дубль перевірки. За суперечливого статусу спочатку встановити фактичний стан.
+3. Порівняти fingerprints і збережені докази. Залишити `passed` лише для
+   перевірок з незмінними релевантними входами та завершеним результатом.
+4. При зміні коду, тестів, конфігурації, міграцій чи залежностей позначити
+   `invalidated` саме залежні перевірки. За невідомого впливу повторити весь
+   потенційно зачеплений набір; за відсутності доказу повторити відповідну
+   перевірку. Записати конкретну причину повтору.
+5. Запустити перший незавершений/неактуальний обов'язковий крок і далі
+   продовжити лише потрібні незакриті gates. Самі по собі ліміт, новий turn або
+   нова модель не є причиною повторювати завершені дії чи всі тести.
+6. Перед TECH PASS звірити повний перелік обов'язкових gates із фінальним
+   станом. Чинні докази попередніх turns дозволені; failed, interrupted,
+   invalidated або відсутній обов'язковий результат забороняють PASS.
+   Live/privacy/publication перевірки повторювати тоді, коли їхня вимога
+   вимагає актуального read-back. Усі дозволи на Git writes залишаються чинними
+   лише у своїх погоджених межах; продовження не надає нового дозволу.
+
+Приклад: у поточній серії реалізація, focused tests, regression і Ruff
+завершені та мають незмінні перевірені входи. Ліміт перервав mypy. Продовження
+починається з mypy; далі виконуються решта обов'язкових gates. Якщо виправлення
+mypy змінює виконуваний код, повторюються також залежні тести.
+
+Текст для продовження у тому самому task:
+
+> Продовж Cxx у тій самій серії від її першого старту. Прочитай локальний
+> checkpoint, звір докази та релевантні зміни. Почни з кроку <step_id>, якщо
+> всі попередні обов'язкові кроки залишаються чинними; інакше — з першого
+> незакритого або invalidated кроку. Не повторюй незмінені успішні перевірки
+> лише через вичерпання ліміту чи новий turn. Збережи результати продовження.
+
+#### Економне завершення серії
+
+- Огляд контракту й узгодження основної логіки виконувати до широкої
+  regression-перевірки. Після виправлення спочатку запускати відповідний
+  focused test, потім обов'язковий залежний набір.
+- Не розширювати scope на сторонній package заради загального зеленого
+  результату. Відомі сторонні збої документувати; виключення не підміняють
+  обов'язковий gate і потребують доказу незалежності від поточних змін.
+- Не запускати повну матрицю повторно без зміни її входів, нового failure,
+  неповного доказу або прямої вимоги актуальної перевірки. Після закриття
+  всіх gates завершити package без необов'язкових покращень.
+- Для статусу читати компактний checkpoint/останній marker, а повний журнал
+  відкривати лише для конкретної діагностики. Не створювати новий turn у
+  активній задачі тільки для запиту статусу.
+- Пауза через ліміт фіксується як причина переривання/очікування, з точним
+  наступним кроком. Автоматичне пробудження та зміна моделі/effort потребують
+  відповідного налаштування або команди користувача.
+
+Controller реалізує ці вимоги для всіх Cxx/Rxx/Pxx: зберігає series identity,
+приймає structured checkpoints, рахує fingerprints exact inputs, інвалідує
+залежні докази та блокує TECH PASS за незакритих checkpoints. Кнопка **Огляд
+контракту** запускає ранній read-only review turn до великих тестів.
+
+TECH/Git turns, виконані профілем `gpt-5.6-luna · low`, не вважаються
+професійним transition gate. Такий package повторно проходить contract review,
+повний TECH gate на `gpt-5.6-sol · high` або сильнішому дозволеному профілі та
+окремий Git checkpoint. Для чинного ланцюга порядок recheck: `R01` → `R02` →
+`R03` → `R04` → `R05` → `C11`; залежні Cxx не стартують до відновлення synced gates.
+`R05` є окремим local-data package після `R04`: він будує реальну SQLite,
+але не підміняє synthetic consumer gate і не блокує C11.
 
 ## 4. Карта чатів і залежностей
 
 | ID    | Тема нового чату                                             | Product stage          | Поточний стан         | Prerequisite                          |
 | ----- | ------------------------------------------------------------ | ---------------------- | --------------------- | ------------------------------------- |
-| `C01` | Підготувати поточні напрацювання до контрольованого baseline | `A0`                   | `DONE`                | —                                     |
-| `C02` | Затвердити цільову local-web архітектуру та ADR-пакет        | `A1`                   | `DONE`                | `C01`                                 |
-| `C03` | Створити application layer і versioned API boundary          | `A1` , foundation `A8` | `READY`               | `C02`                                 |
-| `C04` | Завершити SQLite lifecycle, Unit of Work і migration gates   | `A2`                   | `PARTIAL`             | `C03`                                 |
-| `C05` | Реалізувати managed storage та immutable originals           | `A3`                   | `PARTIAL`             | `C02` , `C04`                         |
-| `C06` | Реалізувати intake vertical slice до SQLite                  | `A3`                   | `PARTIAL`             | `C05`                                 |
-| `C07` | Реалізувати workspace, case bootstrap та active case         | `A4`                   | `PLANNED`             | `C06`                                 |
-| `C08` | Завершити evidence-domain services і invariants              | `A5`                   | `PARTIAL`             | `C04` , `C07`                         |
-| `C09` | Побудувати read-only legacy XLSX/.caseflow adapter           | `A6`                   | `PLANNED`             | `C08`                                 |
-| `C10` | Запровадити durable processing jobs і plugin contract        | foundation `A10`       | `PARTIAL`             | `C06` , `C08`                         |
-| `C11` | Побудувати детерміновану Evidence Map projection             | `A7`                   | `BLOCKED_BY_DECISION` | `C08`                                 |
-| `C12` | Перевести local web UI на application services               | `A8`                   | `PARTIAL`             | `C03` , `C06` , `C07` , `C08` , `C11` |
+| `C01` | Підготувати поточні напрацювання до контрольованого baseline | `A0`                   | `GITHUB SYNCED`       | —                                     |
+| `C02` | Затвердити цільову local-web архітектуру та ADR-пакет        | `A1`                   | `GITHUB SYNCED`       | `C01`                                 |
+| `C03` | Створити application layer і versioned API boundary          | `A1` , foundation `A8` | `GITHUB SYNCED`       | `C02`                                 |
+| `C04` | Завершити SQLite lifecycle, Unit of Work і migration gates   | `A2`                   | `GITHUB SYNCED`       | `C03`                                 |
+| `C05` | Реалізувати managed storage та immutable originals           | `A3`                   | `GITHUB SYNCED`       | `C02` , `C04`                         |
+| `C06` | Реалізувати intake vertical slice до SQLite                  | `A3`                   | `GITHUB SYNCED`       | `C05`                                 |
+| `C07` | Реалізувати workspace, case bootstrap та active case         | `A4`                   | `GITHUB SYNCED`       | `C06`                                 |
+| `C08` | Завершити evidence-domain services і invariants              | `A5`                   | `GITHUB SYNCED`       | `C04` , `C07`                         |
+| `C09` | Побудувати read-only legacy XLSX/.caseflow adapter           | `A6`                   | `GITHUB SYNCED`       | `C08`                                 |
+| `C10` | Запровадити durable processing jobs і plugin contract        | foundation `A10`       | `GITHUB SYNCED`       | `C06` , `C08`                         |
+| `R01` | Реалізувати versioned case profile application flow          | readiness              | `GITHUB SYNCED`       | `C08`                                 |
+| `R02` | Побудувати повний case-scoped Projection Source              | readiness              | `GITHUB SYNCED`       | `R01`                                 |
+| `R03` | Реалізувати Evidence Map export audit persistence            | readiness              | `GITHUB SYNCED`       | `R02`                                 |
+| `R04` | Довести C11 consumer readiness                               | readiness              | `GITHUB SYNCED`       | `R03`                                 |
+| `R05` | Побудувати повну локальну SQLite базу справи                 | local data readiness   | `READY`               | `C09` , `R04`                         |
+| `C11` | Побудувати детерміновану Evidence Map projection             | `A7`                   | `BLOCKED_BY_R05`       | `R05`                                 |
+| `C12` | Перевести local web UI на application services               | `A8`                   | `BLOCKED_BY_C11`             | `C03` , `C06` , `C07` , `C08` , `C11` |
 | `C13` | Завершити review, timeline і source-context workflow         | `A8`                   | `PLANNED`             | `C12`                                 |
 | `C14` | Створити sealed standalone export і validator                | `A9`                   | `PARTIAL`             | `C11` , `C13`                         |
 | `C15` | Довести backup/restore, Windows package та update path       | `A11`                  | `PARTIAL`             | `C04` , `C05` , `C12` , `C14`         |
@@ -242,12 +405,20 @@ contract: `docs/roadmap-controller.md`.
 
 ```text
 C01 -> C02 -> C03 -> C04 -> C05 -> C06 -> C07 -> C08
-     -> C11 -> C12 -> C13 -> C14 -> C15 -> C16
+     -> R01 -> R02 -> R03 -> R04 -> R05 -> C11 -> C12 -> C13 -> C14 -> C15 -> C16
 ```
 
-`C09` і `C10` починаються лише після своїх gates. Спеціалізовані processor
+Після відокремлення R05 обов’язковий порядок: `R04 → R05 → C11 → C12`.
+C11 очікує R05 TECH PASS і GITHUB SYNCED; C12 очікує C11 TECH PASS і GITHUB SYNCED.
+Попередні напрацювання C11/C12 видалено 2026-09-09; історія серій зберігається.
+Наступний critical package — `R05`. Спеціалізовані processor
 чати `P01`–`P04` можуть виконуватися паралельно після `C10`, якщо вони не
 редагують спільні контракти без координації.
+
+У детальних секціях завершених packages нижче початкові проблеми, scope і
+стартові запити збережено як acceptance history. Поточний execution/Git status
+визначають таблиця вище та live roadmap-controller, а не формулювання
+початкового стану всередині package contract.
 
 ## 5. Детальні chat work packages
 
@@ -407,8 +578,7 @@ Controller dependency переходить далі лише після окре
 
 **Тема нового чату:** `VARTA C03 — application services, ports і local API v1`
 
-**Статус:** `READY` після C02 architecture gate; controller ще вимагає
-окремий C02 `GITHUB SYNCED`.
+**Статус:** `GITHUB SYNCED`; commit `94cf2958d0e9045913544fa86688a1c04e377a43`.
 
 ### Що є на цей момент
 
@@ -467,7 +637,7 @@ Controller dependency переходить далі лише після окре
 
 **Тема нового чату:** `VARTA C04 — SQLite transactions, migrations і recovery foundation`
 
-**Статус:** `PARTIAL`
+**Статус:** `GITHUB SYNCED`; commit `3652ae8b05c93d239aa3e0b1eb47f64a8b926aca`.
 
 ### Що є на цей момент
 
@@ -522,7 +692,7 @@ source checkout та installed package.
 
 **Тема нового чату:** `VARTA C05 — immutable originals і кероване файлове сховище`
 
-**Статус:** `PARTIAL`
+**Статус:** `GITHUB SYNCED`; commit `de75ab041b8173b2fba64f06cce6dee374f01533`.
 
 ### Що є на цей момент
 
@@ -580,7 +750,7 @@ source checkout та installed package.
 
 **Тема нового чату:** `VARTA C06 — file, folder і ZIP intake до source of truth`
 
-**Статус:** `PARTIAL`
+**Статус:** `GITHUB SYNCED`; commit `72ff4c9e524dca3b0f11c214ebc99d4d1489d7b0`.
 
 ### Що є на цей момент
 
@@ -635,7 +805,7 @@ source checkout та installed package.
 
 **Тема нового чату:** `VARTA C07 — multi-case workspace і визначення справи`
 
-**Статус:** `PLANNED`
+**Статус:** `GITHUB SYNCED`; commit `1becdce36e8393de713531e4d8fce8baa137e9be`.
 
 ### Що є на цей момент
 
@@ -690,7 +860,7 @@ source checkout та installed package.
 
 **Тема нового чату:** `VARTA C08 — claims, relations, sources і review services`
 
-**Статус:** `PARTIAL`
+**Статус:** `GITHUB SYNCED`; commit `63fd9b6fd0d89180406fb036cedc2131d9ca78b8`.
 
 ### Що є на цей момент
 
@@ -719,7 +889,8 @@ source checkout та installed package.
 - Evidence Map і UI можуть працювати з application API, а не raw tables;
 - ручні рішення відтворювані й не стирають автоматичний висновок;
 - source basis кожного confirmed claim/relation перевіряється;
-- `C11` отримує повну read model.
+- `C11` отримує evidence-domain read model; consumer-ready case profile,
+  files/reviews aggregate, source revision та export audit завершують `R01`–`R04`.
 
 ### Як перевірити
 
@@ -744,7 +915,7 @@ direct SQL у HTTP handlers або projection code.
 
 **Тема нового чату:** `VARTA C09 — контрольована міграція legacy state до SQLite`
 
-**Статус:** `PLANNED`
+**Статус:** `GITHUB SYNCED`; commit `4cd0ff6cd7d8bef51726b451772347f9f0832d43`.
 
 ### Що є на цей момент
 
@@ -798,7 +969,7 @@ direct SQL у HTTP handlers або projection code.
 
 **Тема нового чату:** `VARTA C10 — processing_runs, workers і fault recovery`
 
-**Статус:** `PARTIAL`
+**Статус:** `GITHUB SYNCED`; commit `3af16c99c95da353079eabef9e51f21eb4b1c876`.
 
 ### Що є на цей момент
 
@@ -851,31 +1022,239 @@ direct SQL у HTTP handlers або projection code.
 > provenance. Реальний OCR/КЕП/STT алгоритм не реалізовуй — лише synthetic
 > reference processor і stable plugin API.
 
+## Readiness branch / R01 — Versioned case profile application flow
+
+**Тема нового чату:** `VARTA R01 — versioned case profile application flow`
+
+**Статус:** `GITHUB SYNCED`; commit `1fdb3852e59777ba559a1487ac74430cc1af1643`.
+
+### Проблема
+
+DDL `case_profiles` і JSON Schema існують, але application query для точної
+пари `case_id + profile_version` відсутній. C11 не має права вигадувати default
+version або працювати без перевіреного profile record.
+
+### Що треба зробити
+
+1. Додати `GetCaseProfileQuery`, `CaseProfileDTO`, repository port і UoW.
+2. Реалізувати SQLite adapter поверх наявної таблиці `case_profiles`.
+3. Валідувати profile JSON та розрізняти unknown case, missing profile,
+   missing version і invalid profile.
+4. Гарантувати case isolation та restart/read-back.
+5. Не змінювати generator C11 і не вносити case-specific values у fixtures.
+
+**Transition gate:** `PASS`, коли точна synthetic profile version читається
+після restart через application service, а missing/invalid/cross-case сценарії
+дають явні помилки.
+
+**Стартовий запит:**
+
+> Виконай R01. Реалізуй типізований application/repository flow для точного
+> case_id + profile_version поверх наявних case_profiles і case-profile schema.
+> Додай SQLite restart, case-isolation та missing/invalid-version tests. Не
+> змінюй C11 generator і не використовуй дані реальної справи у fixtures.
+
+## Readiness branch / R02 — Повний case-scoped Projection Source
+
+**Тема нового чату:** `VARTA R02 — complete case-scoped Projection Source`
+
+**Статус:** `GITHUB SYNCED`; commit `5810ba5884bd2f565b01bcb79622fc8b5728c9ee`.
+
+### Проблема
+
+Evidence, workspace, managed files, profiles і review history доступні різними
+шляхами. Немає одного повного typed DTO; optional callbacks і silent empty
+fallback можуть приховати відсутній компонент як нуль даних.
+
+### Що треба зробити
+
+1. Додати `EvidenceMapSourceQuery(case_id, profile_version, export_profile)` і
+   `EvidenceMapSourceDTO` для case/profile/proceedings/files/evidence/reviews/
+   findings/exclusions.
+2. Збирати DTO тільки через application/repository ports, без direct SQL у
+   consumer та без `Any`/optional providers.
+3. Прочитувати всі сторінки, перевіряти case isolation і повну review history.
+4. Обчислювати deterministic `source_revision` з canonical authoritative inputs
+   і `data_cutoff` з persisted timestamps, а не поточного часу.
+5. Не формувати `map-data.json` у цьому stage.
+
+**Transition gate:** `PASS`, коли повний synthetic case одним query читається
+після restart; insertion order/pagination не змінюють source revision, а
+відсутній provider завершується явною помилкою. Mandatory regression scope R02:
+`tests/test_case_profile_r01.py` і `tests/test_evidence_map_source_r02.py`;
+перевірки R03, R04, C11 і C12 до gate R02 не входять.
+
+**Стартовий запит:**
+
+> Виконай R02. Створи типізований EvidenceMapSourceQueryService, який через
+> application ports збирає case/profile/proceedings/files/evidence/reviews/
+> findings без Any, optional callbacks, silent empty fallback або direct SQL у
+> consumer. Додай повну pagination, case isolation, deterministic
+> source_revision і restart tests. Не формуй map-data.json.
+
+## Readiness branch / R03 — Evidence Map export audit persistence
+
+**Тема нового чату:** `VARTA R03 — Evidence Map export audit persistence`
+
+**Статус:** `GITHUB SYNCED`; commit `f93e386d8c4c9a9d2078a2f86e81cc770e1fded4`.
+
+### Проблема
+
+Таблиця `evidence_map_exports` існує, але немає application command/port і
+SQLite repository для дозволеного audit-запису після успішної проєкції.
+
+### Що треба зробити
+
+1. Додати typed `RecordEvidenceMapExportCommand` та audit port.
+2. Реалізувати SQLite adapter поверх чинної таблиці без другої writable truth.
+3. Дозволити `valid` лише після schema/integrity/hash validation.
+4. Довести idempotency за export ID, hash conflict і transaction rollback.
+5. Не змінювати evidence records і не створювати sealed artifacts C14.
+
+**Transition gate:** `PASS`, коли valid audit читається після restart, повтор із
+тим самим ID/hash не дублюється, інший hash дає conflict, а DB diff не містить
+змін поза export audit.
+
+**Стартовий запит:**
+
+> Виконай R03. Реалізуй типізовані command/port та SQLite repository для
+> evidence_map_exports. Записуй valid audit лише після schema/integrity/hash
+> validation, забезпеч idempotency, conflict і transaction rollback. Не
+> змінюй evidence records і не створюй sealed artifacts C14.
+
+## Readiness branch / R04 — C11 consumer readiness gate
+
+**Тема нового чату:** `VARTA R04 — C11 consumer readiness gate`
+
+**Статус:** `GITHUB SYNCED`; commit `24d37dece9e458a733c738bf649357eb9efc662b`.
+
+### Що треба зробити
+
+1. Створити populated synthetic golden source fixture без реальних case values.
+2. Довести SQLite → application queries → `EvidenceMapSourceDTO`, pagination,
+   insertion-order independence, source-basis/reference negatives та restart.
+3. Перевірити export audit success/rollback/idempotency/conflict і дозволений
+   DB diff.
+4. Перевірити privacy, source-basis/reference negatives і точний DB diff без
+   читання або матеріалізації реальної справи.
+5. Сформувати evidence-backed readiness report для profile/source/files/reviews/
+   revision/audit/restart/privacy/consumer contract.
+
+**Transition gate:** `PASS`, а потім `GITHUB SYNCED`, лише коли всі readiness
+capabilities істинні. До цього C11 не запускається. R04 не реалізує сам
+generator C11.
+
+**Стартовий запит:**
+
+> Виконай R04. Доведи повний SQLite → application queries →
+> EvidenceMapSourceDTO contract на populated synthetic golden fixture:
+> pagination, insertion-order independence, negatives, restart і export-audit
+> DB diff. Реальну case database не створюй: її повний Airtable/corpus import
+> належить R05. C11 не реалізовуй; видай evidence-backed readiness report.
+
+## Readiness branch / R05 — Повна локальна SQLite база справи
+
+**Тема нового чату:** `VARTA R05 — authoritative local case SQLite`
+
+**Статус:** `READY`
+
+**Залежності:** `C09`, `R04`.
+
+### Що треба зробити
+
+1. Використати повний read-only snapshot тільки тієї Airtable base, яку
+   користувач явно вибрав через приватний opaque handle; інші bases заборонені.
+2. Зберегти чинну Airtable-модель повністю та розширювати mapping лише
+   адитивно: усі таблиці, записи, поля, choices, formulas, lookups, links,
+   attachments IDs і provenance мають бути враховані або явно reconciled.
+3. Проіндексувати authorized local corpus без зміни, переміщення чи
+   перейменування originals; у SQLite зберігати hashes, metadata, provenance і
+   source references, а не дублювати матеріали як blobs.
+4. Матеріалізувати case, versioned case profile, files/documents/events/actors,
+   claims, source references, review decisions і evidence relations через
+   application/repository boundaries.
+5. Дати exact counts, unresolved/reconciliation report, idempotent повторний
+   import, SQLite restart/read-back, backup check і privacy gate. Реальна DB,
+   case IDs, records, user paths, logs і generated case maps не входять у
+   Git; code fixtures залишаються synthetic. Base ID дозволено в catalog/mapping
+   як явно погоджений виняток; він не є секретом або дозволом доступу до base.
+
+### Узгоджений контракт R05 (2026-09-08)
+
+- Base ID у catalog/mapping дозволений користувачем. Вибір єдиної base і
+  перевірка exact binding залишаються обов'язковими; наявність ID не замінює
+  авторизацію джерела. PAT/OAuth credentials та приватні дані не входять у Git.
+- Snapshot guard перевіряє повний live schema: таблиці, поля, IDs, назви, типи,
+  choices, formulas, lookups, link options та інші повернуті schema metadata.
+  Зберігати повний schema snapshot і його canonical hash; невідомі властивості
+  не відкидати. Catalog-only mapping metadata порівнювати окремо від API schema.
+- Перевіряти schema до та після збору, усі сторінки кожної таблиці, унікальність
+  record IDs, відсутність циклів pagination, counts і стабільність повторного
+  читання records. Два однакові читання є перевіркою стабільності, а не гарантією
+  транзакційного snapshot Airtable. Неповний або нестабільний snapshot відхиляти.
+- Будь-який schema drift, нова таблиця/поле або невідоме значення має явний
+  reconciliation outcome. До узгодження адитивного mapping execution блокується;
+  тихе ігнорування джерела та автоматичне прийняття drift заборонені. Attachment
+  identity/provenance зберігати; volatile URL не використовувати як identity.
+- Повний source snapshot і локальна предметна модель є окремими шарами.
+  Зберегти всі source records, явно визначити належність обраній справі та
+  unresolved/cross-case links. Власні сутності VARTA додавати через чинні
+  application/repository boundaries й нові адитивні міграції. Не підміняти
+  робочу схему зовнішнім schema.sql і не змінювати вже застосовані міграції.
+- Концепція і schema.sql є довідковими матеріалами. Для подань, вкладень,
+  версій документа та processing lineage скласти coverage/reconciliation matrix:
+  чинна сутність/зв'язок, необхідне R05-доповнення або явно відкладена downstream
+  функція. Власна модель має забезпечувати immutable originals, відтворювані
+  похідні дані, provenance і review decisions; OCR/КЕП/UI не починати в R05.
+- C11 залишається read-only споживачем EvidenceMapSourceQueryService і
+  EvidenceMapSourceDTO за case_id/profile_version. R05 не змінює DTO, семантику
+  source revision, порядок, source-basis або export-audit contract приховано.
+  Нові R05 сутності не вимагають автоматичного додавання вузлів до C11.
+  Перед R05 PASS потрібен synthetic import → restart → application query
+  compatibility gate, включно idempotency, stable ordering, case isolation,
+  source basis і unresolved links. Перевіряти прямо зачеплений спільний R02/R04
+  contract; не відновлювати й не реалізовувати C11 у межах R05.
+
+Це узгодження вимог не є TECH PASS: реалізація snapshot guard, матеріалізація
+та сумісність мають окремі актуальні докази. Git conflicts обліковуються окремо
+від архітектурної сумісності й не приховуються статусом package.
+
+**Transition gate:** `PASS`, коли повна локальна SQLite відтворює дозволене
+Airtable + corpus джерело після restart, усі втрати або unresolved links явні,
+originals незмінні, а privacy scan підтверджує відсутність real-case data у Git.
+
+**Стартовий запит:**
+
+> Виконай R05. Побудуй authoritative local SQLite для однієї explicitly
+> authorized справи з повного read-only snapshot єдиної user-selected Airtable
+> base та immutable local corpus. Збережи наявну Airtable-модель і розширюй
+> mapping лише адитивно. Імпортуй або явно reconciliate всі records, fields,
+> choices, formulas/lookups, links, attachment references і provenance;
+> матеріалізуй versioned case profile та evidence-domain relations. Не змінюй
+> Дотримуйся узгодженого контракту R05 вище: Base ID дозволений у catalog/mapping,
+> snapshot guard перевіряє повний schema та records, власна модель розширюється
+> адитивно зі збереженням C11 query contract. Не змінюй
+> originals, не використовуй інші Airtable bases і не записуй case IDs,
+> records, paths, local DB чи generated maps у Git. Доведи counts,
+> unresolved-links report, idempotency, restart, backup і privacy gates.
+
 ## Stage 11 / C11 — Побудувати детерміновану Evidence Map projection
 
 **Тема нового чату:** `VARTA C11 — SQLite to Evidence Map generator`
 
-**Статус:** `BLOCKED_BY_DECISION` до завершення `C08`
+**Статус:** `BLOCKED_BY_R05`.
 
-### Що є на цей момент
+**Залежність:** `R05` — TECH PASS і GITHUB SYNCED.
 
-- JSON Schema `1.1.0`, templates і offline HTML view існують;
-- migration `0002` має потрібні нижні таблиці;
-- view використовує snapshot/embedded data;
-- generator із authoritative services, canonical ordering і export hash відсутній.
+Попередню реалізацію та тести C11 видалено 2026-09-09. Історичні PASS
+не підтверджують поточну реалізацію. Серія та канонічний task зберігаються.
+R01–R04 source/profile/audit contracts залишаються prerequisites через R05.
 
-### Що треба зробити
+### Що треба зробити після розблокування
 
-1. Реалізувати read-only `EvidenceMapProjectionService(case_id, profile_version)`.
-2. Читати тільки application queries; direct SQL у generator заборонити.
-3. Формувати nodes/edges/claims/events/documents/sources/reviews згідно schema.
-4. Детерміновано впорядковувати keys/arrays, нормалізувати timestamps і не
-   включати volatile runtime fields у canonical hash.
-5. Формувати inventory/exclusions/manual-review summary.
-6. Перевіряти referential integrity й блокувати `valid`, якщо confirmed item не
-   має source basis або є broken reference.
-7. Валідувати JSON Schema, обчислювати snapshot SHA-256 і зберігати export
-   record, не імпортуючи snapshot назад як truth.
+Реалізувати read-only projection через EvidenceMapSourceQueryService, schema
+1.1.0 validation, integrity/source-basis checks, deterministic ordering, canonical
+SHA-256, explicit export audit та golden/restart/UI-caller/export-caller gates.
 
 ### Який результат отримаємо
 
@@ -898,16 +1277,24 @@ restart і однаково працює для UI та export caller.
 
 **Стартовий запит:**
 
-> Виконай C11 після C08. Реалізуй детермінований Evidence Map projection через
-> application queries, schema validation і canonical SHA-256. Snapshot — лише
-> read-only projection, не друга БД. Додай golden, determinism і broken-reference
-> tests; HTML UI не змінюй.
+> Продовжи C11 у наявному постійному task тільки після R05 TECH PASS і GITHUB SYNCED.
+> Використовуй EvidenceMapSourceQueryService як єдине типізоване джерело;
+> заборонені direct SQL, Any, optional query callbacks і silent empty fallback.
+> Заверши schema 1.1.0 projection, integrity/source-basis validation,
+> deterministic ordering/timestamps, canonical SHA-256, export audit,
+> golden/restart/UI-caller/export-caller gates. Відсутній компонент у межах C11
+> реалізуй, а не оголошуй блокером. HTML UI, C12/C14/Pxx та реальні case data у
+> Git не змінюй.
 
 ## Stage 12 / C12 — Перевести local web UI на application services
 
 **Тема нового чату:** `VARTA C12 — thin local HTTP API і інтегрований web UI`
 
-**Статус:** `PARTIAL`
+**Статус:** `BLOCKED_BY_C11`.
+
+**Gate старту:** C11 TECH PASS і GITHUB SYNCED після R05 TECH PASS і GITHUB SYNCED.
+Попередні напрацювання C12 видалено 2026-09-09. Збережено baseline попередніх
+пакетів C03/C06/C07/C08, історію серії та канонічний task.
 
 ### Що є на цей момент
 
@@ -1136,7 +1523,7 @@ Windows environment із вимкненою мережею.
   Git або release artifacts;
 - release не можна доводити результатами одного dirty working tree;
 - commit/push виконуються лише окремим GitHub checkpoint після `TECH PASS`;
-  merge/release/publication залишаються окремими рішеннями.
+  merge/release/production delivery залишаються окремими рішеннями.
 
 ### Що треба зробити
 
@@ -1155,8 +1542,9 @@ Windows environment із вимкненою мережею.
 8. Сформувати release evidence report, bill of included files, hashes,
    reproduction commands і rollback instructions.
 9. Після `TECH PASS` окремий підтверджений GitHub checkpoint може виконати exact
-   staging, commit, push і Draft PR. Merge, tag, release та publication не
-   випливають ані з `PASS`, ані з `GITHUB SYNCED`.
+   staging, commit, push і Draft PR. Push публікує code checkpoint у public
+   feature branch; merge, tag, release та production delivery не випливають
+   ані з `PASS`, ані з `GITHUB SYNCED`.
 
 ### Який результат отримаємо
 

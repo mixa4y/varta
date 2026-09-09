@@ -22,18 +22,75 @@ from urllib.parse import urlparse
 
 
 APP_NAME = "VARTA Roadmap Controller"
-APP_VERSION = "0.3.0"
+APP_VERSION = "0.5.0"
+CANONICAL_REPOSITORY_VISIBILITY = "PUBLIC"
 STATE_SCHEMA_VERSION = 1
+DEFAULT_EXECUTION_MODEL = "gpt-5.6-sol"
+LATEST_EXECUTION_MODEL = "gpt-6-astra"
+DEFAULT_REASONING_EFFORT = "high"
+GIT_EXECUTION_MODEL = "gpt-5.4-mini"
+GIT_REASONING_EFFORT = "high"
+DISALLOWED_QUALITY_PROFILES = frozenset({("gpt-5.6-luna", "low")})
+EXECUTION_MODEL_OPTIONS: tuple[dict[str, Any], ...] = (
+    {
+        "id": LATEST_EXECUTION_MODEL,
+        "label": "GPT-6 Astra · остання",
+        "efforts": ("low", "medium", "high", "xhigh", "max", "ultra"),
+    },
+    {
+        "id": "gpt-5.6-sol",
+        "label": "Sol 5.6",
+        "efforts": ("low", "medium", "high", "xhigh", "max", "ultra"),
+    },
+    {
+        "id": "gpt-5.6-terra",
+        "label": "Terra 5.6",
+        "efforts": ("low", "medium", "high", "xhigh", "max", "ultra"),
+    },
+    {
+        "id": "gpt-5.6-luna",
+        "label": "Luna 5.6",
+        "efforts": ("low", "medium", "high", "xhigh", "max"),
+    },
+    {
+        "id": "gpt-5.5",
+        "label": "GPT-5.5",
+        "efforts": ("low", "medium", "high", "xhigh"),
+    },
+    {
+        "id": "gpt-5.4",
+        "label": "GPT-5.4",
+        "efforts": ("low", "medium", "high", "xhigh"),
+    },
+    {
+        "id": "gpt-5.4-mini",
+        "label": "GPT-5.4 mini",
+        "efforts": ("low", "medium", "high", "xhigh"),
+    },
+)
+EXECUTION_MODEL_EFFORTS = {
+    str(option["id"]): frozenset(str(value) for value in option["efforts"])
+    for option in EXECUTION_MODEL_OPTIONS
+}
 ACTIVE_STATUSES = frozenset({"starting", "running", "waiting"})
 TERMINAL_STATUSES = frozenset(
     {"completed", "blocked", "failed", "interrupted", "needs_review"}
 )
+TECHNICAL_RECHECK_GIT_STATUSES = frozenset({"blocked", "needs_review"})
 RESULT_PATTERN = re.compile(
     r"<VARTA_STAGE_RESULT>\s*(\{.*?\})\s*</VARTA_STAGE_RESULT>",
     re.DOTALL,
 )
 GIT_RESULT_PATTERN = re.compile(
     r"<VARTA_GIT_RESULT>\s*(\{.*?\})\s*</VARTA_GIT_RESULT>",
+    re.DOTALL,
+)
+REVIEW_RESULT_PATTERN = re.compile(
+    r"<VARTA_REVIEW_RESULT>\s*(\{.*?\})\s*</VARTA_REVIEW_RESULT>",
+    re.DOTALL,
+)
+CHECKPOINT_PATTERN = re.compile(
+    r"<VARTA_CHECKPOINT>\s*(\{.*?\})\s*</VARTA_CHECKPOINT>",
     re.DOTALL,
 )
 PROGRESS_PATTERN = re.compile(
@@ -46,6 +103,21 @@ WINDOWS_RUNTIME_FILES = (
     "codex-command-runner.exe",
     "codex-windows-sandbox-setup.exe",
 )
+
+
+def is_active_writer_conflict(value: object) -> bool:
+    """Return whether Codex rejected a resume because another client owns it."""
+
+    return "already has an active writer" in str(value).casefold()
+
+
+def active_writer_retry_notice(thread_id: object) -> str:
+    short_id = str(thread_id)[:8] if thread_id else "невідомий"
+    return (
+        f"Канонічний task {short_id}… уже відкритий іншим Codex Desktop writer. "
+        "Другий writer не створено, TECH PASS збережено. Повністю завершіть "
+        "попередній Codex Desktop session, після чого повторіть Git checkpoint."
+    )
 
 
 def utc_now() -> str:
@@ -71,7 +143,7 @@ def load_catalog(path: Path) -> list[dict[str, Any]]:
             raise ValueError("Every roadmap stage must be an object")
         stage = copy.deepcopy(raw)
         stage_id = stage.get("id")
-        if not isinstance(stage_id, str) or not re.fullmatch(r"[CP]\d{2}", stage_id):
+        if not isinstance(stage_id, str) or not re.fullmatch(r"[CPR]\d{2}", stage_id):
             raise ValueError(f"Invalid roadmap stage id: {stage_id!r}")
         if stage_id in known_ids:
             raise ValueError(f"Duplicate roadmap stage id: {stage_id}")
@@ -101,6 +173,53 @@ def _limited_string(value: Any, *, limit: int) -> str:
     if not isinstance(value, str):
         return ""
     return value.strip()[:limit]
+
+
+def default_codex_sessions_root() -> Path:
+    configured_root = os.environ.get("CODEX_HOME")
+    codex_root = Path(configured_root) if configured_root else Path.home() / ".codex"
+    return codex_root / "sessions"
+
+
+def load_session_execution_settings(
+    sessions_root: Path,
+    thread_ids: set[str],
+) -> dict[tuple[str, str], dict[str, str]]:
+    """Read actual model metadata for known Codex turns from local sessions."""
+
+    settings: dict[tuple[str, str], dict[str, str]] = {}
+    if not thread_ids or not sessions_root.is_dir():
+        return settings
+    for path in sessions_root.rglob("*.jsonl"):
+        thread_id = next(
+            (candidate for candidate in thread_ids if path.stem.endswith(candidate)),
+            None,
+        )
+        if thread_id is None:
+            continue
+        try:
+            with path.open("r", encoding="utf-8") as handle:
+                for line in handle:
+                    try:
+                        record = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    if not isinstance(record, dict) or record.get("type") != "turn_context":
+                        continue
+                    payload = record.get("payload")
+                    if not isinstance(payload, dict):
+                        continue
+                    turn_id = _limited_string(payload.get("turn_id"), limit=100)
+                    model = _limited_string(payload.get("model"), limit=100)
+                    effort = _limited_string(payload.get("effort"), limit=40)
+                    if turn_id and model and effort:
+                        settings[(thread_id, turn_id)] = {
+                            "model": model,
+                            "reasoningEffort": effort,
+                        }
+        except OSError:
+            continue
+    return settings
 
 
 def parse_progress_update(
@@ -233,15 +352,34 @@ def _set_progress(
     return True
 
 
+def _parse_machine_json_object(payload: str) -> dict[str, Any] | None:
+    try:
+        raw = json.loads(payload)
+    except json.JSONDecodeError:
+        # A model may occasionally leave one trailing comma or stray quote before
+        # the final brace. Repair only that exact terminal defect; all semantic
+        # validation and live Git verification still run afterwards.
+        repaired, substitutions = re.subn(
+            r",\s*(?:\"\s*)?}\s*$",
+            "}",
+            payload,
+            count=1,
+        )
+        if substitutions != 1:
+            return None
+        try:
+            raw = json.loads(repaired)
+        except json.JSONDecodeError:
+            return None
+    return raw if isinstance(raw, dict) else None
+
+
 def parse_stage_result(text: str, expected_stage_id: str) -> dict[str, Any] | None:
     matches = list(RESULT_PATTERN.finditer(text or ""))
     if not matches:
         return None
-    try:
-        raw = json.loads(matches[-1].group(1))
-    except json.JSONDecodeError:
-        return None
-    if not isinstance(raw, dict) or raw.get("stage_id") != expected_stage_id:
+    raw = _parse_machine_json_object(matches[-1].group(1))
+    if raw is None or raw.get("stage_id") != expected_stage_id:
         return None
 
     outcome = raw.get("outcome")
@@ -297,11 +435,8 @@ def parse_git_checkpoint_result(
     matches = list(GIT_RESULT_PATTERN.finditer(text or ""))
     if not matches:
         return None
-    try:
-        raw = json.loads(matches[-1].group(1))
-    except json.JSONDecodeError:
-        return None
-    if not isinstance(raw, dict) or raw.get("stage_id") != expected_stage_id:
+    raw = _parse_machine_json_object(matches[-1].group(1))
+    if raw is None or raw.get("stage_id") != expected_stage_id:
         return None
 
     outcome = raw.get("outcome")
@@ -356,7 +491,11 @@ def parse_git_checkpoint_result(
             return None
         if not re.fullmatch(r"[0-9a-fA-F]{7,40}", commit):
             return None
-        if remote != "origin" or not pushed or visibility != "PRIVATE":
+        if (
+            remote != "origin"
+            or not pushed
+            or visibility != CANONICAL_REPOSITORY_VISIBILITY
+        ):
             return None
         if not re.fullmatch(
             r"https://github\.com/mixa4y/varta/pull/\d+", pr_url, re.IGNORECASE
@@ -380,6 +519,191 @@ def parse_git_checkpoint_result(
     }
 
 
+def parse_review_result(text: str, expected_stage_id: str) -> dict[str, Any] | None:
+    matches = list(REVIEW_RESULT_PATTERN.finditer(text or ""))
+    if not matches:
+        return None
+    raw = _parse_machine_json_object(matches[-1].group(1))
+    if raw is None or raw.get("stage_id") != expected_stage_id:
+        return None
+    outcome = raw.get("outcome")
+    if outcome not in {"passed", "blocked", "failed"}:
+        return None
+    summary = _limited_string(raw.get("summary"), limit=4000)
+    contract = _limited_string(raw.get("contract"), limit=4000)
+    required_gates = raw.get("required_gates")
+    inputs = raw.get("inputs")
+    if not summary or not contract:
+        return None
+    if not isinstance(required_gates, list) or not required_gates or len(required_gates) > 100:
+        return None
+    if not isinstance(inputs, list) or not inputs or len(inputs) > 200:
+        return None
+    clean_gates = [_limited_string(item, limit=500) for item in required_gates]
+    clean_inputs = [_limited_string(item, limit=1000) for item in inputs]
+    if not all(clean_gates) or not all(clean_inputs):
+        return None
+    return {
+        "stage_id": expected_stage_id,
+        "outcome": outcome,
+        "summary": summary,
+        "contract": contract,
+        "required_gates": clean_gates,
+        "inputs": clean_inputs,
+    }
+
+
+def parse_checkpoint_updates(
+    text: str, expected_stage_id: str, expected_kind: str
+) -> list[dict[str, Any]]:
+    updates: list[dict[str, Any]] = []
+    for match in CHECKPOINT_PATTERN.finditer(text or ""):
+        raw = _parse_machine_json_object(match.group(1))
+        if raw is None:
+            continue
+        if raw.get("stage_id") != expected_stage_id or raw.get("kind") != expected_kind:
+            continue
+        step_id = _limited_string(raw.get("step_id"), limit=80)
+        status = raw.get("status")
+        summary = _limited_string(raw.get("summary"), limit=2000)
+        command = _limited_string(raw.get("command"), limit=4000)
+        next_step = _limited_string(raw.get("next_step"), limit=500)
+        inputs = raw.get("inputs")
+        if (
+            not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", step_id)
+            or status not in {"running", "passed", "failed", "interrupted", "invalidated"}
+            or not summary
+            or not isinstance(inputs, list)
+            or len(inputs) > 200
+        ):
+            continue
+        clean_inputs = [_limited_string(item, limit=1000).replace("\\", "/") for item in inputs]
+        if any(not item or item.startswith(("/", "../")) or "/../" in item for item in clean_inputs):
+            continue
+        updates.append(
+            {
+                "stepId": step_id,
+                "kind": expected_kind,
+                "status": status,
+                "summary": summary,
+                "command": command,
+                "inputs": clean_inputs,
+                "nextStep": next_step,
+            }
+        )
+    return updates
+
+
+def _path_fingerprint(root: Path, relative_path: str) -> str | None:
+    target = (root / relative_path).resolve()
+    try:
+        target.relative_to(root.resolve())
+    except ValueError:
+        return None
+    digest = hashlib.sha256()
+    if target.is_file():
+        digest.update(target.read_bytes())
+        return digest.hexdigest()
+    if target.is_dir():
+        for child in sorted(item for item in target.rglob("*") if item.is_file()):
+            rel = child.relative_to(target).as_posix().encode("utf-8")
+            digest.update(len(rel).to_bytes(4, "big"))
+            digest.update(rel)
+            digest.update(child.read_bytes())
+        return digest.hexdigest()
+    return None
+
+
+def fingerprint_inputs(root: Path, inputs: list[str]) -> dict[str, str] | None:
+    fingerprints: dict[str, str] = {}
+    for relative_path in inputs:
+        normalized = relative_path.replace("\\", "/")
+        while normalized.startswith("./"):
+            normalized = normalized[2:]
+        if normalized == ".varta/roadmap-controller" or normalized.startswith(
+            ".varta/roadmap-controller/"
+        ):
+            # Controller state and rendered checkpoint reports change while a
+            # checkpoint is being recorded. Fingerprinting them would make a
+            # successful checkpoint invalidate itself during finalization.
+            return None
+        value = _path_fingerprint(root, relative_path)
+        if value is None:
+            return None
+        fingerprints[relative_path] = value
+    return fingerprints
+
+
+def verify_checkpoint_scope(
+    root: Path,
+    stage_id: str,
+    result: Mapping[str, Any],
+    stage_result: Mapping[str, Any] | None,
+) -> tuple[bool, str]:
+    """Fail closed on commit scope, protected ownership and obvious private artifacts."""
+
+    expected = set(stage_result.get("changed_files", [])) if isinstance(stage_result, Mapping) else set()
+    staged = set(result.get("staged_files", []))
+    commit = str(result.get("commit", ""))
+    scope_paths = staged
+    try:
+        if result.get("commit_created"):
+            if staged != expected:
+                return False, "Git manifest не збігається з exact changed_files технічного PASS."
+            committed = subprocess.run(
+                ["git", "diff-tree", "--no-commit-id", "--name-only", "-r", commit],
+                cwd=root,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                check=True,
+            ).stdout.splitlines()
+            if set(committed) != staged:
+                return False, "Commit manifest не збігається зі staged_files."
+        elif staged:
+            return False, "Git result декларує staged files без створення commit."
+        elif expected:
+            committed = subprocess.run(
+                ["git", "diff-tree", "--no-commit-id", "--name-only", "-r", commit],
+                cwd=root,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                check=True,
+            ).stdout.splitlines()
+            if set(committed) != expected:
+                return False, "Existing commit manifest не збігається з exact changed_files технічного PASS."
+            scope_paths = set(committed)
+        ownership_path = root / "config" / "file-ownership.json"
+        ownership = json.loads(ownership_path.read_text(encoding="utf-8"))
+        exact = {item["path"]: item for item in ownership.get("exactPaths", [])}
+        for path in scope_paths:
+            entry = exact.get(path)
+            if entry:
+                package_owners = {owner for owner in entry.get("owners", []) if re.fullmatch(r"[CPR]\d{2}", owner)}
+                if package_owners and stage_id not in package_owners:
+                    return False, f"Ownership registry відносить {path} до іншого package."
+            lowered = path.casefold()
+            if lowered.endswith((".pdf", ".doc", ".docx", ".xls", ".xlsx", ".p7s", ".db", ".sqlite", ".sqlite3", ".rar", ".7z")):
+                return False, f"Заборонений тип файла у commit: {path}."
+            blob = subprocess.run(
+                ["git", "show", f"{commit}:{path}"],
+                cwd=root,
+                capture_output=True,
+                check=True,
+            ).stdout
+            if b"\x00" in blob[:8192]:
+                return False, f"Binary blob не дозволений автоматичним privacy gate: {path}."
+            text = blob.decode("utf-8", errors="ignore")
+            if re.search(r"(?:sk-proj-|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----)", text):
+                return False, f"Secret/private-key pattern знайдено у {path}."
+            if re.search(r"(?i)(?:C:\\Users\\[^\\\s]+|/home/[^/\s]+)", text):
+                return False, f"User-specific path знайдено у {path}."
+    except (OSError, subprocess.CalledProcessError, json.JSONDecodeError, KeyError) as exc:
+        return False, f"Automated ownership/privacy verification failed: {exc}"
+    return True, "Controller підтвердив exact commit scope, ownership registry і privacy boundary."
+
+
 class StateStore:
     def __init__(self, path: Path, stage_ids: list[str]) -> None:
         self.path = path
@@ -394,23 +718,46 @@ class StateStore:
             "attempt": 0,
             "threadId": None,
             "turnId": None,
+            "model": None,
+            "reasoningEffort": None,
+            "executionSource": "unknown",
             "startedAt": None,
             "updatedAt": None,
             "completedAt": None,
             "lastMessage": "",
             "result": None,
             "error": None,
+            "retryNotice": None,
             "history": [],
             "progress": _blank_progress(),
         }
 
     @staticmethod
+    def _blank_contract_review() -> dict[str, Any]:
+        return {
+            "status": "not_started",
+            "attempt": 0,
+            "turnId": None,
+            "startedAt": None,
+            "updatedAt": None,
+            "completedAt": None,
+            "result": None,
+            "error": None,
+            "lastMessage": "",
+        }
+
+    @staticmethod
     def _blank_stage() -> dict[str, Any]:
         return {
+            "seriesId": None,
+            "seriesStartedAt": None,
             "runStatus": "not_started",
             "attempt": 0,
             "threadId": None,
             "turnId": None,
+            "model": None,
+            "reasoningEffort": None,
+            "executionSource": "unknown",
             "startedAt": None,
             "updatedAt": None,
             "completedAt": None,
@@ -420,6 +767,8 @@ class StateStore:
             "history": [],
             "gitBaseline": None,
             "progress": _blank_progress(),
+            "checkpoints": [],
+            "contractReview": StateStore._blank_contract_review(),
             "git": StateStore._blank_git_checkpoint(),
         }
 
@@ -448,6 +797,34 @@ class StateStore:
             blank.update(existing)
             if not isinstance(blank.get("history"), list):
                 blank["history"] = []
+            known_starts = [
+                value
+                for value in (
+                    blank.get("startedAt"),
+                    *(entry.get("startedAt") for entry in blank["history"] if isinstance(entry, dict)),
+                )
+                if isinstance(value, str) and value
+            ]
+            if known_starts:
+                earliest_start = min(known_starts)
+                if not isinstance(blank.get("seriesStartedAt"), str) or earliest_start < blank["seriesStartedAt"]:
+                    blank["seriesStartedAt"] = earliest_start
+                    blank["seriesId"] = f"{stage_id}-{earliest_start}"
+            if not isinstance(blank.get("checkpoints"), list):
+                blank["checkpoints"] = []
+            had_review = isinstance(existing.get("contractReview"), dict)
+            review = self._blank_contract_review()
+            if isinstance(blank.get("contractReview"), dict):
+                review.update(blank["contractReview"])
+            if not had_review and blank.get("runStatus") == "completed":
+                review.update(
+                    {
+                        "status": "legacy_passed",
+                        "completedAt": blank.get("completedAt"),
+                        "lastMessage": "Historical completed package migrated without retroactive review.",
+                    }
+                )
+            blank["contractReview"] = review
             blank["progress"] = _normalise_progress(blank.get("progress"))
             if (
                 blank.get("runStatus") == "completed"
@@ -533,6 +910,17 @@ class StateStore:
                     )
                     stage["progress"] = progress
                     changed = True
+                review = stage.get("contractReview")
+                if isinstance(review, dict) and review.get("status") in ACTIVE_STATUSES:
+                    review["status"] = "interrupted"
+                    review["completedAt"] = utc_now()
+                    review["updatedAt"] = review["completedAt"]
+                    review["error"] = (
+                        "Контролер було перезапущено під час contract review; "
+                        "огляд не вважається пройденим."
+                    )
+                    review["lastMessage"] = "Contract review перервано перезапуском."
+                    changed = True
                 git_checkpoint = stage.get("git")
                 if (
                     isinstance(git_checkpoint, dict)
@@ -559,6 +947,104 @@ class StateStore:
             if changed:
                 self._state["updatedAt"] = utc_now()
                 self._write_locked()
+
+    def recover_retryable_writer_conflicts(
+        self,
+        stage_id: str | None = None,
+        *,
+        error_message: str | None = None,
+    ) -> list[str]:
+        """Preserve TECH PASS when a Git turn never acquired the canonical task."""
+
+        recovered: list[str] = []
+        with self._lock:
+            stage_ids = [stage_id] if stage_id is not None else self.stage_ids
+            for candidate_id in stage_ids:
+                run = self._state["stages"].get(candidate_id)
+                if not isinstance(run, dict) or run.get("runStatus") != "completed":
+                    continue
+                checkpoint = run.get("git")
+                if not isinstance(checkpoint, dict):
+                    continue
+                conflict = error_message if stage_id == candidate_id else checkpoint.get("error")
+                if (
+                    checkpoint.get("status") not in {"starting", "failed"}
+                    or checkpoint.get("turnId")
+                    or not is_active_writer_conflict(conflict)
+                ):
+                    continue
+
+                now = utc_now()
+                failed_progress = _normalise_progress(checkpoint.get("progress"))
+                _set_progress(
+                    failed_progress,
+                    percent=int(failed_progress.get("percent", 5)),
+                    phase="Git checkpoint не отримав writer",
+                    detail=str(conflict),
+                    source="controller",
+                    timestamp=now,
+                )
+                history_entry = {
+                    key: copy.deepcopy(checkpoint.get(key))
+                    for key in (
+                        "attempt",
+                        "status",
+                        "threadId",
+                        "turnId",
+                        "model",
+                        "reasoningEffort",
+                        "executionSource",
+                        "startedAt",
+                        "completedAt",
+                        "result",
+                        "error",
+                        "progress",
+                    )
+                }
+                history_entry.update(
+                    {
+                        "status": "failed",
+                        "completedAt": checkpoint.get("completedAt") or now,
+                        "error": str(conflict),
+                        "progress": failed_progress,
+                    }
+                )
+                history = checkpoint.get("history")
+                preserved_history = copy.deepcopy(history) if isinstance(history, list) else []
+                preserved_history.append(history_entry)
+
+                notice = active_writer_retry_notice(
+                    checkpoint.get("threadId") or run.get("threadId")
+                )
+                ready_progress = _blank_progress()
+                _set_progress(
+                    ready_progress,
+                    percent=0,
+                    phase="Очікує повторного Git checkpoint",
+                    detail=notice,
+                    source="controller",
+                    timestamp=now,
+                )
+                checkpoint.update(
+                    {
+                        "status": "awaiting_approval",
+                        "turnId": None,
+                        "startedAt": None,
+                        "updatedAt": now,
+                        "completedAt": None,
+                        "lastMessage": notice,
+                        "result": None,
+                        "error": None,
+                        "retryNotice": notice,
+                        "history": preserved_history[-20:],
+                        "progress": ready_progress,
+                    }
+                )
+                recovered.append(candidate_id)
+            if recovered:
+                self._state["updatedAt"] = utc_now()
+                self._write_locked()
+        return recovered
 
     def _write_locked(self) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -928,7 +1414,8 @@ def verify_git_checkpoint_result(
         )
         if (
             repo_payload.get("nameWithOwner") != "mixa4y/varta"
-            or str(repo_payload.get("visibility", "")).upper() != "PRIVATE"
+            or str(repo_payload.get("visibility", "")).upper()
+            != CANONICAL_REPOSITORY_VISIBILITY
         ):
             return False, "GitHub repository identity або visibility не підтверджено.", None
 
@@ -960,16 +1447,83 @@ def verify_git_checkpoint_result(
 
     return (
         True,
-        "Controller повторно підтвердив local HEAD, origin branch, PRIVATE repo і Draft PR.",
+        "Controller повторно підтвердив local HEAD, origin branch, PUBLIC repo і Draft PR.",
         local_commit,
     )
 
 
+def build_contract_review_prompt(stage: Mapping[str, Any]) -> str:
+    dependencies = ", ".join(stage["dependencies"]) or "немає"
+    return f"""Виконай ранній contract review package {stage['id']} у його канонічному чаті.
+
+Тема: {stage['topic']}
+Залежності: {dependencies}
+Завдання: {stage['prompt']}
+
+Прочитай D:\\VARTA\\AGENTS.md, package у docs/chat-roadmap.md і чинні contracts,
+schemas, migrations та tests, від яких він залежить. Не змінюй файли, не запускай
+великі regression/browser/package suites і не виконуй Git операції. Встанови
+точний scope, compatibility/privacy invariants, required gates та exact inputs.
+Якщо контракт суперечливий або prerequisites не підтверджені, outcome=blocked.
+
+У фінальній відповіді дай короткий звіт і рівно один блок:
+<VARTA_REVIEW_RESULT>{{"stage_id":"{stage['id']}","outcome":"passed|blocked|failed","summary":"висновок","contract":"точний контракт реалізації та сумісності","required_gates":["gate"],"inputs":["repo/relative/path"]}}</VARTA_REVIEW_RESULT>
+"""
+
+
 def build_task_prompt(
-    stage: Mapping[str, Any], git_baseline: Mapping[str, Any] | None = None
+    stage: Mapping[str, Any],
+    git_baseline: Mapping[str, Any] | None = None,
+    *,
+    technical_recheck: bool = False,
+    manual_rerun: bool = False,
+    quality_recheck: bool = False,
+    resume_from_checkpoint: bool = False,
 ) -> str:
     dependencies = ", ".join(stage["dependencies"]) or "немає"
     baseline = json.dumps(git_baseline or {}, ensure_ascii=False, indent=2)
+    if resume_from_checkpoint:
+        mode_instructions = f"""
+Режим цього turn: продовження з локального checkpoint після interrupted,
+failed або needs_review. Спочатку прочитай
+`.varta/roadmap-controller/checkpoints/{stage['id']}.md` і поточний controller
+error. Почни з першого invalidated/failed/unfinished step. Не повторюй passed
+кроки з незмінними fingerprints. Після виправлення або нового доказу повторно
+надішли VARTA_CHECKPOINT для кожного зачепленого step_id, щоб controller
+зафіксував актуальні fingerprints. Це той самий package і той самий чат.
+"""
+    elif quality_recheck:
+        mode_instructions = """
+Режим цього turn: обов'язковий професійний перепрогін. Попередній TECH PASS
+виконано профілем Luna з effort=low, тому controller визнав його недостатнім
+для transition gate. Це продовження того самого package, а не новий package.
+Повторно перевір повний contract, реалізацію, актуальні tests, typing/formatting,
+privacy та exact diff. Не покладайся на старий зелений результат. Виправляй
+знайдені дефекти лише в межах package. Git операції тут заборонені; після нового
+PASS потрібен окремий повторний Git checkpoint.
+"""
+    elif manual_rerun:
+        mode_instructions = """
+Режим цього turn: ручний повний перепрогін уже завершеного package на вибраній
+моделі. Це не новий package і не дозвіл на Git-операції. Використай історію
+цього самого канонічного чату, але не відповідай лише «вже виконано»: повторно
+перевір актуальний scope, реалізацію, усі обов'язкові tests/privacy/diff gates і
+поверни новий повний VARTA_STAGE_RESULT. Будь-які виправлення лишаються в межах
+цього package. Попередній Git checkpoint більше не є актуальним і після нового
+PASS має бути виконаний знову окремим turn у цьому самому чаті.
+"""
+    elif technical_recheck:
+        mode_instructions = """
+Режим цього turn: повторна технічна перевірка після заблокованого або
+невалідного Git checkpoint. Це не новий package і не дозвіл на Git-операції.
+Використовуй збережений original package baseline нижче та історію цього самого
+чату, щоб повторно встановити точний stage-owned scope. Не відкидай виправлення,
+зроблені попередніми turns цього canonical package chat, лише тому, що вони вже
+є у worktree на початку recheck. Повторно виконай обов'язкові tests/privacy/diff
+gates і поверни актуальний VARTA_STAGE_RESULT з повним exact changed_files.
+"""
+    else:
+        mode_instructions = ""
     return f"""Ти виконуєш окремий work package дорожньої карти VARTA.
 
 Task ID: {stage['id']}
@@ -986,6 +1540,8 @@ CaseFlow/CMSD та матеріали справ поза репозиторіє
 
 Завдання package:
 {stage['prompt']}
+
+{mode_instructions}
 
 Git baseline, автоматично зафіксований controller перед запуском package:
 {baseline}
@@ -1014,6 +1570,32 @@ Git baseline, автоматично зафіксований controller пер�
   валідного PASS;
 - marker не замінює звичайне зрозуміле commentary і не повинен містити секретів
   або case-specific даних.
+- у кожному змістовному commentary перед VARTA_PROGRESS додай structured
+  checkpoint із точними repo-relative inputs, від яких залежить доказ. Після
+  успішного кроку controller запише fingerprints; якщо inputs зміняться, він
+  автоматично інвалідує тільки залежний checkpoint:
+  <VARTA_CHECKPOINT>{{"stage_id":"{stage['id']}","kind":"stage","step_id":"G01-contract","status":"running|passed|failed|interrupted|invalidated","summary":"фактичний доказ","command":"точна команда або порожній рядок","inputs":["repo/relative/path"],"next_step":"точне місце продовження"}}</VARTA_CHECKPOINT>
+- не включай `.varta/roadmap-controller/state.json` або згенеровані файли з
+  `.varta/roadmap-controller/checkpoints/` до `inputs`: це mutable controller
+  outputs, які змінюються під час lifecycle/checkpoint запису і не є стабільними
+  доказовими входами;
+- один `step_id` має описувати рівно одну незалежно виконувану перевірку та одну
+  точну команду. Не об'єднуй pytest, browser smoke, Ruff, mypy, compileall,
+  privacy або diff gates в один checkpoint. Після failure/resume запускай лише
+  `failed`, `interrupted`, `invalidated` або відсутні gates; чинні `passed` із
+  незмінними fingerprints обов'язково пропускай;
+- `.varta/roadmap-controller/state.json`, checkpoint reports, session files і
+  весь `.varta/roadmap-controller/` є mutable controller outputs: їх можна
+  читати в `command`, але не додавай до `inputs`, бо вони самі змінюються під
+  час запису checkpoint. Для `inputs` перелічуй стабільні code/test/config/docs
+  файли, від яких залежить висновок;
+- mandatory gate обмежуй stage-owned scope, prerequisites і прямо зачепленими
+  спільними contracts. Не запускай і не виправляй тести чи файли пізнішого
+  downstream package наперед. Випадково виявлений foreign failure зафіксуй
+  окремо, але не повертай через нього blocked/failed без доведеного causal link
+  до exact diff поточного package;
+- перед фінальним PASS усі останні stage checkpoints мають бути passed; хоча б
+  один passed checkpoint є обов'язковим. Не включай secrets або case data.
 
 У фінальній відповіді спочатку дай нормальний людський звіт українською. В
 самому кінці додай рівно один машинний блок без Markdown code fence:
@@ -1022,6 +1604,8 @@ Git baseline, автоматично зафіксований controller пер�
 
 Позначай outcome=passed лише коли scope завершений, усі обов'язкові перевірки
 виконані й у масиві tests немає failed або not_run.
+Машинний JSON має проходити json.loads без trailing comma або зайвої лапки перед
+закривальною фігурною дужкою.
 """
 
 
@@ -1035,13 +1619,15 @@ def build_git_checkpoint_prompt(
 Stage ID: {stage['id']}
 Тема етапу: {stage['topic']}
 
-Це продовження того самого постійного Codex-чату package {stage['id']}, а не
-окремий Git-чат. Не створюй і не проси створювати додатковий чат.
+Це ізольований механічний Git worker без історії технічного task. Працюй лише з
+машинним результатом, baseline, checkpoint-файлом і live Git evidence нижче.
+Не шукай, не читай і не переказуй контекст технічної розмови stage.
 
 Натискання користувачем кнопки GitHub checkpoint є прямою командою виконати
-вузько обмежені stage-owned staging, commit, push у приватну feature branch та
-створити або оновити Draft PR. Це НЕ дозвіл на merge, tag, release, зміну
-visibility, force-push або публікацію матеріалів справ.
+вузько обмежені stage-owned staging, commit, push у codex/* feature branch
+публічного mixa4y/varta та створити або оновити Draft PR. Це НЕ дозвіл на
+merge, tag, release, зміну visibility, force-push або публікацію матеріалів
+справ.
 
 Спочатку повністю прочитай D:\\VARTA\\AGENTS.md. Працюй тільки в D:\\VARTA.
 Старі CaseFlow/CMSD каталоги та матеріали справ поза репозиторієм read-only.
@@ -1054,14 +1640,15 @@ Git baseline перед початком stage:
 
 Обов'язковий порядок:
 1. Перевір live git status, HEAD, branch, origin і через gh visibility репозиторію.
-2. Дозволена ціль — тільки приватний mixa4y/varta, origin і branch codex/*.
+2. Дозволена ціль — тільки публічний mixa4y/varta, origin і branch codex/*.
    Заборонені main/master, detached HEAD, інший remote, force-push та remote rewrite.
 3. Зістав baseline, changed_files із stage result і поточний diff. Не приписуй
    stage жодної попередньої або сторонньої зміни. Якщо межа ownership не доведена,
    заверши BLOCKED без commit/push.
 4. Заборони case materials, XLSX/PDF/DOCX/P7S/archives/databases, credentials,
-   OAuth tokens, DPAPI blobs, private keys, реальні case/contact/bank identifiers,
-   generated case maps і user-specific paths. Приватний repo не скасовує цю межу.
+    OAuth tokens, DPAPI blobs, private keys, реальні case/contact/bank identifiers,
+    generated case maps і user-specific paths. Публічний repo робить цю межу
+    безумовною: real corpus і case materials ніколи не stage/commit/push.
 5. Stage тільки точні дозволені шляхи командою git add -- <paths>. Ніколи не
    використовуй git add ., git add -A або broad glob. Не змінюй чужий index.
 6. Перед commit покажи exact staged manifest і виконай щонайменше:
@@ -1069,10 +1656,17 @@ Git baseline перед початком stage:
    forbidden extension/path scan та перевірку staged diff.
 7. Створи один commit із повідомленням stage({stage['id']}): <коротка тема>.
    Якщо stage-owned змін немає, не створюй порожній commit: доведи, що поточний
-   HEAD уже є на origin branch.
+   HEAD уже є на origin branch. У такому existing-commit сценарії machine result
+   обов'язково має містити `commit_created=false` і `staged_files=[]`; exact
+   manifest наявного commit наведи лише в checks/evidence. Controller відхиляє
+   непорожній `staged_files`, якщо цей Git worker не створив commit у своєму turn.
+   Поле `pushed` описує postcondition, а не факт запуску команди в цьому turn:
+   став `pushed=true`, коли live read-back підтвердив result commit на origin,
+   навіть якщо push не знадобився. У checks/evidence окремо вкажи, чи виконувався
+   фактичний push.
 8. Push тільки поточну codex/* branch до origin без force. Створи Draft PR до
    main або знайди й онови вже відкритий Draft PR цієї branch. Не merge.
-9. Після push повторно перевір remote branch commit, private visibility, Draft PR
+9. Після push повторно перевір remote branch commit, PUBLIC visibility, Draft PR
    URL і що index/working tree не були пошкоджені сторонніми змінами.
 10. Якщо будь-який gate не пройдено, outcome=blocked або failed; не маскуй помилку.
 
@@ -1085,20 +1679,86 @@ Git baseline перед початком stage:
   read-back 95. Значення 100 controller виставляє лише після підтвердженого
   GITHUB SYNCED;
 - не включай у marker secrets, credentials або case-specific дані.
+- разом із кожним progress update додай VARTA_CHECKPOINT з kind=git, стабільним
+  step_id, status, summary, exact command, repo-relative inputs і next_step за
+  тим самим JSON contract, що в technical turn. Controller зберігає ці записи
+  у `.varta/roadmap-controller/checkpoints/{stage['id']}.md`.
 
 У фінальній відповіді спочатку дай людський звіт українською. В самому кінці
 додай рівно один машинний блок без Markdown code fence:
 
-<VARTA_GIT_RESULT>{{"stage_id":"{stage['id']}","outcome":"synced|blocked|failed","summary":"короткий підсумок","checks":[{{"name":"назва gate","status":"passed|failed|not_run|not_applicable","evidence":"фактичний результат"}}],"staged_files":["відносний/шлях"],"branch":"codex/...","commit":"40-символьний SHA або короткий SHA","commit_created":true,"remote":"origin","pushed":true,"visibility":"PRIVATE","pr_url":"https://github.com/owner/repo/pull/123","gate":"чому GitHub checkpoint пройдено або ні"}}</VARTA_GIT_RESULT>
+<VARTA_GIT_RESULT>{{"stage_id":"{stage['id']}","outcome":"synced|blocked|failed","summary":"короткий підсумок","checks":[{{"name":"назва gate","status":"passed|failed|not_run|not_applicable","evidence":"фактичний результат"}}],"staged_files":["відносний/шлях"],"branch":"codex/...","commit":"40-символьний SHA або короткий SHA","commit_created":true,"remote":"origin","pushed":true,"visibility":"{CANONICAL_REPOSITORY_VISIBILITY}","pr_url":"https://github.com/owner/repo/pull/123","gate":"чому GitHub checkpoint пройдено або ні"}}</VARTA_GIT_RESULT>
 
 Позначай outcome=synced лише коли checks не містять failed/not_run, commit
-підтверджено на origin, visibility=PRIVATE і Draft PR існує. Для blocked/failed
+підтверджено на origin, visibility={CANONICAL_REPOSITORY_VISIBILITY} і Draft PR існує. Для blocked/failed
 не вигадуй branch, commit, pushed або PR URL.
+Машинний JSON має проходити json.loads без trailing comma або зайвої лапки перед
+закривальною фігурною дужкою.
 """
 
 
 class RoadmapConflict(RuntimeError):
     pass
+
+
+class RoadmapValidationError(ValueError):
+    pass
+
+
+def validate_execution_settings(model: Any, reasoning_effort: Any) -> tuple[str, str]:
+    normalized_model = _limited_string(model, limit=100)
+    normalized_effort = _limited_string(reasoning_effort, limit=40)
+    if not normalized_model or normalized_model not in EXECUTION_MODEL_EFFORTS:
+        raise RoadmapValidationError("Невідома або недоступна модель Codex.")
+    if normalized_effort not in EXECUTION_MODEL_EFFORTS[normalized_model]:
+        raise RoadmapValidationError(
+            f"Модель {normalized_model} не підтримує reasoning effort "
+            f"{normalized_effort or '—'}."
+        )
+    return normalized_model, normalized_effort
+
+
+def execution_view(run: Mapping[str, Any]) -> dict[str, str | None]:
+    model = _limited_string(run.get("model"), limit=100)
+    effort = _limited_string(run.get("reasoningEffort"), limit=40)
+    source = run.get("executionSource")
+    if model and effort and source in {"actual", "planned"}:
+        return {
+            "model": model,
+            "reasoningEffort": effort,
+            "source": str(source),
+        }
+    if run.get("runStatus") == "not_started" and not run.get("attempt"):
+        return {
+            "model": DEFAULT_EXECUTION_MODEL,
+            "reasoningEffort": DEFAULT_REASONING_EFFORT,
+            "source": "planned",
+        }
+    return {"model": None, "reasoningEffort": None, "source": "unknown"}
+
+
+def requires_quality_recheck(run: Mapping[str, Any]) -> bool:
+    """Reject a completed technical result produced by a disallowed profile."""
+
+    def profile(container: Mapping[str, Any]) -> tuple[str, str] | None:
+        if container.get("executionSource") != "actual":
+            return None
+        model = _limited_string(container.get("model"), limit=100)
+        effort = _limited_string(container.get("reasoningEffort"), limit=40)
+        return (model, effort) if model and effort else None
+
+    if run.get("runStatus") == "completed":
+        return profile(run) in DISALLOWED_QUALITY_PROFILES
+    history = run.get("history")
+    if not isinstance(history, list):
+        return False
+    for item in reversed(history):
+        if not isinstance(item, Mapping) or item.get("runStatus") != "completed":
+            continue
+        previous_profile = profile(item)
+        if previous_profile is not None:
+            return previous_profile in DISALLOWED_QUALITY_PROFILES
+    return False
 
 
 class RoadmapController:
@@ -1109,10 +1769,15 @@ class RoadmapController:
         catalog_path: Path | None = None,
         state_path: Path | None = None,
         runtime_root: Path | None = None,
+        sessions_root: Path | None = None,
         client_factory: Callable[[Callable[[dict[str, Any]], None]], AppServerClient]
         | None = None,
         git_verifier: Callable[
             [Mapping[str, Any]], tuple[bool, str, str | None]
+        ]
+        | None = None,
+        scope_verifier: Callable[
+            [str, Mapping[str, Any], Mapping[str, Any] | None], tuple[bool, str]
         ]
         | None = None,
     ) -> None:
@@ -1122,14 +1787,21 @@ class RoadmapController:
         self.catalog_by_id = {stage["id"]: stage for stage in self.catalog}
         runtime_base = runtime_root or self.root / ".varta" / "roadmap-controller"
         self.runtime_root = runtime_base
+        self.sessions_root = sessions_root or default_codex_sessions_root()
         self.store = StateStore(
             state_path or runtime_base / "state.json",
             [stage["id"] for stage in self.catalog],
         )
         self.store.interrupt_stale_active_runs()
+        self.store.recover_retryable_writer_conflicts()
         self.client_factory = client_factory
         self.git_verifier = git_verifier or (
             lambda result: verify_git_checkpoint_result(self.root, result)
+        )
+        self.scope_verifier = scope_verifier or (
+            lambda stage_id, result, stage_result: verify_checkpoint_scope(
+                self.root, stage_id, result, stage_result
+            )
         )
         self.client: AppServerClient | None = None
         self.codex_ready = False
@@ -1141,6 +1813,80 @@ class RoadmapController:
         self._live_messages: dict[str, str] = {}
         self._progress_signatures: dict[tuple[str, str], tuple[Any, ...]] = {}
         self._loaded_threads: set[str] = set()
+        self._backfill_execution_metadata()
+
+    def _backfill_execution_metadata(self) -> None:
+        state = self.store.snapshot()
+        thread_ids: set[str] = set()
+
+        def collect_thread(container: Any, fallback: str | None = None) -> None:
+            if not isinstance(container, dict):
+                return
+            thread_id = container.get("threadId") or fallback
+            if isinstance(thread_id, str) and thread_id:
+                thread_ids.add(thread_id)
+
+        for run in state["stages"].values():
+            canonical_thread = run.get("threadId")
+            collect_thread(run)
+            for history in run.get("history", []):
+                collect_thread(history, canonical_thread)
+            git_checkpoint = run.get("git")
+            collect_thread(git_checkpoint, canonical_thread)
+            if isinstance(git_checkpoint, dict):
+                for history in git_checkpoint.get("history", []):
+                    collect_thread(history, canonical_thread)
+
+        found = load_session_execution_settings(self.sessions_root, thread_ids)
+        if not found:
+            return
+
+        def enrich(container: Any, fallback: str | None = None) -> bool:
+            if not isinstance(container, dict):
+                return False
+            thread_id = container.get("threadId") or fallback
+            turn_id = container.get("turnId")
+            if not isinstance(thread_id, str) or not isinstance(turn_id, str):
+                return False
+            metadata = found.get((thread_id, turn_id))
+            if metadata is None:
+                return False
+            changed = False
+            if not _limited_string(container.get("model"), limit=100):
+                container["model"] = metadata["model"]
+                changed = True
+            if not _limited_string(container.get("reasoningEffort"), limit=40):
+                container["reasoningEffort"] = metadata["reasoningEffort"]
+                changed = True
+            matches_session = (
+                container.get("model") == metadata["model"]
+                and container.get("reasoningEffort") == metadata["reasoningEffort"]
+            )
+            if matches_session and container.get("executionSource") != "actual":
+                container["executionSource"] = "actual"
+                changed = True
+            return changed
+
+        for stage_id, original in state["stages"].items():
+            run = copy.deepcopy(original)
+            canonical_thread = run.get("threadId")
+            changed = enrich(run)
+            for history in run.get("history", []):
+                changed = enrich(history, canonical_thread) or changed
+            git_checkpoint = run.get("git")
+            changed = enrich(git_checkpoint, canonical_thread) or changed
+            if isinstance(git_checkpoint, dict):
+                for history in git_checkpoint.get("history", []):
+                    changed = enrich(history, canonical_thread) or changed
+            if changed:
+                def replace_stage(
+                    target: dict[str, Any],
+                    source: dict[str, Any] = run,
+                ) -> None:
+                    target.clear()
+                    target.update(copy.deepcopy(source))
+
+                self.store.update_stage(stage_id, replace_stage)
 
     def bootstrap(self) -> None:
         try:
@@ -1180,14 +1926,164 @@ class RoadmapController:
             "pid": os.getpid(),
         }
 
+    @staticmethod
+    def _next_action(
+        stages: list[dict[str, Any]],
+        active: list[str],
+    ) -> dict[str, Any]:
+        """Return one canonical roadmap action for every UI surface.
+
+        Critical core/readiness work intentionally outranks the parallel
+        processor lane.  This keeps a pending technical recheck or Git
+        checkpoint on the Evidence Map path from being hidden behind an
+        otherwise startable processor package.
+        """
+
+        by_id = {str(stage["id"]): stage for stage in stages}
+
+        def action(
+            stage: Mapping[str, Any],
+            *,
+            kind: str,
+            work_kind: str,
+            reason: str,
+            action_label: str,
+            can_execute: bool,
+        ) -> dict[str, Any]:
+            run = stage.get("run")
+            run_mapping = run if isinstance(run, Mapping) else {}
+            thread_id = run_mapping.get("threadId")
+            return {
+                "kind": kind,
+                "workKind": work_kind,
+                "stageId": stage["id"],
+                "title": stage["title"],
+                "lane": (
+                    "processor"
+                    if stage.get("group") == "processor"
+                    else "critical"
+                ),
+                "reason": reason,
+                "actionLabel": action_label,
+                "threadId": thread_id,
+                "canExecute": can_execute,
+            }
+
+        if active:
+            active_key = active[0]
+            stage_id, separator, suffix = active_key.partition(":")
+            stage = by_id.get(stage_id)
+            if stage is not None:
+                work_kind = suffix if separator and suffix in {"git", "review"} else "stage"
+                return action(
+                    stage,
+                    kind="active",
+                    work_kind=work_kind,
+                    reason=(
+                        "GitHub checkpoint виконується у постійному task цього package."
+                        if work_kind == "git"
+                        else (
+                            "Ранній огляд контракту виконується."
+                            if work_kind == "review"
+                            else "Технічний turn package виконується."
+                        )
+                    ),
+                    action_label="Виконується",
+                    can_execute=False,
+                )
+
+        critical = [stage for stage in stages if stage.get("group") != "processor"]
+        processors = [stage for stage in stages if stage.get("group") == "processor"]
+        for lane in (critical, processors):
+            contract_review = next(
+                (stage for stage in lane if stage.get("canContractReview")),
+                None,
+            )
+            if contract_review is not None:
+                return action(
+                    contract_review,
+                    kind="contract_review",
+                    work_kind="review",
+                    reason=str(contract_review.get("contractReviewReason", "")),
+                    action_label="Огляд контракту",
+                    can_execute=True,
+                )
+
+            technical_recheck = next(
+                (
+                    stage
+                    for stage in lane
+                    if stage.get("needsTechnicalRecheck") and stage.get("canStart")
+                ),
+                None,
+            )
+            if technical_recheck is not None:
+                return action(
+                    technical_recheck,
+                    kind="technical_recheck",
+                    work_kind="stage",
+                    reason=str(technical_recheck.get("startReason", "")),
+                    action_label="Оновити TECH PASS",
+                    can_execute=True,
+                )
+
+            git_checkpoint = next(
+                (stage for stage in lane if stage.get("canGitCheckpoint")),
+                None,
+            )
+            if git_checkpoint is not None:
+                return action(
+                    git_checkpoint,
+                    kind="git_checkpoint",
+                    work_kind="git",
+                    reason=str(git_checkpoint.get("gitReason", "")),
+                    action_label="Запустити GitHub checkpoint",
+                    can_execute=True,
+                )
+
+            stage_start = next(
+                (stage for stage in lane if stage.get("canStart")),
+                None,
+            )
+            if stage_start is not None:
+                return action(
+                    stage_start,
+                    kind="stage_start",
+                    work_kind="stage",
+                    reason=str(stage_start.get("startReason", "")),
+                    action_label=f"Почати {stage_start['id']}",
+                    can_execute=True,
+                )
+
+        return {
+            "kind": "none",
+            "workKind": None,
+            "stageId": None,
+            "title": None,
+            "lane": None,
+            "reason": (
+                "Доступної ручної дії немає; очікується завершення або "
+                "перевірка попереднього gate."
+            ),
+            "actionLabel": None,
+            "threadId": None,
+            "canExecute": False,
+        }
+
     def snapshot(self) -> dict[str, Any]:
         state = self.store.snapshot()
+        quality_rechecks = {
+            stage_id
+            for stage_id, run in state["stages"].items()
+            if requires_quality_recheck(run)
+        }
         completed = {
             stage_id
             for stage_id, run in state["stages"].items()
             if run.get("runStatus") == "completed"
             and isinstance(run.get("result"), dict)
             and run["result"].get("outcome") == "passed"
+            and stage_id not in quality_rechecks
         }
         synced = {
             stage_id
@@ -1196,6 +2092,7 @@ class RoadmapController:
             and run["git"].get("status") == "synced"
             and isinstance(run["git"].get("result"), dict)
             and run["git"]["result"].get("outcome") == "synced"
+            and stage_id not in quality_rechecks
         }
         active: list[str] = []
         for stage_id, run in state["stages"].items():
@@ -1207,9 +2104,27 @@ class RoadmapController:
                 and git_checkpoint.get("status") in ACTIVE_STATUSES
             ):
                 active.append(f"{stage_id}:git")
-        start_candidate_id: str | None = None
+            review = run.get("contractReview")
+            if isinstance(review, dict) and review.get("status") in ACTIVE_STATUSES:
+                active.append(f"{stage_id}:review")
+        core_start_candidate_id: str | None = None
+        readiness_start_candidate_id: str | None = None
+        processor_start_candidate_ids: set[str] = set()
         git_candidate_id: str | None = None
+        technical_recheck_candidate_id: str | None = None
         if self.codex_ready and not active:
+            technical_recheck_candidate_id = next(
+                (
+                    stage["id"]
+                    for stage in self.catalog
+                    if stage["id"] in quality_rechecks
+                    and not any(
+                        dependency not in synced
+                        for dependency in stage["dependencies"]
+                    )
+                ),
+                None,
+            )
             for catalog_stage in self.catalog:
                 candidate_id = catalog_stage["id"]
                 candidate_run = state["stages"][candidate_id]
@@ -1219,11 +2134,16 @@ class RoadmapController:
                     if dependency not in synced
                 ]
                 if (
-                    start_candidate_id is None
-                    and candidate_run.get("runStatus") != "completed"
+                    candidate_run.get("runStatus") != "completed"
                     and not candidate_missing
                 ):
-                    start_candidate_id = candidate_id
+                    if catalog_stage["group"] == "processor":
+                        processor_start_candidate_ids.add(candidate_id)
+                    elif catalog_stage["group"] == "readiness":
+                        if readiness_start_candidate_id is None:
+                            readiness_start_candidate_id = candidate_id
+                    elif core_start_candidate_id is None:
+                        core_start_candidate_id = candidate_id
                 candidate_git = candidate_run.get("git")
                 if (
                     git_candidate_id is None
@@ -1233,6 +2153,14 @@ class RoadmapController:
                     and candidate_git.get("status") not in ACTIVE_STATUSES
                 ):
                     git_candidate_id = candidate_id
+            if technical_recheck_candidate_id is None and git_candidate_id is not None:
+                candidate_git = state["stages"][git_candidate_id].get("git")
+                if (
+                    isinstance(candidate_git, dict)
+                    and candidate_git.get("status")
+                    in TECHNICAL_RECHECK_GIT_STATUSES
+                ):
+                    technical_recheck_candidate_id = git_candidate_id
         stages: list[dict[str, Any]] = []
         for stage in self.catalog:
             stage_id = stage["id"]
@@ -1249,15 +2177,45 @@ class RoadmapController:
                 git_checkpoint["lastMessage"] = self._live_messages[git_thread_id][-4000:]
             missing = [item for item in stage["dependencies"] if item not in synced]
             current_status = run.get("runStatus")
+            review = run.get("contractReview", {})
+            review_status = review.get("status") if isinstance(review, dict) else "not_started"
+            needs_quality_recheck = stage_id in quality_rechecks
+            needs_technical_recheck = stage_id == technical_recheck_candidate_id
+            is_start_candidate = (
+                stage_id == core_start_candidate_id
+                or stage_id == readiness_start_candidate_id
+                or stage_id in processor_start_candidate_ids
+                or needs_technical_recheck
+            )
             can_start = (
                 self.codex_ready
                 and not missing
                 and not active
-                and current_status != "completed"
-                and stage_id == start_candidate_id
+                and (current_status != "completed" or needs_technical_recheck)
+                and is_start_candidate
+                and review_status == "passed"
             )
+            can_review = (
+                self.codex_ready
+                and not missing
+                and not active
+                and review_status != "passed"
+                and (current_status != "completed" or needs_quality_recheck)
+            )
+
             if current_status in ACTIVE_STATUSES:
                 reason = "Task уже виконується."
+            elif review_status != "passed" and (current_status != "completed" or needs_quality_recheck):
+                reason = "Спочатку запустіть ранній огляд контракту окремою кнопкою."
+            elif current_status == "completed" and needs_technical_recheck:
+                reason = (
+                    "Останній TECH PASS виконано профілем Luna · low, який більше "
+                    "не приймається як професійний gate. Перевірте package новим "
+                    "turn на Sol/Astra з високою глибиною."
+                    if needs_quality_recheck
+                    else "Git checkpoint не підтвердив актуальний technical scope; "
+                    "оновіть TECH PASS новим turn у цьому самому чаті."
+                )
             elif current_status == "completed":
                 if git_checkpoint.get("status") == "synced":
                     reason = "Stage PASS і GitHub checkpoint пройдено."
@@ -1269,8 +2227,24 @@ class RoadmapController:
                 reason = "Не завершені prerequisites: " + ", ".join(missing)
             elif not self.codex_ready:
                 reason = self.codex_error or "Codex App Server недоступний."
-            elif start_candidate_id and stage_id != start_candidate_id:
-                reason = f"За порядком roadmap спочатку запустіть {start_candidate_id}."
+            elif (
+                stage["group"] == "core"
+                and core_start_candidate_id
+                and stage_id != core_start_candidate_id
+            ):
+                reason = (
+                    "За порядком core roadmap спочатку запустіть "
+                    f"{core_start_candidate_id}."
+                )
+            elif (
+                stage["group"] == "readiness"
+                and readiness_start_candidate_id
+                and stage_id != readiness_start_candidate_id
+            ):
+                reason = (
+                    "За порядком readiness-гілки спочатку запустіть "
+                    f"{readiness_start_candidate_id}."
+                )
             else:
                 reason = "Готово до запуску."
 
@@ -1282,9 +2256,15 @@ class RoadmapController:
                 and git_status not in ACTIVE_STATUSES
                 and not active
                 and stage_id == git_candidate_id
+                and not needs_technical_recheck
             )
             if current_status != "completed":
                 git_reason = "GitHub checkpoint доступний тільки після технічного PASS."
+            elif needs_technical_recheck:
+                git_reason = (
+                    "Спочатку оновіть TECH PASS у цьому самому чаті: попередній "
+                    "Git checkpoint не підтвердив актуальний ownership scope."
+                )
             elif git_status in ACTIVE_STATUSES:
                 git_reason = "GitHub checkpoint уже виконується."
             elif git_status == "synced":
@@ -1293,6 +2273,8 @@ class RoadmapController:
                 git_reason = f"Спочатку завершіть активну роботу {active[0]}."
             elif not self.codex_ready:
                 git_reason = self.codex_error or "Codex App Server недоступний."
+            elif git_checkpoint.get("retryNotice"):
+                git_reason = str(git_checkpoint["retryNotice"])
             elif git_candidate_id and stage_id != git_candidate_id:
                 git_reason = (
                     "За порядком roadmap спочатку виконайте GitHub checkpoint "
@@ -1300,18 +2282,68 @@ class RoadmapController:
                 )
             else:
                 git_reason = (
-                    "Готово: новий turn у чаті цього package перевірить diff, "
+                    "Готово: ізольований механічний Git task перевірить diff, "
                     "stage exact paths, commit, push у codex/* і Draft PR."
+                )
+            canonical_thread_id = run.get("threadId")
+            can_rerun = (
+                self.codex_ready
+                and current_status == "completed"
+                and not active
+                and not missing
+                and isinstance(canonical_thread_id, str)
+                and bool(canonical_thread_id)
+                and (
+                    review_status == "passed"
+                    or (review_status == "legacy_passed" and not needs_quality_recheck)
+                )
+            )
+            if current_status != "completed":
+                rerun_reason = "Перепрогін доступний після технічного PASS."
+            elif active:
+                rerun_reason = f"Спочатку завершіть активну роботу {active[0]}."
+            elif missing:
+                rerun_reason = "Не підтверджені prerequisites: " + ", ".join(missing)
+            elif review_status != "passed" and not (
+                review_status == "legacy_passed" and not needs_quality_recheck
+            ):
+                rerun_reason = "Спочатку виконайте ранній огляд контракту."
+            elif not isinstance(canonical_thread_id, str) or not canonical_thread_id:
+                rerun_reason = (
+                    "Немає канонічного Task ID; новий дубль автоматично не створюється."
+                )
+            elif not self.codex_ready:
+                rerun_reason = self.codex_error or "Codex App Server недоступний."
+            else:
+                rerun_reason = (
+                    "Новий technical turn у тому самому чаті; попередній Git "
+                    "checkpoint буде скинуто до повторної перевірки."
                 )
             stages.append(
                 {
                     **copy.deepcopy(stage),
                     "run": run,
+                    "execution": execution_view(run),
                     "canStart": can_start,
+                    "canContractReview": can_review,
+                    "contractReviewReason": (
+                        "Готово до раннього огляду контракту."
+                        if can_review
+                        else (
+                            "Огляд контракту пройдено."
+                            if review_status == "passed"
+                            else reason
+                        )
+                    ),
                     "canGitCheckpoint": can_git_checkpoint,
+                    "canRerun": can_rerun,
+                    "needsTechnicalRecheck": needs_technical_recheck,
+                    "needsQualityRecheck": needs_quality_recheck,
+                    "qualityProfileAccepted": not needs_quality_recheck,
                     "blockedBy": missing,
                     "startReason": reason,
                     "gitReason": git_reason,
+                    "rerunReason": rerun_reason,
                 }
             )
         counts: dict[str, int] = {}
@@ -1321,16 +2353,35 @@ class RoadmapController:
             counts[status] = counts.get(status, 0) + 1
             git_status = str(run.get("git", {}).get("status", "not_ready"))
             git_counts[git_status] = git_counts.get(git_status, 0) + 1
+        next_action = self._next_action(stages, active)
         return {
             "schemaVersion": 2,
             "updatedAt": state["updatedAt"],
             "controller": self.health(),
+            "executionOptions": {
+                "defaultModel": DEFAULT_EXECUTION_MODEL,
+                "latestModel": LATEST_EXECUTION_MODEL,
+                "defaultReasoningEffort": DEFAULT_REASONING_EFFORT,
+                "models": [
+                    {
+                        "id": option["id"],
+                        "label": option["label"],
+                        "efforts": list(option["efforts"]),
+                    }
+                    for option in EXECUTION_MODEL_OPTIONS
+                ],
+            },
+            "nextAction": next_action,
             "summary": {
                 "counts": counts,
                 "gitCounts": git_counts,
                 "active": active,
                 "completed": len(completed),
                 "gitSynced": len(synced),
+                "qualityRecheckRequired": len(quality_rechecks),
+                "qualityRecheckStages": [
+                    stage["id"] for stage in self.catalog if stage["id"] in quality_rechecks
+                ],
             },
             "stages": stages,
         }
@@ -1347,6 +2398,7 @@ class RoadmapController:
         client: AppServerClient,
         stage: Mapping[str, Any],
         work_kind: str,
+        model: str,
     ) -> tuple[str, bool]:
         """Return the one persistent Codex thread owned by a roadmap package."""
 
@@ -1382,6 +2434,7 @@ class RoadmapController:
                 "thread/start",
                 {
                     "cwd": str(self.root),
+                    "model": model,
                     "approvalPolicy": "never",
                     "sandbox": "workspace-write",
                     "serviceName": "varta_roadmap_controller",
@@ -1412,6 +2465,40 @@ class RoadmapController:
             self._loaded_threads.add(thread_id)
         self._bind_thread(thread_id, stage_id, work_kind)
         return thread_id, created
+
+    def _start_isolated_git_thread(
+        self,
+        client: AppServerClient,
+        stage: Mapping[str, Any],
+        model: str,
+    ) -> str:
+        """Start a context-free mechanical worker for one Git checkpoint attempt."""
+
+        started = client.request(
+            "thread/start",
+            {
+                "cwd": str(self.root),
+                "model": model,
+                "approvalPolicy": "never",
+                "sandbox": "workspace-write",
+                "serviceName": "varta_roadmap_controller",
+                "threadSource": "vartaRoadmapGitWorker",
+            },
+            timeout=40,
+        )
+        thread = started.get("thread")
+        if not isinstance(thread, dict) or not isinstance(thread.get("id"), str):
+            raise AppServerError("thread/start did not return a Git worker thread id")
+        thread_id = thread["id"]
+        client.request(
+            "thread/name/set",
+            {"threadId": thread_id, "name": f"VARTA {stage['id']} — GitHub sync"},
+            timeout=20,
+        )
+        with self._lock:
+            self._loaded_threads.add(thread_id)
+        self._bind_thread(thread_id, str(stage["id"]), "git")
+        return thread_id
 
     def _register_turn(self, thread_id: str, turn_id: str) -> None:
         with self._lock:
@@ -1480,7 +2567,133 @@ class RoadmapController:
             source="reported",
         )
 
+    def start_contract_review(self, stage_id: str) -> dict[str, Any]:
+        stage = self.catalog_by_id.get(stage_id)
+        if stage is None:
+            raise KeyError(stage_id)
+        self._ensure_client()
+        with self._lock:
+            current = next(item for item in self.snapshot()["stages"] if item["id"] == stage_id)
+            if not current["canContractReview"]:
+                raise RoadmapConflict(current["contractReviewReason"])
+
+            def mark(run: dict[str, Any]) -> None:
+                now = utc_now()
+                review = run.setdefault("contractReview", StateStore._blank_contract_review())
+                review.update(
+                    {
+                        "status": "starting",
+                        "attempt": int(review.get("attempt", 0)) + 1,
+                        "turnId": None,
+                        "startedAt": now,
+                        "updatedAt": now,
+                        "completedAt": None,
+                        "result": None,
+                        "error": None,
+                        "lastMessage": "Готується ранній огляд контракту…",
+                    }
+                )
+
+            run = self.store.update_stage(stage_id, mark)
+        threading.Thread(
+            target=self._execute_contract_review,
+            args=(copy.deepcopy(stage),),
+            name=f"varta-roadmap-review-{stage_id}",
+            daemon=True,
+        ).start()
+        return copy.deepcopy(run["contractReview"])
+
+    def _execute_contract_review(self, stage: Mapping[str, Any]) -> None:
+        stage_id = str(stage["id"])
+        try:
+            client = self._ensure_client()
+            thread_id, _created = self._ensure_canonical_thread(
+                client, stage, "review", DEFAULT_EXECUTION_MODEL
+            )
+            response = client.request(
+                "turn/start",
+                {
+                    "threadId": thread_id,
+                    "model": DEFAULT_EXECUTION_MODEL,
+                    "effort": DEFAULT_REASONING_EFFORT,
+                    "input": [{"type": "text", "text": build_contract_review_prompt(stage)}],
+                },
+                timeout=40,
+            )
+            turn = response.get("turn")
+            if not isinstance(turn, dict) or not isinstance(turn.get("id"), str):
+                raise AppServerError("turn/start did not return a review turn id")
+            self._register_turn(thread_id, turn["id"])
+
+            def running(run: dict[str, Any]) -> None:
+                run["contractReview"].update(
+                    {
+                        "status": "running",
+                        "turnId": turn["id"],
+                        "updatedAt": utc_now(),
+                        "lastMessage": "Codex перевіряє контракт до великих тестів…",
+                    }
+                )
+
+            self.store.update_stage(stage_id, running)
+        except Exception as exc:
+            message = _limited_string(str(exc), limit=2000) or type(exc).__name__
+
+            def failed(run: dict[str, Any]) -> None:
+                run["contractReview"].update(
+                    {
+                        "status": "failed",
+                        "updatedAt": utc_now(),
+                        "completedAt": utc_now(),
+                        "error": message,
+                        "lastMessage": "Огляд контракту не запустився.",
+                    }
+                )
+
+            self.store.update_stage(stage_id, failed)
+
+    def stop_contract_review(self, stage_id: str) -> dict[str, Any]:
+        run = self.store.stage(stage_id)
+        review = run.get("contractReview")
+        if not isinstance(review, dict) or review.get("status") not in ACTIVE_STATUSES:
+            raise RoadmapConflict("Огляд контракту зараз не виконується.")
+        thread_id, turn_id = run.get("threadId"), review.get("turnId")
+        if not isinstance(thread_id, str) or not isinstance(turn_id, str):
+            raise RoadmapConflict("Review turn ще не створено; повторіть за кілька секунд.")
+        self._ensure_client().request(
+            "turn/interrupt", {"threadId": thread_id, "turnId": turn_id}, timeout=20
+        )
+        return copy.deepcopy(review)
+
     def start_stage(self, stage_id: str) -> dict[str, Any]:
+        return self._start_stage(stage_id, manual_rerun=False)
+
+    def rerun_stage(
+        self,
+        stage_id: str,
+        *,
+        model: str,
+        reasoning_effort: str,
+    ) -> dict[str, Any]:
+        selected_model, selected_effort = validate_execution_settings(
+            model,
+            reasoning_effort,
+        )
+        return self._start_stage(
+            stage_id,
+            manual_rerun=True,
+            requested_model=selected_model,
+            requested_effort=selected_effort,
+        )
+
+    def _start_stage(
+        self,
+        stage_id: str,
+        *,
+        manual_rerun: bool,
+        requested_model: str | None = None,
+        requested_effort: str | None = None,
+    ) -> dict[str, Any]:
         stage = self.catalog_by_id.get(stage_id)
         if stage is None:
             raise KeyError(stage_id)
@@ -1488,9 +2701,51 @@ class RoadmapController:
         with self._lock:
             snapshot = self.snapshot()
             current = next(item for item in snapshot["stages"] if item["id"] == stage_id)
-            if not current["canStart"]:
+            if manual_rerun and not current["canRerun"]:
+                raise RoadmapConflict(current["rerunReason"])
+            if not manual_rerun and not current["canStart"]:
                 raise RoadmapConflict(current["startReason"])
-            git_baseline = capture_git_baseline(self.root)
+            current_run = current["run"]
+            current_status = current_run.get("runStatus")
+            technical_recheck = bool(current.get("needsTechnicalRecheck"))
+            quality_recheck = bool(current.get("needsQualityRecheck"))
+            resume_from_checkpoint = current_status in {
+                "blocked",
+                "failed",
+                "interrupted",
+                "needs_review",
+            }
+            if manual_rerun:
+                if not current_run.get("threadId"):
+                    raise RoadmapConflict(
+                        "Немає канонічного Task ID; новий дубль не створюється."
+                    )
+                selected_model, selected_effort = validate_execution_settings(
+                    requested_model,
+                    requested_effort,
+                )
+            elif quality_recheck:
+                selected_model = DEFAULT_EXECUTION_MODEL
+                selected_effort = DEFAULT_REASONING_EFFORT
+            else:
+                try:
+                    selected_model, selected_effort = validate_execution_settings(
+                        current_run.get("model"),
+                        current_run.get("reasoningEffort"),
+                    )
+                except RoadmapValidationError:
+                    selected_model = DEFAULT_EXECUTION_MODEL
+                    selected_effort = DEFAULT_REASONING_EFFORT
+            stored_baseline = current["run"].get("gitBaseline")
+            git_baseline = (
+                copy.deepcopy(stored_baseline)
+                if (
+                    technical_recheck
+                    and not manual_rerun
+                    and isinstance(stored_baseline, dict)
+                )
+                else capture_git_baseline(self.root)
+            )
 
             def mark_starting(run: dict[str, Any]) -> None:
                 if run["runStatus"] in TERMINAL_STATUSES and run["attempt"]:
@@ -1501,6 +2756,9 @@ class RoadmapController:
                             "runStatus",
                             "threadId",
                             "turnId",
+                            "model",
+                            "reasoningEffort",
+                            "executionSource",
                             "startedAt",
                             "completedAt",
                             "result",
@@ -1521,15 +2779,57 @@ class RoadmapController:
                     source="lifecycle",
                     timestamp=started_at,
                 )
+                previous_git = copy.deepcopy(run.get("git"))
                 git_checkpoint = StateStore._blank_git_checkpoint()
+                if (
+                    (technical_recheck or manual_rerun)
+                    and isinstance(previous_git, dict)
+                    and (
+                        previous_git.get("attempt")
+                        or previous_git.get("status") != "not_ready"
+                        or previous_git.get("turnId")
+                        or previous_git.get("result")
+                    )
+                ):
+                    previous_history = previous_git.get("history")
+                    git_history = (
+                        copy.deepcopy(previous_history)
+                        if isinstance(previous_history, list)
+                        else []
+                    )
+                    git_history.append(
+                        {
+                            key: copy.deepcopy(previous_git.get(key))
+                            for key in (
+                                "attempt",
+                                "status",
+                                "threadId",
+                                "turnId",
+                                "model",
+                                "reasoningEffort",
+                                "executionSource",
+                                "startedAt",
+                                "completedAt",
+                                "result",
+                                "error",
+                                "progress",
+                            )
+                        }
+                    )
+                    git_checkpoint["history"] = git_history[-20:]
                 if isinstance(canonical_thread_id, str) and canonical_thread_id:
                     git_checkpoint["threadId"] = canonical_thread_id
                 run.update(
                     {
+                        "seriesId": run.get("seriesId") or f"{stage_id}-{started_at}",
+                        "seriesStartedAt": run.get("seriesStartedAt") or started_at,
                         "runStatus": "starting",
                         "attempt": int(run.get("attempt", 0)) + 1,
                         "threadId": canonical_thread_id,
                         "turnId": None,
+                        "model": selected_model,
+                        "reasoningEffort": selected_effort,
+                        "executionSource": "planned",
                         "startedAt": started_at,
                         "updatedAt": started_at,
                         "completedAt": None,
@@ -1549,18 +2849,40 @@ class RoadmapController:
             run = self.store.update_stage(stage_id, mark_starting)
         worker = threading.Thread(
             target=self._execute_stage,
-            args=(copy.deepcopy(stage),),
+            args=(
+                copy.deepcopy(stage),
+                technical_recheck,
+                manual_rerun,
+                quality_recheck,
+                resume_from_checkpoint,
+                selected_model,
+                selected_effort,
+            ),
             name=f"varta-roadmap-{stage_id}",
             daemon=True,
         )
         worker.start()
         return run
 
-    def _execute_stage(self, stage: Mapping[str, Any]) -> None:
+    def _execute_stage(
+        self,
+        stage: Mapping[str, Any],
+        technical_recheck: bool = False,
+        manual_rerun: bool = False,
+        quality_recheck: bool = False,
+        resume_from_checkpoint: bool = False,
+        model: str = DEFAULT_EXECUTION_MODEL,
+        reasoning_effort: str = DEFAULT_REASONING_EFFORT,
+    ) -> None:
         stage_id = str(stage["id"])
         try:
             client = self._ensure_client()
-            thread_id, created = self._ensure_canonical_thread(client, stage, "stage")
+            thread_id, created = self._ensure_canonical_thread(
+                client,
+                stage,
+                "stage",
+                model,
+            )
 
             self.store.update_stage(
                 stage_id,
@@ -1592,11 +2914,18 @@ class RoadmapController:
                 "turn/start",
                 {
                     "threadId": thread_id,
+                    "model": model,
+                    "effort": reasoning_effort,
                     "input": [
                         {
                             "type": "text",
                             "text": build_task_prompt(
-                                stage, self.store.stage(stage_id).get("gitBaseline")
+                                stage,
+                                self.store.stage(stage_id).get("gitBaseline"),
+                                technical_recheck=technical_recheck,
+                                manual_rerun=manual_rerun,
+                                quality_recheck=quality_recheck,
+                                resume_from_checkpoint=resume_from_checkpoint,
                             ),
                         }
                     ],
@@ -1612,6 +2941,9 @@ class RoadmapController:
                 lambda run: run.update(
                     {
                         "turnId": turn["id"],
+                        "model": model,
+                        "reasoningEffort": reasoning_effort,
+                        "executionSource": "actual",
                         "runStatus": "running",
                         "updatedAt": utc_now(),
                         "lastMessage": "Codex виконує package…",
@@ -1676,7 +3008,8 @@ class RoadmapController:
             current = next(item for item in snapshot["stages"] if item["id"] == stage_id)
             if not current["canGitCheckpoint"]:
                 raise RoadmapConflict(current["gitReason"])
-            canonical_thread_id = current["run"].get("threadId")
+            model = GIT_EXECUTION_MODEL
+            reasoning_effort = GIT_REASONING_EFFORT
 
             def mark_starting(git_checkpoint: dict[str, Any]) -> None:
                 if (
@@ -1690,6 +3023,9 @@ class RoadmapController:
                             "status",
                             "threadId",
                             "turnId",
+                            "model",
+                            "reasoningEffort",
+                            "executionSource",
                             "startedAt",
                             "completedAt",
                             "result",
@@ -1705,7 +3041,7 @@ class RoadmapController:
                     progress,
                     percent=5,
                     phase="Підготовка Git checkpoint",
-                    detail="Controller готує новий turn у чаті цього package.",
+                    detail="Controller готує ізольований механічний Git worker.",
                     source="lifecycle",
                     timestamp=started_at,
                 )
@@ -1713,14 +3049,18 @@ class RoadmapController:
                     {
                         "status": "starting",
                         "attempt": int(git_checkpoint.get("attempt", 0)) + 1,
-                        "threadId": canonical_thread_id,
+                        "threadId": None,
                         "turnId": None,
+                        "model": model,
+                        "reasoningEffort": reasoning_effort,
+                        "executionSource": "planned",
                         "startedAt": started_at,
                         "updatedAt": started_at,
                         "completedAt": None,
-                        "lastMessage": "Готується Git checkpoint у чаті цього package…",
+                        "lastMessage": "Готується ізольований GitHub sync task…",
                         "result": None,
                         "error": None,
+                        "retryNotice": None,
                         "progress": progress,
                     }
                 )
@@ -1738,8 +3078,16 @@ class RoadmapController:
     def _execute_git_checkpoint(self, stage: Mapping[str, Any]) -> None:
         stage_id = str(stage["id"])
         try:
+            stored = self.store.stage(stage_id)
+            git_checkpoint = stored.get("git")
+            if not isinstance(git_checkpoint, dict):
+                raise AppServerError("Git checkpoint state is missing")
+            model, reasoning_effort = validate_execution_settings(
+                git_checkpoint.get("model"),
+                git_checkpoint.get("reasoningEffort"),
+            )
             client = self._ensure_client()
-            thread_id, created = self._ensure_canonical_thread(client, stage, "git")
+            thread_id = self._start_isolated_git_thread(client, stage, model)
 
             self._update_git_checkpoint(
                 stage_id,
@@ -1747,11 +3095,7 @@ class RoadmapController:
                     {
                         "threadId": thread_id,
                         "updatedAt": utc_now(),
-                        "lastMessage": (
-                            "Відновлено legacy package без Task ID; створено його єдиний чат."
-                            if created
-                            else "Git checkpoint продовжується в чаті цього package…"
-                        ),
+                        "lastMessage": "Створено ізольований механічний GitHub sync task.",
                     }
                 ),
             )
@@ -1759,8 +3103,8 @@ class RoadmapController:
                 stage_id,
                 "git",
                 percent=8,
-                phase="Чат package готовий",
-                detail="Git checkpoint запускається як новий turn у тому самому Codex-чаті.",
+                phase="Git worker готовий",
+                detail="Git checkpoint запускається в окремому task без технічної історії stage.",
                 source="lifecycle",
             )
             run = self.store.stage(stage_id)
@@ -1768,6 +3112,8 @@ class RoadmapController:
                 "turn/start",
                 {
                     "threadId": thread_id,
+                    "model": model,
+                    "effort": reasoning_effort,
                     # The native elevated Windows sandbox runs commands as a
                     # dedicated low-privilege user. That user cannot use the
                     # interactive user's Windows Credential Manager entry
@@ -1793,6 +3139,9 @@ class RoadmapController:
                 lambda item: item.update(
                     {
                         "turnId": turn["id"],
+                        "model": model,
+                        "reasoningEffort": reasoning_effort,
+                        "executionSource": "actual",
                         "status": "running",
                         "updatedAt": utc_now(),
                         "lastMessage": "Codex перевіряє й публікує Git checkpoint…",
@@ -1809,6 +3158,12 @@ class RoadmapController:
             )
         except Exception as exc:
             message = _limited_string(str(exc), limit=2000) or type(exc).__name__
+            if is_active_writer_conflict(message):
+                self.store.recover_retryable_writer_conflicts(
+                    stage_id,
+                    error_message=message,
+                )
+                return
             self._update_git_checkpoint(
                 stage_id,
                 lambda item: item.update(
@@ -1904,6 +3259,119 @@ class RoadmapController:
         )
         return self.store.stage(stage_id)
 
+    def _write_checkpoint_report(self, stage_id: str) -> None:
+        run = self.store.stage(stage_id)
+        report_dir = self.runtime_root / "checkpoints"
+        report_dir.mkdir(parents=True, exist_ok=True)
+        target = report_dir / f"{stage_id}.md"
+        lines = [
+            f"# {stage_id} execution checkpoints",
+            "",
+            f"- Series: `{run.get('seriesId') or 'legacy'}`",
+            f"- Series started: `{run.get('seriesStartedAt') or 'unknown'}`",
+            f"- Updated: `{run.get('updatedAt') or utc_now()}`",
+            "",
+        ]
+        checkpoints = run.get("checkpoints", [])
+        if not checkpoints:
+            lines.append("No structured checkpoints have been recorded.")
+        for item in checkpoints:
+            lines.extend(
+                [
+                    f"## {item.get('kind', 'stage')} / {item.get('stepId', 'unknown')}",
+                    "",
+                    f"- Status: **{item.get('status', 'unknown')}**",
+                    f"- Updated: `{item.get('updatedAt', 'unknown')}`",
+                    f"- Summary: {item.get('summary', '')}",
+                    f"- Command: `{item.get('command') or 'not recorded'}`",
+                    f"- Inputs: {', '.join(item.get('inputs', [])) or 'none'}",
+                    f"- Next: {item.get('nextStep') or 'none'}",
+                    "",
+                ]
+            )
+        temporary = target.with_suffix(".md.tmp")
+        temporary.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        temporary.replace(target)
+
+    def _record_checkpoints(self, stage_id: str, work_kind: str, text: str) -> None:
+        updates = parse_checkpoint_updates(text, stage_id, work_kind)
+        if not updates:
+            return
+
+        def apply(run: dict[str, Any]) -> None:
+            existing = run.setdefault("checkpoints", [])
+            if not isinstance(existing, list):
+                existing = []
+                run["checkpoints"] = existing
+            for update in updates:
+                fingerprints = fingerprint_inputs(self.root, update["inputs"])
+                if update["status"] == "passed" and fingerprints is None:
+                    update["status"] = "invalidated"
+                    update["summary"] += " Вхідний fingerprint не вдалося підтвердити."
+                update["inputFingerprints"] = fingerprints or {}
+                update["updatedAt"] = utc_now()
+                key = (update["kind"], update["stepId"])
+                previous = next(
+                    (
+                        item
+                        for item in existing
+                        if (item.get("kind"), item.get("stepId")) == key
+                    ),
+                    None,
+                )
+                if previous is None:
+                    existing.append(copy.deepcopy(update))
+                else:
+                    previous.update(copy.deepcopy(update))
+            run["updatedAt"] = utc_now()
+
+        self.store.update_stage(stage_id, apply)
+        self._write_checkpoint_report(stage_id)
+
+    def _refresh_checkpoint_validity(self, stage_id: str) -> list[str]:
+        invalidated: list[str] = []
+
+        def refresh(run: dict[str, Any]) -> None:
+            checkpoints = run.get("checkpoints", [])
+            if not isinstance(checkpoints, list):
+                return
+            for item in checkpoints:
+                if item.get("status") != "passed":
+                    continue
+                inputs = item.get("inputs")
+                recorded = item.get("inputFingerprints")
+                current = fingerprint_inputs(self.root, inputs) if isinstance(inputs, list) else None
+                if current is None or current != recorded:
+                    item["status"] = "invalidated"
+                    item["updatedAt"] = utc_now()
+                    invalidated.append(str(item.get("stepId", "unknown")))
+
+        self.store.update_stage(stage_id, refresh)
+        if invalidated:
+            self._write_checkpoint_report(stage_id)
+        return invalidated
+
+    def _checkpoint_gate(self, stage_id: str) -> tuple[bool, str]:
+        invalidated = self._refresh_checkpoint_validity(stage_id)
+        run = self.store.stage(stage_id)
+        checkpoints = [
+            item
+            for item in run.get("checkpoints", [])
+            if isinstance(item, dict) and item.get("kind") == "stage"
+        ]
+        if invalidated:
+            return False, "Змінилися inputs checkpoints: " + ", ".join(invalidated)
+        if not checkpoints or not any(item.get("status") == "passed" for item in checkpoints):
+            return False, "Turn не надав жодного успішного structured checkpoint."
+        unresolved = [
+            str(item.get("stepId", "unknown"))
+            for item in checkpoints
+            if item.get("status") in {"failed", "interrupted", "invalidated", "running"}
+        ]
+        if unresolved:
+            return False, "Незакриті checkpoints: " + ", ".join(unresolved)
+        return True, "Structured checkpoints та їхні input fingerprints чинні."
+
     def handle_app_server_message(self, message: dict[str, Any]) -> None:
         method = message.get("method")
         params = message.get("params")
@@ -1936,6 +3404,10 @@ class RoadmapController:
                 self._update_git_checkpoint(
                     stage_id, lambda item: item.update(copy.deepcopy(values))
                 )
+            elif work_kind == "review":
+                def update_review(run: dict[str, Any]) -> None:
+                    run["contractReview"].update(copy.deepcopy(values))
+                self.store.update_stage(stage_id, update_review)
             else:
                 self.store.update_stage(
                     stage_id, lambda item: item.update(copy.deepcopy(values))
@@ -1974,6 +3446,7 @@ class RoadmapController:
                     self._apply_reported_progress(
                         thread_id, stage_id, work_kind, text
                     )
+                    self._record_checkpoints(stage_id, work_kind, text)
                     update_context(
                         {"lastMessage": text[-4000:], "updatedAt": utc_now()}
                     )
@@ -1984,7 +3457,7 @@ class RoadmapController:
             if isinstance(status, dict) and status.get("type") == "active":
                 flags = status.get("activeFlags", [])
                 if isinstance(flags, list) and "waitingOnApproval" in flags:
-                    status_key = "status" if work_kind == "git" else "runStatus"
+                    status_key = "status" if work_kind in {"git", "review"} else "runStatus"
                     update_context(
                         {
                             status_key: "waiting",
@@ -1993,7 +3466,13 @@ class RoadmapController:
                         }
                     )
                     current = self.store.stage(stage_id)
-                    container = current.get("git") if work_kind == "git" else current
+                    container = (
+                        current.get("git")
+                        if work_kind == "git"
+                        else current.get("contractReview")
+                        if work_kind == "review"
+                        else current
+                    )
                     progress = (
                         container.get("progress", {})
                         if isinstance(container, dict)
@@ -2018,6 +3497,38 @@ class RoadmapController:
         turn_status = turn.get("status")
         with self._lock:
             final_message = self._live_messages.get(thread_id, "")
+        if work_kind == "review":
+            result = parse_review_result(final_message, stage_id)
+            if turn_status == "interrupted":
+                status, error = "interrupted", "Contract review turn зупинено."
+            elif turn_status == "failed":
+                turn_error = turn.get("error")
+                status, error = "failed", _limited_string(
+                    turn_error.get("message") if isinstance(turn_error, dict) else "Turn failed",
+                    limit=2000,
+                )
+            elif result is None:
+                status, error = "needs_review", "Немає валідного VARTA_REVIEW_RESULT."
+            else:
+                status = "passed" if result["outcome"] == "passed" else result["outcome"]
+                error = None
+
+            def finish_review(run: dict[str, Any]) -> None:
+                now = utc_now()
+                review = run["contractReview"]
+                review.update(
+                    {
+                        "status": status,
+                        "updatedAt": now,
+                        "completedAt": now,
+                        "lastMessage": final_message[-4000:],
+                        "result": result,
+                        "error": error,
+                    }
+                )
+
+            self.store.update_stage(stage_id, finish_review)
+            return
         if work_kind == "git":
             result = parse_git_checkpoint_result(final_message, stage_id)
             if turn_status == "interrupted":
@@ -2039,17 +3550,30 @@ class RoadmapController:
                     "roadmap не позначає GitHub checkpoint як synced."
                 )
             elif result["outcome"] == "synced":
-                verified, verification_evidence, canonical_commit = self.git_verifier(
-                    result
+                run = self.store.stage(stage_id)
+                scope_ok, scope_evidence = self.scope_verifier(
+                    stage_id,
+                    result,
+                    run.get("result") if isinstance(run, dict) else None,
                 )
-                result["controller_verification"] = verification_evidence
-                if verified and canonical_commit is not None:
-                    result["commit"] = canonical_commit
-                    git_status = "synced"
-                    error = None
+                if scope_ok:
+                    verified, verification_evidence, canonical_commit = self.git_verifier(
+                        result
+                    )
+                    result["controller_verification"] = (
+                        scope_evidence + " " + verification_evidence
+                    )
+                    if verified and canonical_commit is not None:
+                        result["commit"] = canonical_commit
+                        git_status = "synced"
+                        error = None
+                    else:
+                        git_status = "needs_review"
+                        error = verification_evidence
                 else:
                     git_status = "needs_review"
-                    error = verification_evidence
+                    error = scope_evidence
+                    result["controller_verification"] = scope_evidence
             elif result["outcome"] == "blocked":
                 git_status = "blocked"
                 error = None
@@ -2116,8 +3640,14 @@ class RoadmapController:
                 "roadmap не позначає gate як PASS автоматично."
             )
         elif result["outcome"] == "passed":
-            run_status = "completed"
-            error = None
+            checkpoint_passed, checkpoint_evidence = self._checkpoint_gate(stage_id)
+            result["controller_checkpoint_gate"] = checkpoint_evidence
+            if checkpoint_passed:
+                run_status = "completed"
+                error = None
+            else:
+                run_status = "needs_review"
+                error = checkpoint_evidence
         elif result["outcome"] == "blocked":
             run_status = "blocked"
             error = None
@@ -2315,24 +3845,43 @@ class RoadmapRequestHandler(BaseHTTPRequestHandler):
         if content_length < 0 or content_length > 1024:
             self._error(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, "Request body is too large")
             return
-        if content_length:
-            self.rfile.read(content_length)
+        raw_body = self.rfile.read(content_length) if content_length else b"{}"
+        try:
+            payload = json.loads(raw_body.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            self._error(HTTPStatus.BAD_REQUEST, "Request body must be valid JSON.")
+            return
+        if not isinstance(payload, dict):
+            self._error(HTTPStatus.BAD_REQUEST, "Request body must be a JSON object.")
+            return
         path = urlparse(self.path).path
         if path == "/api/v1/controller/stop":
             self._json(HTTPStatus.ACCEPTED, {"stopping": True})
             threading.Thread(target=self.server.shutdown, daemon=True).start()
             return
-        stage_match = re.fullmatch(r"/api/v1/stages/([CP]\d{2})/(start|stop)", path)
-        git_match = re.fullmatch(
-            r"/api/v1/stages/([CP]\d{2})/git/(start|stop)", path
+        stage_match = re.fullmatch(
+            r"/api/v1/stages/([CPR]\d{2})/(start|stop|rerun)",
+            path,
         )
-        match = git_match or stage_match
+        git_match = re.fullmatch(
+            r"/api/v1/stages/([CPR]\d{2})/git/(start|stop)", path
+        )
+        review_match = re.fullmatch(
+            r"/api/v1/stages/([CPR]\d{2})/review/(start|stop)", path
+        )
+        match = git_match or review_match or stage_match
         if match is None:
             self._error(HTTPStatus.NOT_FOUND, "Not found")
             return
         stage_id, action = match.groups()
         try:
-            if git_match is not None and action == "start":
+            if review_match is not None and action == "start":
+                review = self.server.controller.start_contract_review(stage_id)
+                self._json(HTTPStatus.ACCEPTED, {"stageId": stage_id, "review": review})
+            elif review_match is not None:
+                review = self.server.controller.stop_contract_review(stage_id)
+                self._json(HTTPStatus.ACCEPTED, {"stageId": stage_id, "review": review})
+            elif git_match is not None and action == "start":
                 checkpoint = self.server.controller.start_git_checkpoint(stage_id)
                 self._json(
                     HTTPStatus.ACCEPTED,
@@ -2344,6 +3893,24 @@ class RoadmapRequestHandler(BaseHTTPRequestHandler):
                     HTTPStatus.ACCEPTED,
                     {"stageId": stage_id, "git": checkpoint},
                 )
+            elif action == "rerun":
+                expected_keys = {"model", "reasoningEffort"}
+                if set(payload) != expected_keys:
+                    raise RoadmapValidationError(
+                        "Rerun потребує тільки поля model і reasoningEffort."
+                    )
+                model = payload["model"]
+                reasoning_effort = payload["reasoningEffort"]
+                if not isinstance(model, str) or not isinstance(reasoning_effort, str):
+                    raise RoadmapValidationError(
+                        "Поля model і reasoningEffort мають бути рядками."
+                    )
+                run = self.server.controller.rerun_stage(
+                    stage_id,
+                    model=model,
+                    reasoning_effort=reasoning_effort,
+                )
+                self._json(HTTPStatus.ACCEPTED, {"stageId": stage_id, "run": run})
             elif action == "start":
                 run = self.server.controller.start_stage(stage_id)
                 self._json(HTTPStatus.ACCEPTED, {"stageId": stage_id, "run": run})
@@ -2354,6 +3921,8 @@ class RoadmapRequestHandler(BaseHTTPRequestHandler):
             self._error(HTTPStatus.NOT_FOUND, "Unknown stage")
         except RoadmapConflict as exc:
             self._error(HTTPStatus.CONFLICT, str(exc))
+        except RoadmapValidationError as exc:
+            self._error(HTTPStatus.BAD_REQUEST, str(exc))
         except AppServerError as exc:
             self._error(HTTPStatus.SERVICE_UNAVAILABLE, str(exc))
 
