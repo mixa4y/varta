@@ -12,7 +12,10 @@
   "exactPaths": [
     {
       "path": ".gitignore",
-      "owners": ["SHARED-GOVERNANCE", "MAINTENANCE"],
+      "owners": [
+        "SHARED-GOVERNANCE",
+        "MAINTENANCE"
+      ],
       "category": "repository-policy",
       "disposition": "exact-review"
     },
@@ -36,13 +39,19 @@
     },
     {
       "path": "pyproject.toml",
-      "owners": ["SHARED-GOVERNANCE", "CORE"],
+      "owners": [
+        "SHARED-GOVERNANCE",
+        "CORE"
+      ],
       "category": "build-contract",
       "disposition": "coordinate"
     },
     {
       "path": "docs/INDEX.md",
-      "owners": ["SHARED-GOVERNANCE", "MAINTENANCE"],
+      "owners": [
+        "SHARED-GOVERNANCE",
+        "MAINTENANCE"
+      ],
       "category": "documentation-index",
       "disposition": "exact-review"
     },
@@ -54,7 +63,10 @@
     },
     {
       "path": "docs/project-file-ownership.md",
-      "owners": ["MAINTENANCE", "SHARED-GOVERNANCE"],
+      "owners": [
+        "MAINTENANCE",
+        "SHARED-GOVERNANCE"
+      ],
       "category": "ownership-index",
       "disposition": "scope-owned"
     },
@@ -72,7 +84,11 @@
     },
     {
       "path": "tests/test_architecture_docs.py",
-      "owners": ["C02", "ROADMAP", "SHARED-GOVERNANCE"],
+      "owners": [
+        "C02",
+        "ROADMAP",
+        "SHARED-GOVERNANCE"
+      ],
       "category": "shared-documentation-test",
       "disposition": "hunk-review"
     },
@@ -84,31 +100,49 @@
     },
     {
       "path": "docs/action-algorithm.md",
-      "owners": ["SHARED-GOVERNANCE", "ROADMAP"],
+      "owners": [
+        "SHARED-GOVERNANCE",
+        "ROADMAP"
+      ],
       "category": "canonical-workflow",
       "disposition": "coordinate"
     },
     {
       "path": "case_docket/application/__init__.py",
-      "owners": ["R01", "R02", "R03", "C11"],
+      "owners": [
+        "R01",
+        "R02",
+        "R03",
+        "C11"
+      ],
       "category": "shared-stage-interface",
       "disposition": "hunk-review"
     },
     {
       "path": "case_docket/repository/__init__.py",
-      "owners": ["R02", "R03"],
+      "owners": [
+        "R02",
+        "R03"
+      ],
       "category": "shared-stage-interface",
       "disposition": "hunk-review"
     },
     {
       "path": "case_docket/repository/sqlite_uow.py",
-      "owners": ["R01", "R03", "CORE"],
+      "owners": [
+        "R01",
+        "R03",
+        "CORE"
+      ],
       "category": "shared-transaction-boundary",
       "disposition": "hunk-review"
     },
     {
       "path": "case_docket/repository/sqlite_repository.py",
-      "owners": ["R01", "CORE"],
+      "owners": [
+        "R01",
+        "CORE"
+      ],
       "category": "shared-sqlite-repository",
       "disposition": "hunk-review"
     },
@@ -132,7 +166,10 @@
     },
     {
       "path": "case_docket/application/evidence_map_source.py",
-      "owners": ["R02", "R04"],
+      "owners": [
+        "R02",
+        "R04"
+      ],
       "category": "shared-stage-contract",
       "disposition": "hunk-review"
     },
@@ -175,6 +212,102 @@
     {
       "path": "tests/test_r04_consumer_readiness.py",
       "owners": ["R04"],
+      "category": "stage-test",
+      "disposition": "stage-owned"
+    },
+    {
+      "path": "case_docket/local_case_source.py",
+      "owners": ["R05"],
+      "category": "stage-source",
+      "disposition": "stage-owned"
+    },
+    {
+      "path": "case_docket/application/case_database_import.py",
+      "owners": ["R05"],
+      "category": "stage-source",
+      "disposition": "stage-owned"
+    },
+    {
+      "path": "case_docket/application/case_database_import_ports.py",
+      "owners": ["R05"],
+      "category": "stage-contract",
+      "disposition": "stage-owned"
+    },
+    {
+      "path": "case_docket/application/case_read_models.py",
+      "owners": ["R05"],
+      "category": "stage-source",
+      "disposition": "stage-owned"
+    },
+    {
+      "path": "case_docket/corpus_import.py",
+      "owners": ["R05"],
+      "category": "stage-source",
+      "disposition": "stage-owned"
+    },
+    {
+      "path": "case_docket/corpus_inventory.py",
+      "owners": ["R05"],
+      "category": "stage-source",
+      "disposition": "stage-owned"
+    },
+    {
+      "path": "case_docket/r05_private.py",
+      "owners": ["R05"],
+      "category": "stage-source",
+      "disposition": "stage-owned"
+    },
+    {
+      "path": "case_docket/repository/migrations/0013_system_case_database_import.sql",
+      "owners": ["R05"],
+      "category": "stage-migration",
+      "disposition": "protected"
+    },
+    {
+      "path": "case_docket/repository/sqlite_case_database_import.py",
+      "owners": ["R05"],
+      "category": "stage-source",
+      "disposition": "stage-owned"
+    },
+    {
+      "path": "case_docket/repository/sqlite_case_read_models.py",
+      "owners": ["R05"],
+      "category": "stage-source",
+      "disposition": "stage-owned"
+    },
+    {
+      "path": "docs/changes/R05-authoritative-local-case-sqlite.md",
+      "owners": ["R05"],
+      "category": "stage-evidence",
+      "disposition": "stage-owned"
+    },
+    {
+      "path": "tests/test_local_case_source_r05.py",
+      "owners": ["R05"],
+      "category": "stage-test",
+      "disposition": "stage-owned"
+    },
+    {
+      "path": "tests/test_case_database_import_r05.py",
+      "owners": ["R05"],
+      "category": "stage-test",
+      "disposition": "stage-owned"
+    },
+    {
+      "path": "tests/test_case_read_models_r05.py",
+      "owners": ["R05"],
+      "category": "stage-test",
+      "disposition": "stage-owned"
+    },
+    {
+      "path": "tests/test_corpus_inventory_r05.py",
+      "owners": ["R05"],
+      "category": "stage-test",
+      "disposition": "stage-owned"
+    },
+    {
+      "path": "tests/test_managed_corpus_r05.py",
+      "owners": ["R05"],
       "category": "stage-test",
       "disposition": "stage-owned"
     },

@@ -40,6 +40,7 @@ D:\VARTA\.venv\Scripts\python.exe tools\project_inventory.py --write-reports
 | `R02` | `sqlite_evidence_map_source.py`, відповідний test | `evidence_map_source.py`, application/repository exports |
 | `R03` | `evidence_map_export.py`, `sqlite_evidence_map_export.py`, відповідний test | application/repository exports, SQLite UoW |
 | `R04` | `docs/changes/R04-consumer-readiness.md`, readiness test | `evidence_map_source.py` consumer-validation contract разом з `R02` |
+| `R05` | Offline SQL mapping, local case/corpus import, case database repositories, local JSON settings, R05 tests and coverage record | migration `0013`; existing Airtable catalog, SQLite UoW and R02/R04 query contracts are shared dependencies |
 | `C11` | `evidence_map.py`, projection test | application exports |
 
 Файли з кількома owners не належать останньому package цілком. Для них
