@@ -1,76 +1,69 @@
-# Python Project Structure
+# VARTA Python dependency structure
 
 | Metadata | Value |
 |---|---|
-| Status | `DRAFT` |
-| Version | `v0.1` |
-| Date | `2026-07-24` |
+| Status | `APPROVED TARGET` |
+| Version | `v1.0` |
+| Date | `2026-08-18` |
+| Decision | `ADR-001`, `ADR-007` |
 
-## Рекомендована структура
-
-```text
-csmd/
-├── pyproject.toml
-├── README.md
-├── AGENTS.md
-├── src/
-│   └── csmd/
-│       ├── domain/
-│       ├── application/
-│       ├── infrastructure/
-│       ├── presentation/
-│       ├── config/
-│       └── __main__.py
-├── migrations/
-├── tests/
-│   ├── unit/
-│   ├── integration/
-│   └── fixtures/
-├── docs/
-│   ├── adr/
-│   ├── specification/
-│   └── data-model/
-└── tools/
-```
-
-## Межі шарів
+## Layer responsibilities
 
 ### `domain`
 
-Сутності, value objects, доменні правила й типи результатів. Не залежить від SQLite, UI, файлової системи або зовнішніх SDK.
+Entities, value objects, invariants і domain result types. Не залежить від
+SQLite, HTTP, UI, filesystem, processor SDK або зовнішніх adapters.
 
 ### `application`
 
-Use cases, команди, запити, orchestration і порти. Координує domain та інфраструктурні інтерфейси.
+Commands, queries, DTOs, service errors, orchestration, Unit of Work,
+repository/storage/job ports. Не імпортує presentation framework або concrete
+SQLite/filesystem adapters.
 
 ### `infrastructure`
 
-SQLite repositories, filesystem storage, parsers, hashing, OCR, signature tools, logging та adapters.
+SQLite repositories/UoW, managed storage, migration runner, hashing, parsers,
+job supervisor, processors і optional external adapters. Реалізує application
+ports.
 
 ### `presentation`
 
-CLI, desktop або local web UI. Не містить доменної логіки.
+Local HTTP handlers, browser assets і CLI. Не містить domain rules, не
+імпортує concrete repository і не читає workspace напряму.
 
-## Модулі можливостей
+## Dependency direction
 
-Можливості `intake`, `inventory`, `metadata`, `classification`, `signatures`, `matching`, `attachments`, `timeline`, `relationships`, `transcription`, `reporting` та `audit` можуть бути підпакетами відповідного шару. Фінальне групування визначається після першого вертикального use case.
+```text
+presentation -> application -> domain
+infrastructure -> application/domain ports
+workers -> serializable job/result contracts
+```
 
-## Інженерні правила
+Browser JavaScript використовує тільки `/api/v1`. Worker не отримує SQLite
+connection/repository і не finalizes authoritative state.
 
-- `pathlib`, type hints і docstrings для публічних API.
-- Явна обробка помилок без порожніх `except`.
-- Структуровані logs без секретів.
-- Міграції SQLite під контролем версій.
-- Unit tests для domain, integration tests для SQLite і файлового сховища.
-- Залежності додаються лише з поясненням і ліцензійною перевіркою.
+## Current-to-target migration
 
-## Assumptions
+Поточний repository зберігає `case_docket/` і `caseflow/`; C02 не перейменовує
+packages і не створює application code. `C03` додає мінімальний application
+package/ports і переносить один vertical slice. `C12` робить handlers thin.
+Фізичний `src/` layout не є architecture requirement і не виправдовує mass
+move.
 
-- Використовується `src` layout.
-- Конкретні framework, ORM, migration tool, CLI та UI ще не обрані.
+## Engineering rules
 
-## Open questions
+- Python `3.12`, `pathlib`, type hints і explicit errors.
+- Structured logs без secrets/private case payloads.
+- Versioned SQL migrations; integration tests для SQLite/storage.
+- Architecture tests забороняють presentation -> infrastructure/repository.
+- Dependency/framework addition потребує measurable need і license review.
 
-- Мінімальна версія Python?
-- Чи потрібен ORM, чи достатньо явного SQL?
-- Який формат конфігурації та dependency injection?
+## Open decisions
+
+| Question | Owner stage | Closing gate |
+|---|---|---|
+| Exact application package names, DI/config bootstrap і DTO layout | `C03` | `C03 PASS` |
+| Exact infrastructure package split after first storage/job slices | `C05`, `C10` | respective PASS |
+
+HTTP framework replacement не є open default: stdlib може залишатися; заміна
+потребує нового ADR із measurable reason.

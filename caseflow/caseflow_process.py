@@ -13,6 +13,7 @@ from copy import copy
 from datetime import datetime
 from difflib import SequenceMatcher
 from pathlib import Path, PurePosixPath
+from typing import Any, TypedDict
 
 try:
     from openpyxl import Workbook, load_workbook
@@ -20,10 +21,31 @@ try:
 except ImportError as exc:  # pragma: no cover
     raise SystemExit("VARTA потребує openpyxl. Запустіть інсталер ще раз або встановіть openpyxl.") from exc
 
+PdfReader: Any = None
 try:
-    from pypdf import PdfReader
+    from pypdf import PdfReader as _PdfReader
 except ImportError:  # pragma: no cover
-    PdfReader = None
+    pass
+else:
+    PdfReader = _PdfReader
+
+
+class Candidate(TypedDict):
+    path: Path
+    scan_root: str
+    relative: Path
+    proceeding_folder: str
+    flow_folder: str
+    flow: str
+    channel: str
+    component: str
+    sha256: str
+    uploaded_at: str | None
+
+
+class LogicalGroup(TypedDict):
+    main: Candidate
+    files: list[Candidate]
 
 
 DOCUMENT_EXTENSIONS = {".pdf", ".html", ".htm", ".docx", ".doc", ".rtf", ".txt"}
@@ -394,7 +416,8 @@ def ensure_workbook(template: Path | None):
     if template:
         return load_workbook(template)
     workbook = Workbook()
-    workbook.remove(workbook.active)
+    if workbook.worksheets:
+        workbook.remove(workbook.worksheets[0])
     control = workbook.create_sheet("Контроль")
     control.append(["VARTA — РЕЄСТР"])
     for table_index, (name, headers) in enumerate(SHEET_HEADERS.items(), 1):
@@ -509,7 +532,7 @@ def main(argv: list[str] | None = None) -> int:
     for folder in [inbox, unpacked_root, processed_root, review_root, root / "03_РЕЄСТР" / "exports", root / "tmp" / "caseflow_runs", root / "tmp" / "summary_agent"]:
         folder.mkdir(parents=True, exist_ok=True)
 
-    extraction_log = []
+    extraction_log: list[dict[str, Any]] = []
     if settings["extractArchives"]:
         for archive in sorted(inbox.rglob("*.zip"), key=lambda p: str(p).casefold()):
             relative = archive.relative_to(inbox)
@@ -528,12 +551,12 @@ def main(argv: list[str] | None = None) -> int:
                 else:
                     extraction_log.append({"path": str(archive), "status": "error", "reason": "7zip_not_found"})
 
-    manifests = {}
+    manifests: dict[Path, dict[str, Any]] = {}
     for manifest in inbox.rglob("caseflow_upload.json"):
         payload = read_json(manifest, {})
-        manifests[manifest.parent.resolve()] = payload
+        manifests[manifest.parent.resolve()] = payload if isinstance(payload, dict) else {}
 
-    def manifest_for(path: Path) -> dict:
+    def manifest_for(path: Path) -> dict[str, Any]:
         current = path.parent.resolve()
         while current != root and root in current.parents:
             if current in manifests:
@@ -541,7 +564,7 @@ def main(argv: list[str] | None = None) -> int:
             current = current.parent
         return {}
 
-    candidates = []
+    candidates: list[Candidate] = []
     for scan_root in [inbox, unpacked_root]:
         for path in sorted(scan_root.rglob("*"), key=lambda p: str(p).casefold()):
             if not path.is_file() or path.name == "caseflow_upload.json":
@@ -557,7 +580,11 @@ def main(argv: list[str] | None = None) -> int:
             proceeding_folder = relative.parts[0] if len(relative.parts) > 1 else "НОВЕ_ПРОВАДЖЕННЯ"
             flow_folder, flow = stream_from_path(relative)
             manifest = manifest_for(path) if scan_root == inbox else {}
-            channel = manifest.get("channel") or next((part.split("__", 1)[1] for part in relative.parts if "__" in part and part[:8].isdigit()), "ІНШЕ")
+            raw_channel = manifest.get("channel") or next(
+                (part.split("__", 1)[1] for part in relative.parts if "__" in part and part[:8].isdigit()),
+                "ІНШЕ",
+            )
+            uploaded_at = manifest.get("uploaded_at")
             candidates.append({
                 "path": path,
                 "scan_root": scan_root.name,
@@ -565,10 +592,10 @@ def main(argv: list[str] | None = None) -> int:
                 "proceeding_folder": proceeding_folder,
                 "flow_folder": flow_folder,
                 "flow": flow,
-                "channel": channel,
+                "channel": str(raw_channel),
                 "component": comp,
                 "sha256": sha256(path),
-                "uploaded_at": manifest.get("uploaded_at"),
+                "uploaded_at": uploaded_at if isinstance(uploaded_at, str) else None,
             })
 
     template = find_template(root)
@@ -595,32 +622,32 @@ def main(argv: list[str] | None = None) -> int:
     hash_index = index.setdefault("hashes", {})
     batch_index = index.setdefault("batches", {})
 
-    by_folder = defaultdict(list)
+    by_folder: defaultdict[Path, list[Candidate]] = defaultdict(list)
     for item in candidates:
         by_folder[item["path"].parent].append(item)
-    logical_groups = []
-    evidence_only = []
+    logical_groups: list[LogicalGroup] = []
+    evidence_only: list[Candidate] = []
     for folder, items in by_folder.items():
         mains = [item for item in items if item["component"] == "ОСНОВНИЙ"]
         auxiliaries = [item for item in items if item["component"] != "ОСНОВНИЙ"]
         if not mains:
             evidence_only.extend(auxiliaries)
             continue
-        groups = [{"main": main, "files": [main]} for main in mains]
+        groups: list[LogicalGroup] = [{"main": main, "files": [main]} for main in mains]
         for auxiliary in auxiliaries:
-            target = max(groups, key=lambda group: SequenceMatcher(None, auxiliary["path"].stem.casefold(), group["main"]["path"].stem.casefold()).ratio())
-            target["files"].append(auxiliary)
+            target_group = max(groups, key=lambda group: SequenceMatcher(None, auxiliary["path"].stem.casefold(), group["main"]["path"].stem.casefold()).ratio())
+            target_group["files"].append(auxiliary)
         logical_groups.extend(groups)
 
-    batch_groups = defaultdict(list)
+    batch_groups: defaultdict[str, list[LogicalGroup]] = defaultdict(list)
     for group in logical_groups:
         main = group["main"]
         upload_folder = next((parent for parent in [main["path"].parent, *main["path"].parents] if parent.resolve() in manifests), main["path"].parent)
         batch_groups[str(upload_folder)].append(group)
 
     added_docs = added_files = added_events = duplicates = cross_proceeding = 0
-    summary_tasks = []
-    run_documents = []
+    summary_tasks: list[dict[str, Any]] = []
+    run_documents: list[dict[str, Any]] = []
     for batch_key, groups in batch_groups.items():
         batch_id = batch_index.get(batch_key)
         if not batch_id:
@@ -638,7 +665,8 @@ def main(argv: list[str] | None = None) -> int:
             continue
         first = new_groups[0]["main"]
         source_label = "Від суду + Мої документи" if len({g["main"]["flow"] for g in new_groups}) > 1 else first["flow"]
-        upload_dt = datetime.fromisoformat(first["uploaded_at"]) if first.get("uploaded_at") else started
+        uploaded_at = first["uploaded_at"]
+        upload_dt = datetime.fromisoformat(uploaded_at) if uploaded_at else started
         append_styled(batches_sheet, [batch_id, folder_to_proceeding(first["proceeding_folder"]), source_label, int(batch_id.split("_")[1]), upload_dt.date(), len(new_groups), len(new_groups), "Опрацьовано", started.date(), "Створено універсальним конвеєром VARTA; обхід рекурсивний."])
         for group in new_groups:
             main = group["main"]
@@ -660,26 +688,27 @@ def main(argv: list[str] | None = None) -> int:
             submitted_at = parse_submission_time(combined_text)
             destination = processed_root / safe_segment(main["proceeding_folder"]) / main["flow_folder"] / doc_id
             destination.mkdir(parents=True, exist_ok=True)
-            added_components = []
-            for component_number, item in enumerate(group["files"], 1):
-                comp = item["component"]
+            added_components: list[dict[str, str]] = []
+            for component_number, component_item in enumerate(group["files"], 1):
+                comp = component_item["component"]
                 component_token = "ДОДАТОК" if comp == "СКРІНШОТ" else comp
-                date_token = (submitted_at or document_date).strftime("%Y-%m-%d") if (submitted_at or document_date) else "БЕЗ_ДАТИ"
+                effective_date = submitted_at or document_date
+                date_token = effective_date.strftime("%Y-%m-%d") if effective_date else "БЕЗ_ДАТИ"
                 court_code = "СУД" if main["flow"] == "Від суду" else "КОРИСТУВАЧ"
-                normalized = f"{date_token}__{court_code}__{normal_token(main['channel'])}__{normal_token(title)}__{doc_id}__{component_token}{compound_suffix(item['path'])}"
+                normalized = f"{date_token}__{court_code}__{normal_token(main['channel'])}__{normal_token(title)}__{doc_id}__{component_token}{compound_suffix(component_item['path'])}"
                 target = destination / normalized
                 if settings["includeOriginals"]:
-                    shutil.copy2(item["path"], target)
+                    shutil.copy2(component_item["path"], target)
                 else:
-                    target = item["path"]
-                duplicate = item["sha256"] in existing_hashes or item["sha256"] in hash_index
+                    target = component_item["path"]
+                duplicate = component_item["sha256"] in existing_hashes or component_item["sha256"] in hash_index
                 file_id = file_cursor
                 file_cursor = increment_id(file_cursor)
-                append_styled(files_sheet, [file_id, doc_id, component_token, component_number, item["path"].name, normalized, str(target.relative_to(root)), str(target), compound_suffix(item["path"]).lstrip("."), mime_for(item["path"]), item["path"].stat().st_size, item["sha256"], "Так" if duplicate else "Ні", "Відкривається", upload_dt.date(), started.date(), None, None, batch_id, primary_proceeding, f"Джерело: {item['scan_root']}; канал: {main['channel']}."])
-                hash_index[item["sha256"]] = {"doc_id": doc_id, "file_id": file_id, "source": str(item["path"].relative_to(root)), "processed": str(target.relative_to(root)), "added_at": now_iso()}
-                existing_hashes.add(item["sha256"])
+                append_styled(files_sheet, [file_id, doc_id, component_token, component_number, component_item["path"].name, normalized, str(target.relative_to(root)), str(target), compound_suffix(component_item["path"]).lstrip("."), mime_for(component_item["path"]), component_item["path"].stat().st_size, component_item["sha256"], "Так" if duplicate else "Ні", "Відкривається", upload_dt.date(), started.date(), None, None, batch_id, primary_proceeding, f"Джерело: {component_item['scan_root']}; канал: {main['channel']}."])
+                hash_index[component_item["sha256"]] = {"doc_id": doc_id, "file_id": file_id, "source": str(component_item["path"].relative_to(root)), "processed": str(target.relative_to(root)), "added_at": now_iso()}
+                existing_hashes.add(component_item["sha256"])
                 added_files += 1
-                added_components.append({"component": component_token, "path": str(target.relative_to(root)), "sha256": item["sha256"]})
+                added_components.append({"component": component_token, "path": str(target.relative_to(root)), "sha256": component_item["sha256"]})
             card_state = "Є" if any(item["component"] == "КАРТКА_РУХУ" for item in group["files"]) else "Відсутня"
             protocol_state = "Є" if any(item["component"] == "ПРОТОКОЛ_КЕП" for item in group["files"]) else "Відсутній"
             signature_state = "Є" if any(item["component"] == "ПІДПИС" for item in group["files"]) else "Відсутній"
@@ -722,12 +751,21 @@ def main(argv: list[str] | None = None) -> int:
 
     write_json(index_path, index)
     write_json(root / "tmp" / "summary_agent" / "pending_tasks.json", {"schema_version": 1, "generated_at": now_iso(), "items": summary_tasks})
-    run = {
+    run_statistics = {
+        "documents_added": added_docs,
+        "files_added": added_files,
+        "events_added": added_events,
+        "duplicates_skipped": duplicates,
+        "cross_proceeding": cross_proceeding,
+        "evidence_without_document": len(evidence_only),
+        "archives_entries": len(extraction_log),
+    }
+    run: dict[str, Any] = {
         "run_id": stamp,
         "started_at": started.astimezone().isoformat(timespec="seconds"),
         "finished_at": now_iso(),
         "settings": settings,
-        "statistics": {"documents_added": added_docs, "files_added": added_files, "events_added": added_events, "duplicates_skipped": duplicates, "cross_proceeding": cross_proceeding, "evidence_without_document": len(evidence_only), "archives_entries": len(extraction_log)},
+        "statistics": run_statistics,
         "register": str(output_book.relative_to(root)) if settings["autoRegister"] else None,
         "template": str(template.relative_to(root)) if template and root in template.parents else str(template) if template else None,
         "documents": run_documents,
@@ -735,7 +773,7 @@ def main(argv: list[str] | None = None) -> int:
     }
     run_path = root / "tmp" / "caseflow_runs" / f"{stamp}.json"
     write_json(run_path, run)
-    print(json.dumps({"run": str(run_path.relative_to(root)), "register": run["register"], **run["statistics"]}, ensure_ascii=False))
+    print(json.dumps({"run": str(run_path.relative_to(root)), "register": run["register"], **run_statistics}, ensure_ascii=False))
     return 0
 
 

@@ -48,6 +48,8 @@ Findings за severity і type, предмет перевірки, evidence refe
 
 ## Open questions
 
-- Які звіти є обов'язковими для першого релізу?
-- Чи потрібен підпис або timestamp для експортованого звіту?
-- Які поля треба маскувати залежно від ролі користувача?
+| Question | Owner stage | Closing gate |
+|---|---|---|
+| Обов'язкові reports першого release | `C13`, `C14` | workflow/export PASS |
+| Signature/timestamp для exported report | `C14`, `P02` | export/processor decision gate |
+| Role/redaction masking | `C14`, `C16` | export + privacy gate |

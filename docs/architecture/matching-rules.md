@@ -51,6 +51,8 @@
 
 ## Open questions
 
-- Які бібліотеки використовувати для PDF/DOCX та visual diff?
-- Які поля вважаються суттєвими для кожного document type?
-- Як калібрувати confidence на знеособленому еталонному наборі?
+| Question | Owner stage | Closing gate |
+|---|---|---|
+| PDF/DOCX/visual-diff libraries | `P04` | `P04 PASS` |
+| Significant fields per document type | `P04` | `P04 PASS` |
+| Confidence calibration on synthetic/anonymized corpus | `P04`, `C16` | processor + acceptance gate |

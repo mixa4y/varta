@@ -1,16 +1,58 @@
 {
-  "schemaVersion": "1.0.0",
+  "schemaVersion": "1.1.0",
+  "profileVersion": "1",
   "case": {
     "id": "case_example",
     "number": null,
+    "numberStatus": "unknown",
     "folderKey": "new_case",
     "title": "Нова справа",
-    "aliases": []
+    "aliases": [],
+    "caseType": null,
+    "jurisdiction": null,
+    "primaryCourtName": null,
+    "description": null,
+    "tags": []
+  },
+  "bootstrap": {
+    "firstDocumentId": null,
+    "temporaryIntakeCaseId": null,
+    "numberDetectionSources": [
+      "structured_metadata",
+      "document_text",
+      "ocr",
+      "verified_manifest",
+      "filename",
+      "folder",
+      "manual"
+    ],
+    "requireManualReviewForMultipleCandidates": true,
+    "allowFilenameAsSoleEvidence": false,
+    "expectedNumberAfterReview": null,
+    "instructions": null
   },
   "proceedings": [],
   "evidenceMap": {
     "rootDocumentId": null,
+    "rootSelector": null,
     "keyDocumentRules": [],
-    "relations": []
-  }
+    "relationHypotheses": []
+  },
+  "exportDefaults": {
+    "profile": "metadata_only",
+    "includeFullText": false,
+    "includeOriginalFiles": false,
+    "sealed": true,
+    "redactionPolicyId": null,
+    "language": "uk"
+  },
+  "validationRules": {
+    "requireSourceForConfirmedFacts": true,
+    "requireAllRequiredProceedings": true,
+    "requireReferentialIntegrity": true,
+    "requireUniqueIds": true,
+    "blockExternalNetworkInSealedExport": true,
+    "requiredRelationHypothesisIds": []
+  },
+  "notes": null
 }

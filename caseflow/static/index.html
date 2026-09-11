@@ -30,6 +30,7 @@
       <span aria-hidden="true">＋</span>Додати документ
     </button>
     <a class="manual-link map-link" href="/legal-case-map.html">Карта справи</a>
+    <a class="manual-link contacts-link" href="#contacts-card">Контакти</a>
     <a class="manual-link" href="/manual.html" target="_blank" rel="noopener">Інструкція</a>
     <div class="connection-pill" id="connection-pill"><span></span>Локально</div>
   </header>
@@ -111,9 +112,57 @@
         <div class="document-tree" id="document-tree" aria-live="polite"><div class="empty-state">Завантаження…</div></div>
       </section>
 
+      <section class="card contacts-card" id="contacts-card">
+        <div class="card-title-row">
+          <div><span class="step">04</span><h2>Контакти та учасники</h2></div>
+          <button class="primary compact" id="contact-new" type="button"><span aria-hidden="true">＋</span> Контакт</button>
+        </div>
+        <div class="contacts-toolbar">
+          <label class="contact-search"><span>Пошук</span><input id="contact-query" type="search" placeholder="ПІБ, назва, телефон або email"></label>
+          <label><span>Тип</span><select id="contact-type-filter"><option value="">Усі</option><option value="person">Фізичні особи</option><option value="organization">Організації</option></select></label>
+          <output id="contact-count">0 контактів</output>
+        </div>
+        <div class="contacts-workspace">
+          <div class="contact-catalog" id="contact-list" aria-live="polite"><div class="empty-state">Завантаження…</div></div>
+          <form class="contact-detail" id="contact-form">
+            <input id="contact-id" type="hidden">
+            <div class="contact-detail-head">
+              <div><span class="eyebrow" id="contact-detail-kind">Контакт</span><h3 id="contact-detail-title">Новий контакт</h3></div>
+              <label class="contact-active"><input id="contact-active" type="checkbox" checked><span>Активний</span></label>
+            </div>
+            <div class="contact-form-grid">
+              <label class="contact-wide"><span>ПІБ / Назва</span><input id="contact-full-name" required maxlength="500"></label>
+              <label><span>Тип учасника</span><select id="contact-participant-type" required><option value="person">Фізична особа</option><option value="organization">Юридична особа</option></select></label>
+              <label><span>Скорочена назва</span><input id="contact-short-name" maxlength="300"></label>
+              <label><span>Email</span><input id="contact-email" type="email" maxlength="500"></label>
+              <label><span>Телефон</span><input id="contact-phone" type="tel" maxlength="100"></label>
+              <label><span>Додатковий телефон</span><input id="contact-additional-phone" type="tel" maxlength="100"></label>
+              <label><span>Дата народження / реєстрації</span><input id="contact-date" type="date"></label>
+              <label><span>РНОКПП</span><input id="contact-tax-id" maxlength="100"></label>
+              <label><span>ЄДРПОУ</span><input id="contact-edrpou" maxlength="100"></label>
+              <label class="contact-wide"><span>Адреса</span><textarea id="contact-address" rows="2" maxlength="2000"></textarea></label>
+              <label class="contact-wide"><span>Представник / контактна особа</span><input id="contact-representative" maxlength="500"></label>
+              <label class="contact-wide"><span>Примітки</span><textarea id="contact-notes" rows="3" maxlength="5000"></textarea></label>
+            </div>
+            <div class="contact-detail-actions"><button class="primary compact" id="contact-save" type="submit">Зберегти</button><span id="contact-save-state"></span></div>
+
+            <div class="contact-roles" id="contact-roles-section" hidden>
+              <div class="contact-subhead"><h4>Ролі у справах і провадженнях</h4><span id="contact-role-count">0</span></div>
+              <div class="contact-role-list" id="contact-role-list"></div>
+              <div class="contact-role-editor">
+                <label><span>Справа</span><select id="contact-role-case"></select></label>
+                <label><span>Провадження</span><select id="contact-role-proceeding"><option value="">Без окремого провадження</option></select></label>
+                <label><span>Роль</span><select id="contact-role-name"></select></label>
+                <button class="secondary" id="contact-role-add" type="button">Додати роль</button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </section>
+
       <section class="card anomaly-card" id="anomaly-control">
         <div class="card-title-row">
-          <div><span class="step">04</span><h2>Контроль нестиковок</h2></div>
+          <div><span class="step">05</span><h2>Контроль нестиковок</h2></div>
           <button class="primary compact" id="anomaly-button" type="button">Запустити перевірку</button>
         </div>
         <div class="anomaly-overview">
@@ -135,7 +184,7 @@
       </section>
 
       <section class="card recent-card">
-        <div class="card-title-row"><div><span class="step">05</span><h2>Останні надходження</h2></div><button class="ghost" id="refresh-button" type="button">Оновити</button></div>
+        <div class="card-title-row"><div><span class="step">06</span><h2>Останні надходження</h2></div><button class="ghost" id="refresh-button" type="button">Оновити</button></div>
         <div class="table-wrap"><table><thead><tr><th>Файл</th><th>Шлях</th><th>Час</th><th>Розмір</th></tr></thead><tbody id="recent-body"><tr><td colspan="4" class="muted">Завантаження…</td></tr></tbody></table></div>
       </section>
     </section>

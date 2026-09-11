@@ -1,0 +1,455 @@
+{
+  "schemaVersion": 1,
+  "description": "Machine-readable ownership and cleanup rules for repository-relative VARTA paths.",
+  "owners": {
+    "SHARED-GOVERNANCE": "Cross-package policy and status files; every change needs an exact hunk review.",
+    "ROADMAP": "Roadmap definitions, controller runtime, controller UI and their tests.",
+    "MAINTENANCE": "Project inventory, ownership indexing and controlled cleanup tooling.",
+    "CORE": "Shared product code that can be touched by more than one package.",
+    "TEST-RUNNER": "Reproducible local test output; never a source artifact.",
+    "RUNTIME": "Local state or case workspace data; protected and excluded from Git."
+  },
+  "exactPaths": [
+    {
+      "path": ".gitignore",
+      "owners": [
+        "SHARED-GOVERNANCE",
+        "MAINTENANCE"
+      ],
+      "category": "repository-policy",
+      "disposition": "exact-review"
+    },
+    {
+      "path": "AGENTS.md",
+      "owners": ["SHARED-GOVERNANCE"],
+      "category": "repository-policy",
+      "disposition": "protected"
+    },
+    {
+      "path": "README.md",
+      "owners": ["SHARED-GOVERNANCE"],
+      "category": "canonical-documentation",
+      "disposition": "exact-review"
+    },
+    {
+      "path": "PROJECT_STATUS.md",
+      "owners": ["SHARED-GOVERNANCE"],
+      "category": "canonical-status",
+      "disposition": "exact-review"
+    },
+    {
+      "path": "pyproject.toml",
+      "owners": [
+        "SHARED-GOVERNANCE",
+        "CORE"
+      ],
+      "category": "build-contract",
+      "disposition": "coordinate"
+    },
+    {
+      "path": "docs/INDEX.md",
+      "owners": [
+        "SHARED-GOVERNANCE",
+        "MAINTENANCE"
+      ],
+      "category": "documentation-index",
+      "disposition": "exact-review"
+    },
+    {
+      "path": "config/file-ownership.json",
+      "owners": ["MAINTENANCE"],
+      "category": "ownership-contract",
+      "disposition": "scope-owned"
+    },
+    {
+      "path": "docs/project-file-ownership.md",
+      "owners": [
+        "MAINTENANCE",
+        "SHARED-GOVERNANCE"
+      ],
+      "category": "ownership-index",
+      "disposition": "scope-owned"
+    },
+    {
+      "path": "tools/project_inventory.py",
+      "owners": ["MAINTENANCE"],
+      "category": "inventory-tool",
+      "disposition": "scope-owned"
+    },
+    {
+      "path": "tests/test_project_inventory.py",
+      "owners": ["MAINTENANCE"],
+      "category": "inventory-test",
+      "disposition": "scope-owned"
+    },
+    {
+      "path": "tests/test_architecture_docs.py",
+      "owners": [
+        "C02",
+        "ROADMAP",
+        "SHARED-GOVERNANCE"
+      ],
+      "category": "shared-documentation-test",
+      "disposition": "hunk-review"
+    },
+    {
+      "path": "docs/source-inventory.md",
+      "owners": ["SHARED-GOVERNANCE"],
+      "category": "source-inventory",
+      "disposition": "protected"
+    },
+    {
+      "path": "docs/action-algorithm.md",
+      "owners": [
+        "SHARED-GOVERNANCE",
+        "ROADMAP"
+      ],
+      "category": "canonical-workflow",
+      "disposition": "coordinate"
+    },
+    {
+      "path": "case_docket/application/__init__.py",
+      "owners": [
+        "R01",
+        "R02",
+        "R03",
+        "C11"
+      ],
+      "category": "shared-stage-interface",
+      "disposition": "hunk-review"
+    },
+    {
+      "path": "case_docket/repository/__init__.py",
+      "owners": [
+        "R02",
+        "R03"
+      ],
+      "category": "shared-stage-interface",
+      "disposition": "hunk-review"
+    },
+    {
+      "path": "case_docket/repository/sqlite_uow.py",
+      "owners": [
+        "R01",
+        "R03",
+        "CORE"
+      ],
+      "category": "shared-transaction-boundary",
+      "disposition": "hunk-review"
+    },
+    {
+      "path": "case_docket/repository/sqlite_repository.py",
+      "owners": [
+        "R01",
+        "CORE"
+      ],
+      "category": "shared-sqlite-repository",
+      "disposition": "hunk-review"
+    },
+    {
+      "path": "case_docket/application/profile.py",
+      "owners": ["R01"],
+      "category": "stage-source",
+      "disposition": "stage-owned"
+    },
+    {
+      "path": "case_docket/application/profile_ports.py",
+      "owners": ["R01"],
+      "category": "stage-source",
+      "disposition": "stage-owned"
+    },
+    {
+      "path": "tests/test_case_profile_r01.py",
+      "owners": ["R01"],
+      "category": "stage-test",
+      "disposition": "stage-owned"
+    },
+    {
+      "path": "case_docket/application/evidence_map_source.py",
+      "owners": [
+        "R02",
+        "R04"
+      ],
+      "category": "shared-stage-contract",
+      "disposition": "hunk-review"
+    },
+    {
+      "path": "case_docket/repository/sqlite_evidence_map_source.py",
+      "owners": ["R02"],
+      "category": "stage-source",
+      "disposition": "stage-owned"
+    },
+    {
+      "path": "tests/test_evidence_map_source_r02.py",
+      "owners": ["R02"],
+      "category": "stage-test",
+      "disposition": "stage-owned"
+    },
+    {
+      "path": "case_docket/application/evidence_map_export.py",
+      "owners": ["R03"],
+      "category": "stage-source",
+      "disposition": "stage-owned"
+    },
+    {
+      "path": "case_docket/repository/sqlite_evidence_map_export.py",
+      "owners": ["R03"],
+      "category": "stage-source",
+      "disposition": "stage-owned"
+    },
+    {
+      "path": "tests/test_evidence_map_export_r03.py",
+      "owners": ["R03"],
+      "category": "stage-test",
+      "disposition": "stage-owned"
+    },
+    {
+      "path": "docs/changes/R04-consumer-readiness.md",
+      "owners": ["R04"],
+      "category": "stage-evidence",
+      "disposition": "stage-owned"
+    },
+    {
+      "path": "tests/test_r04_consumer_readiness.py",
+      "owners": ["R04"],
+      "category": "stage-test",
+      "disposition": "stage-owned"
+    },
+    {
+      "path": "case_docket/local_case_source.py",
+      "owners": ["R05"],
+      "category": "stage-source",
+      "disposition": "stage-owned"
+    },
+    {
+      "path": "case_docket/application/case_database_import.py",
+      "owners": ["R05"],
+      "category": "stage-source",
+      "disposition": "stage-owned"
+    },
+    {
+      "path": "case_docket/application/case_database_import_ports.py",
+      "owners": ["R05"],
+      "category": "stage-contract",
+      "disposition": "stage-owned"
+    },
+    {
+      "path": "case_docket/application/case_read_models.py",
+      "owners": ["R05"],
+      "category": "stage-source",
+      "disposition": "stage-owned"
+    },
+    {
+      "path": "case_docket/corpus_import.py",
+      "owners": ["R05"],
+      "category": "stage-source",
+      "disposition": "stage-owned"
+    },
+    {
+      "path": "case_docket/corpus_inventory.py",
+      "owners": ["R05"],
+      "category": "stage-source",
+      "disposition": "stage-owned"
+    },
+    {
+      "path": "case_docket/r05_private.py",
+      "owners": ["R05"],
+      "category": "stage-source",
+      "disposition": "stage-owned"
+    },
+    {
+      "path": "case_docket/repository/migrations/0013_system_case_database_import.sql",
+      "owners": ["R05"],
+      "category": "stage-migration",
+      "disposition": "protected"
+    },
+    {
+      "path": "case_docket/repository/sqlite_case_database_import.py",
+      "owners": ["R05"],
+      "category": "stage-source",
+      "disposition": "stage-owned"
+    },
+    {
+      "path": "case_docket/repository/sqlite_case_read_models.py",
+      "owners": ["R05"],
+      "category": "stage-source",
+      "disposition": "stage-owned"
+    },
+    {
+      "path": "docs/changes/R05-authoritative-local-case-sqlite.md",
+      "owners": ["R05"],
+      "category": "stage-evidence",
+      "disposition": "stage-owned"
+    },
+    {
+      "path": "tests/test_local_case_source_r05.py",
+      "owners": ["R05"],
+      "category": "stage-test",
+      "disposition": "stage-owned"
+    },
+    {
+      "path": "tests/test_case_database_import_r05.py",
+      "owners": ["R05"],
+      "category": "stage-test",
+      "disposition": "stage-owned"
+    },
+    {
+      "path": "tests/test_case_read_models_r05.py",
+      "owners": ["R05"],
+      "category": "stage-test",
+      "disposition": "stage-owned"
+    },
+    {
+      "path": "tests/test_corpus_inventory_r05.py",
+      "owners": ["R05"],
+      "category": "stage-test",
+      "disposition": "stage-owned"
+    },
+    {
+      "path": "tests/test_managed_corpus_r05.py",
+      "owners": ["R05"],
+      "category": "stage-test",
+      "disposition": "stage-owned"
+    },
+    {
+      "path": "case_docket/application/evidence_map.py",
+      "owners": ["C11"],
+      "category": "stage-source",
+      "disposition": "stage-owned"
+    },
+    {
+      "path": "tests/test_evidence_map_projection_c11.py",
+      "owners": ["C11"],
+      "category": "stage-test",
+      "disposition": "stage-owned"
+    }
+  ],
+  "rules": [
+    {
+      "glob": ".pytest-tmp-*",
+      "owners": ["TEST-RUNNER"],
+      "category": "generated-test-output",
+      "disposition": "disposable"
+    },
+    {
+      "glob": ".pytest-tmp-*/**",
+      "owners": ["TEST-RUNNER"],
+      "category": "generated-test-output",
+      "disposition": "disposable"
+    },
+    {
+      "glob": ".pytest-tmp/**",
+      "owners": ["TEST-RUNNER"],
+      "category": "generated-test-output",
+      "disposition": "disposable"
+    },
+    {
+      "glob": ".pytest_cache/**",
+      "owners": ["TEST-RUNNER"],
+      "category": "generated-test-cache",
+      "disposition": "disposable"
+    },
+    {
+      "glob": "tmp/**",
+      "owners": ["TEST-RUNNER"],
+      "category": "generated-test-build-output",
+      "disposition": "disposable-after-review"
+    },
+    {
+      "glob": ".tmp/**",
+      "owners": ["TEST-RUNNER"],
+      "category": "generated-test-output",
+      "disposition": "disposable-after-review"
+    },
+    {
+      "glob": ".varta/**",
+      "owners": ["RUNTIME"],
+      "category": "local-runtime-state",
+      "disposition": "protected"
+    },
+    {
+      "glob": ".caseflow/**",
+      "owners": ["RUNTIME"],
+      "category": "legacy-runtime-state",
+      "disposition": "protected"
+    },
+    {
+      "glob": "quarantine/**",
+      "owners": ["RUNTIME"],
+      "category": "local-quarantine",
+      "disposition": "protected"
+    },
+    {
+      "glob": "tools/roadmap_controller/**",
+      "owners": ["ROADMAP"],
+      "category": "roadmap-controller",
+      "disposition": "scope-owned"
+    },
+    {
+      "glob": "tests/test_roadmap_controller.py",
+      "owners": ["ROADMAP"],
+      "category": "roadmap-test",
+      "disposition": "scope-owned"
+    },
+    {
+      "glob": "docs/chat-roadmap.md",
+      "owners": ["ROADMAP"],
+      "category": "roadmap-definition",
+      "disposition": "scope-owned"
+    },
+    {
+      "glob": "docs/interactive/varta-chat-roadmap.html",
+      "owners": ["ROADMAP"],
+      "category": "roadmap-ui",
+      "disposition": "scope-owned"
+    },
+    {
+      "glob": "docs/roadmap-controller.md",
+      "owners": ["ROADMAP"],
+      "category": "roadmap-contract",
+      "disposition": "scope-owned"
+    },
+    {
+      "glob": "case_docket/**",
+      "owners": ["CORE"],
+      "category": "shared-product-code",
+      "disposition": "review"
+    },
+    {
+      "glob": "caseflow/**",
+      "owners": ["CORE"],
+      "category": "shared-product-code",
+      "disposition": "review"
+    },
+    {
+      "glob": "tests/**",
+      "owners": ["CORE"],
+      "category": "shared-test",
+      "disposition": "review"
+    },
+    {
+      "glob": "docs/**",
+      "owners": ["SHARED-GOVERNANCE"],
+      "category": "documentation",
+      "disposition": "review"
+    },
+    {
+      "glob": "config/**",
+      "owners": ["CORE"],
+      "category": "product-contract",
+      "disposition": "review"
+    },
+    {
+      "glob": "templates/**",
+      "owners": ["CORE"],
+      "category": "privacy-safe-template",
+      "disposition": "review"
+    },
+    {
+      "glob": "tools/**",
+      "owners": ["CORE"],
+      "category": "repository-tooling",
+      "disposition": "review"
+    }
+  ]
+}

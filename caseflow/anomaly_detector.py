@@ -12,10 +12,13 @@ from typing import Any
 
 from openpyxl import load_workbook
 
+PdfReader: Any = None
 try:
-    from pypdf import PdfReader
+    from pypdf import PdfReader as _PdfReader
 except ImportError:  # pragma: no cover
-    PdfReader = None
+    pass
+else:
+    PdfReader = _PdfReader
 
 
 PROCEEDING_RE = re.compile(r"(?<![\w/])\d{1,3}(?:-[А-Яа-яІіЇїЄєҐґ]+)?/\d{3}/\d+/\d{2,4}(?![\w/])")
@@ -363,15 +366,15 @@ def run_detector(root: Path, register_path: Path) -> dict:
                 notes,
                 (r"primary proceeding\s*[:—-]?", r"первинн(?:е|ий|ого)?(?:\s+провадження|\s+зв['’]язок)?\s*[:—-]?", r"основний текст\s*[:—-]?"),
             )
-            actual = proceeding_after(
+            actual_proceeding = proceeding_after(
                 notes,
                 (r"cabinet proceeding\s*[:—-]?", r"фактичн(?:е|а)(?:\s+розміщення|\s+папка|\s+апеляційне провадження)?\s*[:—-]?", r"суд створив\s*[:—-]?"),
             )
             proceedings = {"registry": proceeding}
             if stated_primary:
                 proceedings["stated_primary"] = stated_primary
-            if actual:
-                proceedings["actual"] = actual
+            if actual_proceeding:
+                proceedings["actual"] = actual_proceeding
             labels = {"registry": "Реєстр", "stated_primary": "первинне за документом/приміткою", "actual": "фактичне розміщення"}
             described = "; ".join(f"{labels.get(key, key)}: {value}" for key, value in proceedings.items())
             findings.add(
@@ -402,17 +405,21 @@ def run_detector(root: Path, register_path: Path) -> dict:
                 next_check="Встановити точні поля розбіжності та додати посилання на обидва первинні джерела.",
             )
         expected = parse_number(row.get("Додатків очікується"))
-        actual = parse_number(row.get("Додатків фактично"))
-        if expected is not None and actual is not None and expected != actual:
-            severity = "high" if actual < expected else "medium"
+        actual_attachment_count = parse_number(row.get("Додатків фактично"))
+        if (
+            expected is not None
+            and actual_attachment_count is not None
+            and expected != actual_attachment_count
+        ):
+            severity = "high" if actual_attachment_count < expected else "medium"
             findings.add(
                 "ATTACHMENT_COUNT_MISMATCH",
                 "Не збігається кількість додатків",
                 severity,
                 "high",
                 "attachments",
-                f"Заявлено додатків: {expected}; фактично знайдено: {actual}.",
-                [fact("registry", source_path, "Додатків очікується", expected), fact("registry", source_path, "Додатків фактично", actual)],
+                f"Заявлено додатків: {expected}; фактично знайдено: {actual_attachment_count}.",
+                [fact("registry", source_path, "Додатків очікується", expected), fact("registry", source_path, "Додатків фактично", actual_attachment_count)],
                 doc_ids=[doc_id],
                 proceedings={"primary": proceeding},
                 why_flagged="Відсутній або зайвий додаток може змінювати повноту поданого пакета.",
@@ -556,18 +563,18 @@ def run_detector(root: Path, register_path: Path) -> dict:
             by_name[name_key].append(row)
     for digest, rows in by_hash.items():
         doc_ids = sorted({clean(row.get("ID документа")) for row in rows if clean(row.get("ID документа"))})
-        proceedings = sorted({clean(row.get("Провадження")) for row in rows if clean(row.get("Провадження"))})
-        if len(doc_ids) > 1 and len(proceedings) > 1:
+        duplicate_proceedings = sorted({clean(row.get("Провадження")) for row in rows if clean(row.get("Провадження"))})
+        if len(doc_ids) > 1 and len(duplicate_proceedings) > 1:
             findings.add(
                 "SAME_FILE_DIFFERENT_CONTEXT",
                 "Той самий файл обліковано в різних документах або провадженнях",
                 "medium",
                 "high",
                 "duplicates",
-                f"SHA-256 {digest[:16]}… пов’язаний з DOC_ID {', '.join(doc_ids)} і провадженнями {', '.join(proceedings)}.",
+                f"SHA-256 {digest[:16]}… пов’язаний з DOC_ID {', '.join(doc_ids)} і провадженнями {', '.join(duplicate_proceedings)}.",
                 [fact("registry", register_rel, "Файли.SHA-256", digest), fact("registry", register_rel, "Пов’язані DOC_ID", doc_ids)],
                 doc_ids=doc_ids,
-                proceedings={"listed": proceedings},
+                proceedings={"listed": duplicate_proceedings},
                 why_flagged="Повторне використання байт-в-байт однакового файла може бути законним, але потребує пояснення контексту.",
                 next_check="Порівняти роль файла в кожному пакеті та перевірити, чи не створено зайві логічні документи.",
             )
@@ -698,17 +705,17 @@ def run_detector(root: Path, register_path: Path) -> dict:
             continue
         doc_id = clean(row.get("doc_id"))
         primary = clean(row.get("primary_proceeding"))
-        actual = clean(row.get("cabinet_proceeding"))
+        cabinet_proceeding = clean(row.get("cabinet_proceeding"))
         findings.add(
             "IMPORTED_CABINET_DISCREPANCY",
             "Попередня звірка кабінету зафіксувала розбіжність",
             "high",
             "medium",
             "cabinet_evidence",
-            f"Статус: {status}; первинне провадження: {primary or 'не вказано'}; кабінет: {actual or 'не вказано'}.",
+            f"Статус: {status}; первинне провадження: {primary or 'не вказано'}; кабінет: {cabinet_proceeding or 'не вказано'}.",
             [fact("cabinet_report", str(cabinet_report.relative_to(root)), "status", status, cabinet.get("checked_at")), fact("cabinet_report", str(cabinet_report.relative_to(root)), "evidence_note", row.get("evidence_note"), cabinet.get("checked_at"))],
             doc_ids=[doc_id] if doc_id else [],
-            proceedings={"primary": primary, "cabinet": actual},
+            proceedings={"primary": primary, "cabinet": cabinet_proceeding},
             why_flagged="Це вже зафіксована різниця між локальними матеріалами та станом кабінету на дату попередньої перевірки.",
             next_check="Звірити з актуальним скріншотом або сторінкою лише для цього конкретного документа.",
         )

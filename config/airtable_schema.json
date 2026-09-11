@@ -1,0 +1,2044 @@
+{
+  "schema_version": 1,
+  "captured_at": "2026-08-02",
+  "base": {
+    "id": "app2a7GKV6zKK1okN",
+    "name": "Court journal",
+    "role": "optional_registry_adapter"
+  },
+  "source_of_truth": "SQLite",
+  "notes": [
+    "Airtable is not the core database or execution environment.",
+    "This snapshot preserves table, field, select, formula, lookup, and linked-record mappings.",
+    "No Airtable records or credentials are stored in this repository."
+  ],
+  "tables": [
+    {
+      "id": "tbl2OUBStFDdfxNNS",
+      "name": "Контакти",
+      "description": "Впорядкована версія таблиці Учасники. Стару таблицю не видалено.",
+      "primary_field_id": "fldsUF5FAcJRAYzMG",
+      "fields": [
+        {
+          "id": "fldsUF5FAcJRAYzMG",
+          "name": "ПІБ / Назва",
+          "type": "singleLineText",
+          "description": "Повне ім’я фізичної особи або повна назва юридичної особи."
+        },
+        {
+          "id": "fldUkPtvUfcJGE252",
+          "name": "Скорочена назва",
+          "type": "singleLineText",
+          "description": "Коротке ім’я або скорочена назва учасника для відображення у списках."
+        },
+        {
+          "id": "fldAbyAGj8TTMlgx6",
+          "name": "Тип учасника",
+          "type": "singleSelect",
+          "description": "Тип суб’єкта: фізична або юридична особа.",
+          "config": {
+            "choices": [
+              {
+                "id": "selu7q6FdwcwWuG0d",
+                "name": "Фізична особа",
+                "color": "blueLight2"
+              },
+              {
+                "id": "selR9y7sD9RCicjYR",
+                "name": "Юридична особа",
+                "color": "greenLight2"
+              }
+            ]
+          }
+        },
+        {
+          "id": "fldq6Pe8Jiolfqz5B",
+          "name": "Активний",
+          "type": "checkbox",
+          "description": "Чи є учасник активним.",
+          "config": {
+            "icon": "check",
+            "color": "greenBright"
+          }
+        },
+        {
+          "id": "fldGn1lbv0naouTTw",
+          "name": "Email",
+          "type": "email",
+          "description": "Електронна пошта учасника."
+        },
+        {
+          "id": "fldAv2Ga4NF7IRAuH",
+          "name": "Телефон",
+          "type": "phoneNumber",
+          "description": "Основний телефон учасника."
+        },
+        {
+          "id": "fldW9SHBjMSEwtypR",
+          "name": "Додатковий телефон",
+          "type": "phoneNumber",
+          "description": "Додатковий номер телефону."
+        },
+        {
+          "id": "fldALYDzCJcd0I2pR",
+          "name": "Адреса",
+          "type": "richText",
+          "description": "Поштова або реєстраційна адреса учасника."
+        },
+        {
+          "id": "fldL60K18q0AHXfcT",
+          "name": "ІПН / РНОКПП",
+          "type": "singleLineText",
+          "description": "Індивідуальний податковий номер / РНОКПП."
+        },
+        {
+          "id": "fldnTPEQfWhTYBTPE",
+          "name": "ЄДРПОУ",
+          "type": "singleLineText",
+          "description": "Код ЄДРПОУ юридичної особи."
+        },
+        {
+          "id": "fldsRqcjUsc1kyN8a",
+          "name": "Дата народження / реєстрації",
+          "type": "date",
+          "description": "Дата народження або дата реєстрації.",
+          "config": {
+            "dateFormat": {
+              "name": "iso",
+              "format": "YYYY-MM-DD"
+            }
+          }
+        },
+        {
+          "id": "fldr5507Rsfe1XQen",
+          "name": "Представник / контактна особа",
+          "type": "singleLineText",
+          "description": "Представник або контактна особа."
+        },
+        {
+          "id": "fldS3fiq6zA6dvVoU",
+          "name": "Примітки",
+          "type": "richText",
+          "description": "Вільні нотатки щодо учасника."
+        },
+        {
+          "id": "fldBXm28KqnchRzWj",
+          "name": "Учасники справи",
+          "type": "multipleRecordLinks",
+          "config": {
+            "linkedTableId": "tbll4F8mAUkQqUnQJ",
+            "isReversed": false,
+            "prefersSingleRecordLink": false,
+            "inverseLinkFieldId": "flducJ9za4RACiSYP"
+          }
+        },
+        {
+          "id": "fldGfWlDfDcXuG420",
+          "name": "Пов'язані справи",
+          "type": "multipleRecordLinks",
+          "config": {
+            "linkedTableId": "tblw2m5qeasGSW3h8",
+            "isReversed": false,
+            "prefersSingleRecordLink": false,
+            "inverseLinkFieldId": "fldhVTA9nrcHKl7K0"
+          }
+        },
+        {
+          "id": "fldbv0WeRuN86jplD",
+          "name": "Пов'язані провадження",
+          "type": "multipleRecordLinks",
+          "config": {
+            "linkedTableId": "tbl0fQuxzzyGijsXK",
+            "isReversed": false,
+            "prefersSingleRecordLink": false,
+            "inverseLinkFieldId": "fld0iUoNDknwSQCvg"
+          }
+        },
+        {
+          "id": "flduvJqA2CsVjO2Nk",
+          "name": "Назва провадження (from Пов'язані провадження)",
+          "type": "multipleLookupValues",
+          "config": {
+            "isValid": true,
+            "recordLinkFieldId": "fldbv0WeRuN86jplD",
+            "fieldIdInLinkedTable": "fld4gdU5CEgFNVn7I",
+            "result": {
+              "type": "singleLineText"
+            }
+          }
+        },
+        {
+          "id": "fld8f9NZuCFHFJysm",
+          "name": "Справа (from Пов'язані провадження)",
+          "type": "multipleLookupValues",
+          "config": {
+            "isValid": true,
+            "recordLinkFieldId": "fldbv0WeRuN86jplD",
+            "fieldIdInLinkedTable": "fldnC3G8bYPZjQUdR",
+            "result": {
+              "type": "multipleRecordLinks",
+              "options": {
+                "isReversed": false,
+                "prefersSingleRecordLink": false
+              }
+            }
+          }
+        },
+        {
+          "id": "fldIiW8mH9VMxjNo6",
+          "name": "Номер провадження (from Пов'язані провадження)",
+          "type": "multipleLookupValues",
+          "config": {
+            "isValid": true,
+            "recordLinkFieldId": "fldbv0WeRuN86jplD",
+            "fieldIdInLinkedTable": "fldKa4sGwfiW8JRA7",
+            "result": {
+              "type": "singleLineText"
+            }
+          }
+        },
+        {
+          "id": "fldnZIKHNcHGkyWD7",
+          "name": "Тип провадження (from Пов'язані провадження)",
+          "type": "multipleLookupValues",
+          "config": {
+            "isValid": true,
+            "recordLinkFieldId": "fldbv0WeRuN86jplD",
+            "fieldIdInLinkedTable": "fldAx9h8duUJyZlKW",
+            "result": {
+              "type": "singleSelect",
+              "options": {
+                "choices": [
+                  {
+                    "id": "selWQ9w0wEBU2Pd0w",
+                    "name": "Перша інстанція",
+                    "color": "blueLight2"
+                  },
+                  {
+                    "id": "selBwZAOyWveVUKLm",
+                    "name": "Апеляція",
+                    "color": "purpleLight2"
+                  },
+                  {
+                    "id": "selbU570o4kKEntae",
+                    "name": "Касація",
+                    "color": "pinkLight2"
+                  },
+                  {
+                    "id": "selT5OXmC2ogmiydq",
+                    "name": "Окреме провадження",
+                    "color": "orangeLight2"
+                  },
+                  {
+                    "id": "selCNhbTshGdOGcOh",
+                    "name": "Виконавче провадження",
+                    "color": "greenLight2"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "id": "fldFECbIkr11qaOqp",
+          "name": "Категорія провадження (from Пов'язані провадження)",
+          "type": "multipleLookupValues",
+          "config": {
+            "isValid": true,
+            "recordLinkFieldId": "fldbv0WeRuN86jplD",
+            "fieldIdInLinkedTable": "fldbzAXO471oogBMh",
+            "result": {
+              "type": "singleSelect",
+              "options": {
+                "choices": [
+                  {
+                    "id": "selGjnIpxDNrRW5WP",
+                    "name": "Основне",
+                    "color": "blueLight2"
+                  },
+                  {
+                    "id": "selKN06XFLuOEMpnJ",
+                    "name": "Розстрочка виконання",
+                    "color": "orangeLight2"
+                  },
+                  {
+                    "id": "sel6RhYFKYFFYCfEy",
+                    "name": "Забезпечення позову",
+                    "color": "yellowLight2"
+                  },
+                  {
+                    "id": "selEdNCz1Wyi1QdmN",
+                    "name": "Зміна способу виконання",
+                    "color": "purpleLight2"
+                  },
+                  {
+                    "id": "seledaCffdnPKGA2R",
+                    "name": "Скарга на виконавця",
+                    "color": "redLight2"
+                  },
+                  {
+                    "id": "sel7ooHKQeNIyYEQF",
+                    "name": "Інше",
+                    "color": "grayLight2"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "id": "fldEhChcZ5seuPpa9",
+          "name": "Суд / орган (from Пов'язані провадження)",
+          "type": "multipleLookupValues",
+          "config": {
+            "isValid": true,
+            "recordLinkFieldId": "fldbv0WeRuN86jplD",
+            "fieldIdInLinkedTable": "fldGX4OuNv1WD8ctW",
+            "result": {
+              "type": "singleLineText"
+            }
+          }
+        },
+        {
+          "id": "fld1X2wvL8lFLanRy",
+          "name": "Статус (from Пов'язані провадження)",
+          "type": "multipleLookupValues",
+          "config": {
+            "isValid": true,
+            "recordLinkFieldId": "fldbv0WeRuN86jplD",
+            "fieldIdInLinkedTable": "fldoiyeZwwaMWAl69",
+            "result": {
+              "type": "singleSelect",
+              "options": {
+                "choices": [
+                  {
+                    "id": "seljtbqov9fsZhH88",
+                    "name": "Активне",
+                    "color": "greenLight2"
+                  },
+                  {
+                    "id": "selrhHeVAqkAKDgMv",
+                    "name": "Завершене",
+                    "color": "grayLight2"
+                  },
+                  {
+                    "id": "selzez7DweaeX3Ci7",
+                    "name": "Зупинене",
+                    "color": "yellowLight2"
+                  },
+                  {
+                    "id": "selismvKFiJ9GwvDN",
+                    "name": "Очікує",
+                    "color": "orangeLight2"
+                  },
+                  {
+                    "id": "selCWuYcvGf0dNtBZ",
+                    "name": "Архів",
+                    "color": "grayLight1"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "id": "fldf4q9R7wprP2cc2",
+          "name": "Дата початку (from Пов'язані провадження)",
+          "type": "multipleLookupValues",
+          "config": {
+            "isValid": true,
+            "recordLinkFieldId": "fldbv0WeRuN86jplD",
+            "fieldIdInLinkedTable": "fldx4VDjy52qFQlpW",
+            "result": {
+              "type": "date",
+              "options": {
+                "dateFormat": {
+                  "name": "iso",
+                  "format": "YYYY-MM-DD"
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "fldQxshxqILCBHsVH",
+          "name": "Дата завершення (from Пов'язані провадження)",
+          "type": "multipleLookupValues",
+          "config": {
+            "isValid": true,
+            "recordLinkFieldId": "fldbv0WeRuN86jplD",
+            "fieldIdInLinkedTable": "fldcpCZCsSfe2hcN4",
+            "result": {
+              "type": "date",
+              "options": {
+                "dateFormat": {
+                  "name": "iso",
+                  "format": "YYYY-MM-DD"
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "fldP95Ruo8XoaHC0n",
+          "name": "Результат / суть рішення (from Пов'язані провадження)",
+          "type": "multipleLookupValues",
+          "config": {
+            "isValid": true,
+            "recordLinkFieldId": "fldbv0WeRuN86jplD",
+            "fieldIdInLinkedTable": "fldx1ulNiGTMAhT7g",
+            "result": {
+              "type": "richText"
+            }
+          }
+        },
+        {
+          "id": "fldMyuQxJCqhnTY7W",
+          "name": "Події",
+          "type": "multipleRecordLinks",
+          "config": {
+            "linkedTableId": "tbl2GzptAOVCEHQM7",
+            "isReversed": false,
+            "prefersSingleRecordLink": false,
+            "inverseLinkFieldId": "fldpHAd9Jm5yPFktR"
+          }
+        },
+        {
+          "id": "fldZQZCxgWqWoyJjS",
+          "name": "Події 2",
+          "type": "multipleRecordLinks",
+          "config": {
+            "linkedTableId": "tbl2GzptAOVCEHQM7",
+            "isReversed": false,
+            "prefersSingleRecordLink": false,
+            "inverseLinkFieldId": "fldyrkjlkPiJvCv6n"
+          }
+        }
+      ]
+    },
+    {
+      "id": "tblw2m5qeasGSW3h8",
+      "name": "Справи",
+      "description": "Впорядкована версія таблиці Справи. Стару таблицю не видалено.",
+      "primary_field_id": "fldBIYNLnq1NaQk3E",
+      "fields": [
+        {
+          "id": "fldBIYNLnq1NaQk3E",
+          "name": "№ справи",
+          "type": "singleLineText",
+          "description": "Номер судової справи."
+        },
+        {
+          "id": "fld7xYu8Bu0BwP8Oq",
+          "name": "Назва справи",
+          "type": "singleLineText",
+          "description": "Коротка людська назва справи."
+        },
+        {
+          "id": "fldPamBewNjAVNba0",
+          "name": "Суть спору",
+          "type": "richText",
+          "description": "Стислий опис предмета спору, ключових вимог і суті конфлікту."
+        },
+        {
+          "id": "fldu5q9PSQdVZ7zYE",
+          "name": "Сторони",
+          "type": "singleLineText",
+          "description": "Сторони у справі в короткому вигляді."
+        },
+        {
+          "id": "fld5MKn1cYWwftFWx",
+          "name": "Суд",
+          "type": "singleSelect",
+          "description": "Суд або орган, де розглядається справа.",
+          "config": {
+            "choices": [
+              {
+                "id": "selTLsIzvpPN03GPM",
+                "name": "Kyiv Court of Appeal",
+                "color": "blueLight2"
+              },
+              {
+                "id": "selnl6QEwD4i7gsZ5",
+                "name": "Інше",
+                "color": "grayLight2"
+              }
+            ]
+          }
+        },
+        {
+          "id": "fldXVPVLVN7Apk0Vt",
+          "name": "Категорія",
+          "type": "singleSelect",
+          "description": "Категорія справи.",
+          "config": {
+            "choices": [
+              {
+                "id": "selFerI3dUVROsrSR",
+                "name": "Адміністративні правопорушення",
+                "color": "orangeLight2"
+              },
+              {
+                "id": "seltbhMyQgZiJhcxT",
+                "name": "Цивільна",
+                "color": "blueLight2"
+              },
+              {
+                "id": "selu8oR37kR4Hh5zZ",
+                "name": "Господарська",
+                "color": "greenLight2"
+              },
+              {
+                "id": "seltbCkFoH0QzAzYV",
+                "name": "Інше",
+                "color": "grayLight2"
+              }
+            ]
+          }
+        },
+        {
+          "id": "fldyTlfLcU1p2lkvb",
+          "name": "Статус",
+          "type": "singleSelect",
+          "description": "Поточний статус справи.",
+          "config": {
+            "choices": [
+              {
+                "id": "sela0vmDdUVCyIDb7",
+                "name": "Активна",
+                "color": "greenLight2"
+              },
+              {
+                "id": "selKKfeDK1EtsKBTd",
+                "name": "Suspended",
+                "color": "yellowLight2"
+              },
+              {
+                "id": "seleCW011uqGFyYrH",
+                "name": "Завершена",
+                "color": "grayLight2"
+              },
+              {
+                "id": "selyDTgyPJABiJcry",
+                "name": "Архів",
+                "color": "grayLight1"
+              }
+            ]
+          }
+        },
+        {
+          "id": "fldLE62seCBEDjVCc",
+          "name": "Поточний етап",
+          "type": "singleSelect",
+          "description": "Поточна процесуальна стадія справи.",
+          "config": {
+            "choices": [
+              {
+                "id": "selQGSAwiUDEfMDgw",
+                "name": "Перша інстанція",
+                "color": "blueLight2"
+              },
+              {
+                "id": "selAZrrEoesjha3Ah",
+                "name": "Апеляція",
+                "color": "purpleLight2"
+              },
+              {
+                "id": "selChC62UKTsTW6Fu",
+                "name": "Касація",
+                "color": "pinkLight2"
+              },
+              {
+                "id": "selJgWjVVni8B6Ww3",
+                "name": "Виконання",
+                "color": "orangeLight2"
+              },
+              {
+                "id": "sel1xdybs3JfGrgoH",
+                "name": "Завершено",
+                "color": "greenLight2"
+              }
+            ]
+          }
+        },
+        {
+          "id": "fld6wT602LQbMvtSo",
+          "name": "Дата відкриття",
+          "type": "date",
+          "description": "Дата відкриття або початку ведення справи.",
+          "config": {
+            "dateFormat": {
+              "name": "iso",
+              "format": "YYYY-MM-DD"
+            }
+          }
+        },
+        {
+          "id": "fldqg9yZi4ktjdFH3",
+          "name": "Дата завершення",
+          "type": "date",
+          "description": "Дата завершення справи.",
+          "config": {
+            "dateFormat": {
+              "name": "iso",
+              "format": "YYYY-MM-DD"
+            }
+          }
+        },
+        {
+          "id": "fldjE5BYiIqbuI2la",
+          "name": "Наступна дія",
+          "type": "singleLineText",
+          "description": "Короткий опис найближчої дії по справі."
+        },
+        {
+          "id": "fldIGg1I98B0K1naW",
+          "name": "Короткий опис",
+          "type": "richText",
+          "description": "Коротке резюме справи. У копії створено як rich text, бо API не створює aiText."
+        },
+        {
+          "id": "fldlv9rvYxpcMiLk0",
+          "name": "Провадження",
+          "type": "multipleRecordLinks",
+          "config": {
+            "linkedTableId": "tbl0fQuxzzyGijsXK",
+            "isReversed": false,
+            "prefersSingleRecordLink": false,
+            "inverseLinkFieldId": "fldnC3G8bYPZjQUdR"
+          }
+        },
+        {
+          "id": "fld4GdY0KcbY9xBwp",
+          "name": "Події",
+          "type": "multipleRecordLinks",
+          "config": {
+            "linkedTableId": "tbl2GzptAOVCEHQM7",
+            "isReversed": false,
+            "prefersSingleRecordLink": false,
+            "inverseLinkFieldId": "fldnGMbGPaGVA64Q0"
+          }
+        },
+        {
+          "id": "fldbELvq8ZSxKJ9hN",
+          "name": "Документи",
+          "type": "multipleRecordLinks",
+          "config": {
+            "linkedTableId": "tblhxvEsiaMwgl0BF",
+            "isReversed": false,
+            "prefersSingleRecordLink": false,
+            "inverseLinkFieldId": "fldij2txUAF3rHkbA"
+          }
+        },
+        {
+          "id": "fldGL45mM96oJf8np",
+          "name": "Учасники справи",
+          "type": "multipleRecordLinks",
+          "config": {
+            "linkedTableId": "tbll4F8mAUkQqUnQJ",
+            "isReversed": false,
+            "prefersSingleRecordLink": false,
+            "inverseLinkFieldId": "fldc7Bw4YJMYzQCwX"
+          }
+        },
+        {
+          "id": "fldHy2sJUeLfFe3CG",
+          "name": "Основне провадження",
+          "type": "multipleRecordLinks",
+          "description": "Головне або базове провадження у межах справи.",
+          "config": {
+            "linkedTableId": "tbl0fQuxzzyGijsXK",
+            "isReversed": false,
+            "prefersSingleRecordLink": false,
+            "inverseLinkFieldId": "fldmxZdw4KFkzfLbw"
+          }
+        },
+        {
+          "id": "fldCkpOOV8PcIP95f",
+          "name": "Кількість проваджень",
+          "type": "formula",
+          "description": "Автоматичний підрахунок кількості проваджень, пов’язаних зі справою.",
+          "config": {
+            "isValid": true,
+            "formula": "COUNTA({fldlv9rvYxpcMiLk0})",
+            "referencedFieldIds": [
+              "fldlv9rvYxpcMiLk0"
+            ],
+            "result": {
+              "type": "number",
+              "options": {
+                "precision": 0
+              }
+            }
+          }
+        },
+        {
+          "id": "fldhVTA9nrcHKl7K0",
+          "name": "Учасники",
+          "type": "multipleRecordLinks",
+          "config": {
+            "linkedTableId": "tbl2OUBStFDdfxNNS",
+            "isReversed": false,
+            "prefersSingleRecordLink": false,
+            "inverseLinkFieldId": "fldGfWlDfDcXuG420"
+          }
+        }
+      ]
+    },
+    {
+      "id": "tbl0fQuxzzyGijsXK",
+      "name": "Провадження",
+      "description": "Процесуальні провадження в межах судової справи: перша інстанція, апеляція, касація, окремі провадження, виконавче провадження.",
+      "primary_field_id": "fld4gdU5CEgFNVn7I",
+      "fields": [
+        {
+          "id": "fld4gdU5CEgFNVn7I",
+          "name": "Назва провадження",
+          "type": "singleLineText",
+          "description": "Коротка назва провадження."
+        },
+        {
+          "id": "fldnC3G8bYPZjQUdR",
+          "name": "Справа",
+          "type": "multipleRecordLinks",
+          "description": "Справа, до якої належить провадження.",
+          "config": {
+            "linkedTableId": "tblw2m5qeasGSW3h8",
+            "isReversed": false,
+            "prefersSingleRecordLink": false,
+            "inverseLinkFieldId": "fldlv9rvYxpcMiLk0"
+          }
+        },
+        {
+          "id": "fldKa4sGwfiW8JRA7",
+          "name": "Номер провадження",
+          "type": "singleLineText",
+          "description": "Номер провадження."
+        },
+        {
+          "id": "fldAx9h8duUJyZlKW",
+          "name": "Тип провадження",
+          "type": "singleSelect",
+          "description": "Процесуальний тип провадження.",
+          "config": {
+            "choices": [
+              {
+                "id": "selWQ9w0wEBU2Pd0w",
+                "name": "Перша інстанція",
+                "color": "blueLight2"
+              },
+              {
+                "id": "selBwZAOyWveVUKLm",
+                "name": "Апеляція",
+                "color": "purpleLight2"
+              },
+              {
+                "id": "selbU570o4kKEntae",
+                "name": "Касація",
+                "color": "pinkLight2"
+              },
+              {
+                "id": "selT5OXmC2ogmiydq",
+                "name": "Окреме провадження",
+                "color": "orangeLight2"
+              },
+              {
+                "id": "selCNhbTshGdOGcOh",
+                "name": "Виконавче провадження",
+                "color": "greenLight2"
+              }
+            ]
+          }
+        },
+        {
+          "id": "fldbzAXO471oogBMh",
+          "name": "Категорія провадження",
+          "type": "singleSelect",
+          "description": "Предмет або напрям провадження.",
+          "config": {
+            "choices": [
+              {
+                "id": "selGjnIpxDNrRW5WP",
+                "name": "Основне",
+                "color": "blueLight2"
+              },
+              {
+                "id": "selKN06XFLuOEMpnJ",
+                "name": "Розстрочка виконання",
+                "color": "orangeLight2"
+              },
+              {
+                "id": "sel6RhYFKYFFYCfEy",
+                "name": "Забезпечення позову",
+                "color": "yellowLight2"
+              },
+              {
+                "id": "selEdNCz1Wyi1QdmN",
+                "name": "Зміна способу виконання",
+                "color": "purpleLight2"
+              },
+              {
+                "id": "seledaCffdnPKGA2R",
+                "name": "Скарга на виконавця",
+                "color": "redLight2"
+              },
+              {
+                "id": "sel7ooHKQeNIyYEQF",
+                "name": "Інше",
+                "color": "grayLight2"
+              }
+            ]
+          }
+        },
+        {
+          "id": "fldGX4OuNv1WD8ctW",
+          "name": "Суд / орган",
+          "type": "singleLineText",
+          "description": "Суд або орган, де ведеться провадження."
+        },
+        {
+          "id": "fldoiyeZwwaMWAl69",
+          "name": "Статус",
+          "type": "singleSelect",
+          "description": "Статус провадження.",
+          "config": {
+            "choices": [
+              {
+                "id": "seljtbqov9fsZhH88",
+                "name": "Активне",
+                "color": "greenLight2"
+              },
+              {
+                "id": "selrhHeVAqkAKDgMv",
+                "name": "Завершене",
+                "color": "grayLight2"
+              },
+              {
+                "id": "selzez7DweaeX3Ci7",
+                "name": "Зупинене",
+                "color": "yellowLight2"
+              },
+              {
+                "id": "selismvKFiJ9GwvDN",
+                "name": "Очікує",
+                "color": "orangeLight2"
+              },
+              {
+                "id": "selCWuYcvGf0dNtBZ",
+                "name": "Архів",
+                "color": "grayLight1"
+              }
+            ]
+          }
+        },
+        {
+          "id": "fldx4VDjy52qFQlpW",
+          "name": "Дата початку",
+          "type": "date",
+          "description": "Дата початку провадження.",
+          "config": {
+            "dateFormat": {
+              "name": "iso",
+              "format": "YYYY-MM-DD"
+            }
+          }
+        },
+        {
+          "id": "fldcpCZCsSfe2hcN4",
+          "name": "Дата завершення",
+          "type": "date",
+          "description": "Дата завершення провадження.",
+          "config": {
+            "dateFormat": {
+              "name": "iso",
+              "format": "YYYY-MM-DD"
+            }
+          }
+        },
+        {
+          "id": "fldx1ulNiGTMAhT7g",
+          "name": "Результат / суть рішення",
+          "type": "richText",
+          "description": "Результат або суть рішення по провадженню."
+        },
+        {
+          "id": "fldTvX3eTyA48lZ8w",
+          "name": "Примітки",
+          "type": "richText",
+          "description": "Додаткові нотатки."
+        },
+        {
+          "id": "fldOj5z7NVQZJQaUH",
+          "name": "Події",
+          "type": "multipleRecordLinks",
+          "config": {
+            "linkedTableId": "tbl2GzptAOVCEHQM7",
+            "isReversed": false,
+            "prefersSingleRecordLink": false,
+            "inverseLinkFieldId": "fldU85sGdvXfpyp8y"
+          }
+        },
+        {
+          "id": "fldtD1ldsElO0XY6q",
+          "name": "Документи",
+          "type": "multipleRecordLinks",
+          "config": {
+            "linkedTableId": "tblhxvEsiaMwgl0BF",
+            "isReversed": false,
+            "prefersSingleRecordLink": false,
+            "inverseLinkFieldId": "fldZhefYcXoIeO8Zq"
+          }
+        },
+        {
+          "id": "fldmxZdw4KFkzfLbw",
+          "name": "Справи — впорядковано",
+          "type": "multipleRecordLinks",
+          "config": {
+            "linkedTableId": "tblw2m5qeasGSW3h8",
+            "isReversed": false,
+            "prefersSingleRecordLink": false,
+            "inverseLinkFieldId": "fldHy2sJUeLfFe3CG"
+          }
+        },
+        {
+          "id": "fldNiuRZV0h6liHsL",
+          "name": "Батьківське провадження",
+          "type": "multipleRecordLinks",
+          "description": "Зв’язок із провадженням, з якого походить це провадження.",
+          "config": {
+            "linkedTableId": "tbl0fQuxzzyGijsXK",
+            "isReversed": false,
+            "prefersSingleRecordLink": false,
+            "inverseLinkFieldId": "fld12bJn1v7VGVXlk"
+          }
+        },
+        {
+          "id": "fld12bJn1v7VGVXlk",
+          "name": "Похідні провадження",
+          "type": "multipleRecordLinks",
+          "config": {
+            "linkedTableId": "tbl0fQuxzzyGijsXK",
+            "isReversed": false,
+            "prefersSingleRecordLink": false,
+            "inverseLinkFieldId": "fldNiuRZV0h6liHsL"
+          }
+        },
+        {
+          "id": "fld0iUoNDknwSQCvg",
+          "name": "Учасники",
+          "type": "multipleRecordLinks",
+          "config": {
+            "linkedTableId": "tbl2OUBStFDdfxNNS",
+            "isReversed": false,
+            "prefersSingleRecordLink": false,
+            "inverseLinkFieldId": "fldbv0WeRuN86jplD"
+          }
+        }
+      ]
+    },
+    {
+      "id": "tbl2GzptAOVCEHQM7",
+      "name": "Події",
+      "description": "Впорядкована версія таблиці Події. Стару таблицю не видалено.",
+      "primary_field_id": "fld1y6fnMxVfRsnKw",
+      "fields": [
+        {
+          "id": "fld1y6fnMxVfRsnKw",
+          "name": "title",
+          "type": "singleLineText",
+          "description": "Коротка назва події."
+        },
+        {
+          "id": "fldnGMbGPaGVA64Q0",
+          "name": "case_id",
+          "type": "multipleRecordLinks",
+          "description": "Справа, до якої належить подія.",
+          "config": {
+            "linkedTableId": "tblw2m5qeasGSW3h8",
+            "isReversed": false,
+            "prefersSingleRecordLink": false,
+            "inverseLinkFieldId": "fld4GdY0KcbY9xBwp"
+          }
+        },
+        {
+          "id": "fldU85sGdvXfpyp8y",
+          "name": "proceeding_id",
+          "type": "multipleRecordLinks",
+          "description": "Провадження, до якого належить подія.",
+          "config": {
+            "linkedTableId": "tbl0fQuxzzyGijsXK",
+            "isReversed": false,
+            "prefersSingleRecordLink": false,
+            "inverseLinkFieldId": "fldOj5z7NVQZJQaUH"
+          }
+        },
+        {
+          "id": "fldAm19XcFzk4P9oo",
+          "name": "interaction_type",
+          "type": "singleSelect",
+          "description": "Тип події.",
+          "config": {
+            "choices": [
+              {
+                "id": "selYzP5yD9TE3rWyS",
+                "name": "Судове засідання",
+                "color": "blueLight2"
+              },
+              {
+                "id": "selHTkhfXQRo80nma",
+                "name": "Подання документа",
+                "color": "greenLight2"
+              },
+              {
+                "id": "sel2lNj8wUZaanmS0",
+                "name": "Отримання документа",
+                "color": "yellowLight2"
+              },
+              {
+                "id": "selIjAZ6lcW51Z1I5",
+                "name": "Дзвінок",
+                "color": "purpleLight2"
+              },
+              {
+                "id": "selslPYVE5e7waunP",
+                "name": "Нотатка",
+                "color": "grayLight2"
+              },
+              {
+                "id": "selwK46QhwGZduVAh",
+                "name": "Інше",
+                "color": "grayLight1"
+              }
+            ]
+          }
+        },
+        {
+          "id": "fldtcR9bMUiIXfy3q",
+          "name": "event_date",
+          "type": "dateTime",
+          "description": "Дата іншої події: суд, дзвінок, нотатка.",
+          "config": {
+            "dateFormat": {
+              "name": "iso",
+              "format": "YYYY-MM-DD"
+            },
+            "timeFormat": {
+              "name": "24hour",
+              "format": "HH:mm"
+            },
+            "timeZone": "utc"
+          }
+        },
+        {
+          "id": "fldW83ib6JYdmCHd6",
+          "name": "date_sent",
+          "type": "dateTime",
+          "description": "Дата відправлення тексту або документа.",
+          "config": {
+            "dateFormat": {
+              "name": "iso",
+              "format": "YYYY-MM-DD"
+            },
+            "timeFormat": {
+              "name": "24hour",
+              "format": "HH:mm"
+            },
+            "timeZone": "utc"
+          }
+        },
+        {
+          "id": "fldxA9Ol7UIabWtdw",
+          "name": "date_delivered",
+          "type": "dateTime",
+          "description": "Дата отримання тексту або документа.",
+          "config": {
+            "dateFormat": {
+              "name": "iso",
+              "format": "YYYY-MM-DD"
+            },
+            "timeFormat": {
+              "name": "24hour",
+              "format": "HH:mm"
+            },
+            "timeZone": "Africa/Nairobi"
+          }
+        },
+        {
+          "id": "fldw0Pqo2QuvIJXLl",
+          "name": "channel",
+          "type": "singleSelect",
+          "description": "Канал комунікації або доставки.",
+          "config": {
+            "choices": [
+              {
+                "id": "selOezhxeyFIwtMrP",
+                "name": "Електронний суд",
+                "color": "blueLight2"
+              },
+              {
+                "id": "selr6WnHAdOqdRvyk",
+                "name": "Email",
+                "color": "greenLight2"
+              },
+              {
+                "id": "selrvMYzfMDySb3K3",
+                "name": "Пошта",
+                "color": "yellowLight2"
+              },
+              {
+                "id": "selTHhZQime8KTkpp",
+                "name": "Телефон",
+                "color": "purpleLight2"
+              },
+              {
+                "id": "selihC7knpUptw9es",
+                "name": "Особисто",
+                "color": "orangeLight2"
+              },
+              {
+                "id": "sel8Q2QxDQqFLI54R",
+                "name": "Інше",
+                "color": "grayLight2"
+              }
+            ]
+          }
+        },
+        {
+          "id": "fldAxGAnYBAxjIKbY",
+          "name": "channel_details",
+          "type": "singleLineText",
+          "description": "Трек-номер, вхідний номер, email-id тощо."
+        },
+        {
+          "id": "fldO8RpFa6tSMsSqN",
+          "name": "description",
+          "type": "richText",
+          "description": "Зміст події або нотатки."
+        },
+        {
+          "id": "fldA6b3om7s6EMrME",
+          "name": "attachments",
+          "type": "multipleAttachments",
+          "description": "Файли, що стосуються події.",
+          "config": {
+            "isReversed": false
+          }
+        },
+        {
+          "id": "fld9xPMhchWWBxj9U",
+          "name": "activity_date",
+          "type": "formula",
+          "description": "Головна дата для timeline / recent.",
+          "config": {
+            "isValid": true,
+            "formula": "IF({fldtcR9bMUiIXfy3q}, {fldtcR9bMUiIXfy3q}, IF({fldW83ib6JYdmCHd6}, {fldW83ib6JYdmCHd6}, {fldxA9Ol7UIabWtdw}))",
+            "referencedFieldIds": [
+              "fldtcR9bMUiIXfy3q",
+              "fldW83ib6JYdmCHd6",
+              "fldxA9Ol7UIabWtdw"
+            ],
+            "result": {
+              "type": "date",
+              "options": {
+                "dateFormat": {
+                  "name": "us",
+                  "format": "M/D/YYYY"
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "fldWQZaoDewhxKYY7",
+          "name": "document_ids",
+          "type": "multipleRecordLinks",
+          "config": {
+            "linkedTableId": "tblhxvEsiaMwgl0BF",
+            "isReversed": false,
+            "prefersSingleRecordLink": false,
+            "inverseLinkFieldId": "fldp637rPy50IaOcX"
+          }
+        },
+        {
+          "id": "fldn3UiaKJgbHMIrA",
+          "name": "workflow_status",
+          "type": "singleSelect",
+          "config": {
+            "choices": [
+              {
+                "id": "selPbtnuNGQfMoKWK",
+                "name": "submitted",
+                "color": "grayLight2"
+              },
+              {
+                "id": "selPqlHKrenk54qlk",
+                "name": "registered",
+                "color": "grayLight2"
+              },
+              {
+                "id": "selpI8TX2d0dZkpOC",
+                "name": "assigned",
+                "color": "grayLight2"
+              },
+              {
+                "id": "selBRFcqfzMa0SNIf",
+                "name": "sent",
+                "color": "grayLight2"
+              },
+              {
+                "id": "selat8c7HdQgsc21d",
+                "name": "delivered",
+                "color": "grayLight2"
+              },
+              {
+                "id": "selVIXbP4YjQXUMG3",
+                "name": "served",
+                "color": "grayLight2"
+              },
+              {
+                "id": "selBKpLjhY3ixekQ8",
+                "name": "returned_undelivered",
+                "color": "grayLight2"
+              },
+              {
+                "id": "selmLLgajB3BQFv1j",
+                "name": "reviewed",
+                "color": "grayLight2"
+              },
+              {
+                "id": "selgjyScOqFH6AEfX",
+                "name": "granted",
+                "color": "grayLight2"
+              },
+              {
+                "id": "selgJ8Upyfc235jqG",
+                "name": "denied",
+                "color": "grayLight2"
+              },
+              {
+                "id": "selPnQmSIuOnF22lt",
+                "name": "appealed",
+                "color": "grayLight2"
+              },
+              {
+                "id": "selWmlg4RziGLqHQR",
+                "name": "withdrawn",
+                "color": "grayLight2"
+              },
+              {
+                "id": "selnXUmJOQ3qAnHSv",
+                "name": "left_without_action",
+                "color": "grayLight2"
+              },
+              {
+                "id": "sel1Ihs1bvfR84EhR",
+                "name": "joined_to_case",
+                "color": "grayLight2"
+              },
+              {
+                "id": "selZAlknqP90TaacC",
+                "name": "severed",
+                "color": "grayLight2"
+              }
+            ]
+          }
+        },
+        {
+          "id": "fldpHAd9Jm5yPFktR",
+          "name": "sender_id",
+          "type": "multipleRecordLinks",
+          "config": {
+            "linkedTableId": "tbl2OUBStFDdfxNNS",
+            "isReversed": false,
+            "prefersSingleRecordLink": false,
+            "inverseLinkFieldId": "fldMyuQxJCqhnTY7W"
+          }
+        },
+        {
+          "id": "fldyrkjlkPiJvCv6n",
+          "name": "recipient_id",
+          "type": "multipleRecordLinks",
+          "config": {
+            "linkedTableId": "tbl2OUBStFDdfxNNS",
+            "isReversed": false,
+            "prefersSingleRecordLink": false,
+            "inverseLinkFieldId": "fldZQZCxgWqWoyJjS"
+          }
+        }
+      ]
+    },
+    {
+      "id": "tblhxvEsiaMwgl0BF",
+      "name": "Документи",
+      "description": "Впорядкована версія таблиці Документи. Стару таблицю не видалено.",
+      "primary_field_id": "fldXuOovgXZaoZjV3",
+      "fields": [
+        {
+          "id": "fldXuOovgXZaoZjV3",
+          "name": "title",
+          "type": "singleLineText",
+          "description": "Назва документа."
+        },
+        {
+          "id": "fldij2txUAF3rHkbA",
+          "name": "case_id",
+          "type": "multipleRecordLinks",
+          "description": "Справа, до якої належить документ.",
+          "config": {
+            "linkedTableId": "tblw2m5qeasGSW3h8",
+            "isReversed": false,
+            "prefersSingleRecordLink": false,
+            "inverseLinkFieldId": "fldbELvq8ZSxKJ9hN"
+          }
+        },
+        {
+          "id": "fldZhefYcXoIeO8Zq",
+          "name": "proceeding_id",
+          "type": "multipleRecordLinks",
+          "description": "Провадження, до якого належить документ.",
+          "config": {
+            "linkedTableId": "tbl0fQuxzzyGijsXK",
+            "isReversed": false,
+            "prefersSingleRecordLink": false,
+            "inverseLinkFieldId": "fldtD1ldsElO0XY6q"
+          }
+        },
+        {
+          "id": "fldp637rPy50IaOcX",
+          "name": "event_id",
+          "type": "multipleRecordLinks",
+          "description": "Подія, з якою пов’язаний документ.",
+          "config": {
+            "linkedTableId": "tbl2GzptAOVCEHQM7",
+            "isReversed": false,
+            "prefersSingleRecordLink": false,
+            "inverseLinkFieldId": "fldWQZaoDewhxKYY7"
+          }
+        },
+        {
+          "id": "fldLO41zdBrI7vm8W",
+          "name": "doc_type",
+          "type": "singleSelect",
+          "description": "Тип документа.",
+          "config": {
+            "choices": [
+              {
+                "id": "selppzCa6VOq8Uhho",
+                "name": "Позов / заява",
+                "color": "blueLight2"
+              },
+              {
+                "id": "seloaEGKwXWFNW9Cv",
+                "name": "Клопотання",
+                "color": "greenLight2"
+              },
+              {
+                "id": "selfgjSIeu1o2xNpH",
+                "name": "Ухвала",
+                "color": "yellowLight2"
+              },
+              {
+                "id": "sellnznV5mqPBQ4JQ",
+                "name": "Рішення",
+                "color": "purpleLight2"
+              },
+              {
+                "id": "selXO2M053JMFndiY",
+                "name": "Апеляційна скарга",
+                "color": "pinkLight2"
+              },
+              {
+                "id": "selJRobzMxGqosiAo",
+                "name": "Інше",
+                "color": "grayLight2"
+              }
+            ]
+          }
+        },
+        {
+          "id": "fldQ2ePN1TdoqFBlm",
+          "name": "date_sent",
+          "type": "date",
+          "description": "Дата відправлення документа.",
+          "config": {
+            "dateFormat": {
+              "name": "iso",
+              "format": "YYYY-MM-DD"
+            }
+          }
+        },
+        {
+          "id": "fldJ06MpzUxgONkgN",
+          "name": "date_delivered",
+          "type": "date",
+          "description": "Дата отримання документа.",
+          "config": {
+            "dateFormat": {
+              "name": "iso",
+              "format": "YYYY-MM-DD"
+            }
+          }
+        },
+        {
+          "id": "fldgVi1UBEU6Bvf95",
+          "name": "channel",
+          "type": "singleSelect",
+          "description": "Канал подання або отримання документа.",
+          "config": {
+            "choices": [
+              {
+                "id": "selkXlEn08LBLRNc5",
+                "name": "Електронний суд",
+                "color": "blueLight2"
+              },
+              {
+                "id": "selbgKOn4pj5d80dG",
+                "name": "Email",
+                "color": "greenLight2"
+              },
+              {
+                "id": "sellUzMYixacPJaWi",
+                "name": "Пошта",
+                "color": "yellowLight2"
+              },
+              {
+                "id": "selpBTwzBd3PViS9r",
+                "name": "Особисто",
+                "color": "orangeLight2"
+              },
+              {
+                "id": "sel3cji58nMdj1ghv",
+                "name": "Інше",
+                "color": "grayLight2"
+              }
+            ]
+          }
+        },
+        {
+          "id": "fldP5jGDLtjWc3l9A",
+          "name": "channel_details",
+          "type": "singleLineText",
+          "description": "Трек-номер, вхідний номер тощо."
+        },
+        {
+          "id": "fldYaR97pw7qkWEH6",
+          "name": "file",
+          "type": "multipleAttachments",
+          "description": "Файл документа.",
+          "config": {
+            "isReversed": false
+          }
+        },
+        {
+          "id": "fldearxvbjyJuPOdr",
+          "name": "category",
+          "type": "singleSelect",
+          "config": {
+            "choices": [
+              {
+                "id": "selTtmZdJjUDt9iba",
+                "name": "main",
+                "color": "grayLight2"
+              },
+              {
+                "id": "selvuJMHWfuEwGW6w",
+                "name": "atch",
+                "color": "grayLight2"
+              },
+              {
+                "id": "selg0keuJ8dHsz8en",
+                "name": "tech",
+                "color": "grayLight2"
+              }
+            ]
+          }
+        },
+        {
+          "id": "fldB86r7KPYfepzJ7",
+          "name": "date_registered",
+          "type": "date",
+          "config": {
+            "dateFormat": {
+              "name": "iso",
+              "format": "YYYY-MM-DD"
+            }
+          }
+        },
+        {
+          "id": "fldVJ0JmTzGeHfwOU",
+          "name": "source",
+          "type": "singleSelect",
+          "config": {
+            "choices": [
+              {
+                "id": "selZwbCAjVUEwzUWm",
+                "name": "user_original",
+                "color": "grayLight2"
+              },
+              {
+                "id": "selHiOJYZnM4PHCpg",
+                "name": "court_registered",
+                "color": "grayLight2"
+              }
+            ]
+          }
+        },
+        {
+          "id": "fldPDPrB6q5tlDuDr",
+          "name": "source_archive",
+          "type": "singleLineText"
+        },
+        {
+          "id": "fldgK4uTdXamu4YIg",
+          "name": "imported_at",
+          "type": "date",
+          "config": {
+            "dateFormat": {
+              "name": "iso",
+              "format": "YYYY-MM-DD"
+            }
+          }
+        },
+        {
+          "id": "fld4WYRDcNBcqBUu2",
+          "name": "origin_format",
+          "type": "singleSelect",
+          "config": {
+            "choices": [
+              {
+                "id": "selq1fHyVpbAOhTNh",
+                "name": "typed",
+                "color": "grayLight2"
+              },
+              {
+                "id": "selJvDJIWj7AfGc1c",
+                "name": "scanned_typed",
+                "color": "grayLight2"
+              },
+              {
+                "id": "selfKoC8dHXaCuPxZ",
+                "name": "handwritten",
+                "color": "grayLight2"
+              },
+              {
+                "id": "selUrGdHkou2PmRb7",
+                "name": "mixed",
+                "color": "grayLight2"
+              }
+            ]
+          }
+        },
+        {
+          "id": "fldWXdt6OkXib57wH",
+          "name": "requires_manual_review",
+          "type": "checkbox",
+          "config": {
+            "icon": "check",
+            "color": "greenBright"
+          }
+        },
+        {
+          "id": "fldi6vOahIczfubSG",
+          "name": "signature_status",
+          "type": "singleSelect",
+          "config": {
+            "choices": [
+              {
+                "id": "selyZBx3uCLVCVk4s",
+                "name": "valid",
+                "color": "grayLight2"
+              },
+              {
+                "id": "selcXehv7vVdq26ry",
+                "name": "invalid",
+                "color": "grayLight2"
+              },
+              {
+                "id": "sel6K5j6R0sC0lZWm",
+                "name": "expired",
+                "color": "grayLight2"
+              },
+              {
+                "id": "selSDYLvDOVSakAUX",
+                "name": "revoked",
+                "color": "grayLight2"
+              },
+              {
+                "id": "selyGqc833oYO0pA3",
+                "name": "not_signed",
+                "color": "grayLight2"
+              },
+              {
+                "id": "selM9bLhSgyAyVaI6",
+                "name": "not_checked",
+                "color": "grayLight2"
+              },
+              {
+                "id": "sel8E2dSNqVTgcxYA",
+                "name": "check_error",
+                "color": "grayLight2"
+              }
+            ]
+          }
+        },
+        {
+          "id": "fldOqnB9v9TiC1Fcl",
+          "name": "transcript",
+          "type": "multilineText"
+        },
+        {
+          "id": "fldAg7Huz1xGS85I1",
+          "name": "file_hash",
+          "type": "singleLineText"
+        },
+        {
+          "id": "fldhNMxvuNyp4d2hb",
+          "name": "document_links",
+          "type": "multipleRecordLinks",
+          "config": {
+            "linkedTableId": "tblgiLYvazAF2YWOW",
+            "isReversed": false,
+            "prefersSingleRecordLink": false,
+            "inverseLinkFieldId": "fldw8cAqivZisjmGX"
+          }
+        },
+        {
+          "id": "fldcXBwXGzWlJS0W6",
+          "name": "document_links",
+          "type": "multipleRecordLinks",
+          "config": {
+            "linkedTableId": "tblgiLYvazAF2YWOW",
+            "isReversed": false,
+            "prefersSingleRecordLink": false,
+            "inverseLinkFieldId": "fldGPGtply6TOrrhj"
+          }
+        },
+        {
+          "id": "fldv7rXxEClRRjSGF",
+          "name": "compliance_flags",
+          "type": "multipleRecordLinks",
+          "config": {
+            "linkedTableId": "tblPvqu8ch6e29bq7",
+            "isReversed": false,
+            "prefersSingleRecordLink": false,
+            "inverseLinkFieldId": "fldARhXpTAVPUjlpb"
+          }
+        },
+        {
+          "id": "fldtxQxPT6Jun1FEu",
+          "name": "document_version_match",
+          "type": "multipleRecordLinks",
+          "config": {
+            "linkedTableId": "tblACqocW5KmtYJp5",
+            "isReversed": false,
+            "prefersSingleRecordLink": false,
+            "inverseLinkFieldId": "fldqkXhCmRjCSBN7s"
+          }
+        },
+        {
+          "id": "fldW3zQIPszrLVm9y",
+          "name": "document_version_match",
+          "type": "multipleRecordLinks",
+          "config": {
+            "linkedTableId": "tblACqocW5KmtYJp5",
+            "isReversed": false,
+            "prefersSingleRecordLink": false,
+            "inverseLinkFieldId": "fldmWFUuKiDUQ0sdD"
+          }
+        }
+      ]
+    },
+    {
+      "id": "tbll4F8mAUkQqUnQJ",
+      "name": "Учасники справи",
+      "description": "Впорядкована службова таблиця ролей учасників у справах.",
+      "primary_field_id": "fldZY8da3bfjfTiZy",
+      "fields": [
+        {
+          "id": "fldZY8da3bfjfTiZy",
+          "name": "ID ролі у справі",
+          "type": "singleLineText",
+          "description": "Технічний або короткий ідентифікатор ролі у справі."
+        },
+        {
+          "id": "fldc7Bw4YJMYzQCwX",
+          "name": "Справи",
+          "type": "multipleRecordLinks",
+          "description": "Справи, до яких належить роль.",
+          "config": {
+            "linkedTableId": "tblw2m5qeasGSW3h8",
+            "isReversed": false,
+            "prefersSingleRecordLink": false,
+            "inverseLinkFieldId": "fldGL45mM96oJf8np"
+          }
+        },
+        {
+          "id": "flducJ9za4RACiSYP",
+          "name": "Учасники",
+          "type": "multipleRecordLinks",
+          "description": "Учасники, які мають цю роль.",
+          "config": {
+            "linkedTableId": "tbl2OUBStFDdfxNNS",
+            "isReversed": false,
+            "prefersSingleRecordLink": false,
+            "inverseLinkFieldId": "fldBXm28KqnchRzWj"
+          }
+        },
+        {
+          "id": "fldnQfVMsMWOXwJRV",
+          "name": "Роль",
+          "type": "singleSelect",
+          "description": "Процесуальна роль учасника.",
+          "config": {
+            "choices": [
+              {
+                "id": "selcE7niRPWn4HIgG",
+                "name": "Позивач",
+                "color": "blueLight2"
+              },
+              {
+                "id": "selfy5WI6PhQdMOKh",
+                "name": "Відповідач",
+                "color": "redLight2"
+              },
+              {
+                "id": "selbq4csvXGWtHbcO",
+                "name": "Третя особа",
+                "color": "yellowLight2"
+              },
+              {
+                "id": "selGhVixvdfXsllmv",
+                "name": "Представник",
+                "color": "greenLight2"
+              },
+              {
+                "id": "selFzWthyHm5Mdol0",
+                "name": "Суддя",
+                "color": "purpleLight2"
+              },
+              {
+                "id": "sel6T65aKNlFwhrz6",
+                "name": "Виконавець",
+                "color": "orangeLight2"
+              },
+              {
+                "id": "selFKPBfPMysNrCNO",
+                "name": "Інше",
+                "color": "grayLight2"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "tblgiLYvazAF2YWOW",
+      "name": "document_links",
+      "description": "Junction table for typed relationships between documents (e.g. attachment_of, response_to). Replaces a self-link field to allow multiple typed links per document.",
+      "primary_field_id": "fldefA1UCXoAV22gr",
+      "fields": [
+        {
+          "id": "fldefA1UCXoAV22gr",
+          "name": "title",
+          "type": "singleLineText"
+        },
+        {
+          "id": "fldw8cAqivZisjmGX",
+          "name": "source_document",
+          "type": "multipleRecordLinks",
+          "config": {
+            "linkedTableId": "tblhxvEsiaMwgl0BF",
+            "isReversed": false,
+            "prefersSingleRecordLink": false,
+            "inverseLinkFieldId": "fldhNMxvuNyp4d2hb"
+          }
+        },
+        {
+          "id": "fldGPGtply6TOrrhj",
+          "name": "target_document",
+          "type": "multipleRecordLinks",
+          "config": {
+            "linkedTableId": "tblhxvEsiaMwgl0BF",
+            "isReversed": false,
+            "prefersSingleRecordLink": false,
+            "inverseLinkFieldId": "fldcXBwXGzWlJS0W6"
+          }
+        },
+        {
+          "id": "fldb9R4mTaWnuho1w",
+          "name": "link_type",
+          "type": "singleSelect",
+          "config": {
+            "choices": [
+              {
+                "id": "selqdD30z77k05dXN",
+                "name": "attachment_of",
+                "color": "grayLight2"
+              },
+              {
+                "id": "sel2vzqvO1CyxPTTn",
+                "name": "technical_for",
+                "color": "grayLight2"
+              },
+              {
+                "id": "selaZKOZkRFPE6jm5",
+                "name": "response_to",
+                "color": "grayLight2"
+              },
+              {
+                "id": "selF7stvRuRGHbHOg",
+                "name": "appeals",
+                "color": "grayLight2"
+              },
+              {
+                "id": "selyn0uu4s0st3vgS",
+                "name": "amends",
+                "color": "grayLight2"
+              },
+              {
+                "id": "selYwUuTvVHntJ94c",
+                "name": "revokes",
+                "color": "grayLight2"
+              },
+              {
+                "id": "seloC3XuxjiTKtOSl",
+                "name": "replaces",
+                "color": "grayLight2"
+              },
+              {
+                "id": "sel7DHXGZzgIAxfeu",
+                "name": "refers_to",
+                "color": "grayLight2"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "tblPvqu8ch6e29bq7",
+      "name": "compliance_flags",
+      "description": "Discrepancy findings for documents (e.g. undeclared attachments, backdated registration). Severity falsification_risk marks strongest evidence-of-tampering cases.",
+      "primary_field_id": "fldaA64IrdkwF8XVD",
+      "fields": [
+        {
+          "id": "fldaA64IrdkwF8XVD",
+          "name": "title",
+          "type": "singleLineText"
+        },
+        {
+          "id": "fldARhXpTAVPUjlpb",
+          "name": "document",
+          "type": "multipleRecordLinks",
+          "config": {
+            "linkedTableId": "tblhxvEsiaMwgl0BF",
+            "isReversed": false,
+            "prefersSingleRecordLink": false,
+            "inverseLinkFieldId": "fldv7rXxEClRRjSGF"
+          }
+        },
+        {
+          "id": "fldV6vFnYcCFbVbkO",
+          "name": "flag_type",
+          "type": "singleSelect",
+          "config": {
+            "choices": [
+              {
+                "id": "selobetOG4wstvdxZ",
+                "name": "undeclared_attachment",
+                "color": "grayLight2"
+              },
+              {
+                "id": "sely91fnZX1MiBPs3",
+                "name": "missing_attachment",
+                "color": "grayLight2"
+              },
+              {
+                "id": "sel5uMVBvX5iHwcgd",
+                "name": "count_mismatch",
+                "color": "grayLight2"
+              },
+              {
+                "id": "selvGtroE7QPjjHZe",
+                "name": "late_addition",
+                "color": "grayLight2"
+              },
+              {
+                "id": "sel6qJo7xbuQulfaZ",
+                "name": "retroactive_registration",
+                "color": "grayLight2"
+              },
+              {
+                "id": "selE3yPi3lnSHESm4",
+                "name": "type_mismatch",
+                "color": "grayLight2"
+              },
+              {
+                "id": "selukfXGAj41pbBWF",
+                "name": "unlisted_in_registry_snapshot",
+                "color": "grayLight2"
+              }
+            ]
+          }
+        },
+        {
+          "id": "fldCgu9aYEApr2ioG",
+          "name": "severity",
+          "type": "singleSelect",
+          "config": {
+            "choices": [
+              {
+                "id": "selnATfe00x8kiakI",
+                "name": "info",
+                "color": "grayLight2"
+              },
+              {
+                "id": "selce9LgogiG5E31g",
+                "name": "warning",
+                "color": "grayLight2"
+              },
+              {
+                "id": "selGPZ0D8sPqgorZ7",
+                "name": "critical",
+                "color": "grayLight2"
+              },
+              {
+                "id": "sel9rS8ekWVPs5Ysx",
+                "name": "falsification_risk",
+                "color": "grayLight2"
+              }
+            ]
+          }
+        },
+        {
+          "id": "fldX5iiacnhJzFa0z",
+          "name": "detected_by",
+          "type": "singleSelect",
+          "config": {
+            "choices": [
+              {
+                "id": "selOmcCCGgRnRPDNI",
+                "name": "auto",
+                "color": "grayLight2"
+              },
+              {
+                "id": "selvXnqtYaTbqMYD6",
+                "name": "manual",
+                "color": "grayLight2"
+              },
+              {
+                "id": "sel4BQ5LAVdDY6EQ1",
+                "name": "auto_confirmed",
+                "color": "grayLight2"
+              }
+            ]
+          }
+        },
+        {
+          "id": "fld7YCh4JPsm3nYTT",
+          "name": "note",
+          "type": "multilineText"
+        },
+        {
+          "id": "fldTJLArM56urztXy",
+          "name": "manually_confirmed",
+          "type": "checkbox",
+          "config": {
+            "icon": "check",
+            "color": "greenBright"
+          }
+        }
+      ]
+    },
+    {
+      "id": "tblACqocW5KmtYJp5",
+      "name": "document_version_match",
+      "description": "Compares a user-submitted document with its court-registered counterpart to detect content substitution.",
+      "primary_field_id": "fld0M6V00eNStp0yi",
+      "fields": [
+        {
+          "id": "fld0M6V00eNStp0yi",
+          "name": "title",
+          "type": "singleLineText"
+        },
+        {
+          "id": "fldqkXhCmRjCSBN7s",
+          "name": "user_document",
+          "type": "multipleRecordLinks",
+          "config": {
+            "linkedTableId": "tblhxvEsiaMwgl0BF",
+            "isReversed": false,
+            "prefersSingleRecordLink": false,
+            "inverseLinkFieldId": "fldtxQxPT6Jun1FEu"
+          }
+        },
+        {
+          "id": "fldmWFUuKiDUQ0sdD",
+          "name": "court_document",
+          "type": "multipleRecordLinks",
+          "config": {
+            "linkedTableId": "tblhxvEsiaMwgl0BF",
+            "isReversed": false,
+            "prefersSingleRecordLink": false,
+            "inverseLinkFieldId": "fldW3zQIPszrLVm9y"
+          }
+        },
+        {
+          "id": "fld0gIaMY0z2yKq30",
+          "name": "hashes_equal",
+          "type": "checkbox",
+          "config": {
+            "icon": "check",
+            "color": "greenBright"
+          }
+        },
+        {
+          "id": "fldjehVBC2fOQS9GY",
+          "name": "text_similarity_score",
+          "type": "number",
+          "config": {
+            "precision": 0
+          }
+        },
+        {
+          "id": "fldzT9yfDloirAvKQ",
+          "name": "mismatch_type",
+          "type": "singleSelect",
+          "config": {
+            "choices": [
+              {
+                "id": "sellFcZiSi5VGjynN",
+                "name": "identical",
+                "color": "grayLight2"
+              },
+              {
+                "id": "selBu68l8IkGCumDA",
+                "name": "stamp_only_diff",
+                "color": "grayLight2"
+              },
+              {
+                "id": "selTxGUchXoGy08Kk",
+                "name": "content_diff",
+                "color": "grayLight2"
+              },
+              {
+                "id": "selB9xwNK80WRM5Jv",
+                "name": "substituted",
+                "color": "grayLight2"
+              }
+            ]
+          }
+        },
+        {
+          "id": "fldlLs42CoJwlRq2z",
+          "name": "needs_review",
+          "type": "checkbox",
+          "config": {
+            "icon": "check",
+            "color": "redBright"
+          }
+        }
+      ]
+    }
+  ]
+}

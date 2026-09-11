@@ -7,6 +7,9 @@ let anomalyReport=null;
 let findingLimit=100;
 let documentTree=null;
 let treeStatus="all";
+let contactsCache=[];
+let selectedContactId=null;
+let contactContext={cases:[],proceedings:[],roles:[]};
 
 const $=selector=>document.querySelector(selector);
 const $$=selector=>[...document.querySelectorAll(selector)];
@@ -30,7 +33,8 @@ async function api(path,options={}){
   if(options.body&&!(options.body instanceof FormData)){headers["Content-Type"]="application/json";options.body=JSON.stringify(options.body)}
   const response=await fetch(path,{...options,headers});
   const payload=await response.json();
-  if(!response.ok||payload.ok===false)throw new Error(payload.error||`HTTP ${response.status}`);
+  const errorMessage=typeof payload.error==="object"?payload.error?.message:payload.error;
+  if(!response.ok||payload.ok===false)throw new Error(errorMessage||`HTTP ${response.status}`);
   return payload;
 }
 
@@ -69,6 +73,166 @@ function renderGoogle(google){
   $("#drive-status").textContent=google.connected?"Підключено":google.configured?"Налаштовано, очікує входу":"Не налаштовано";
   $("#drive-sync").disabled=!google.connected;
   $("#drive-connect").textContent=google.connected?"Підключено":"Налаштувати й увійти";
+}
+
+async function loadContactContext(){
+  try{
+    contactContext=await api("/api/v1/contacts/context");
+    renderContactRoleOptions();
+  }catch(error){toast(error.message,true)}
+}
+
+async function loadContacts(){
+  const query=$("#contact-query").value.trim();
+  try{
+    const result=await api(`/api/v1/contacts${query?`?q=${encodeURIComponent(query)}`:""}`);
+    contactsCache=result.contacts||[];
+    renderContactList();
+    if(selectedContactId){
+      const selected=contactsCache.find(contact=>contact.id===selectedContactId);
+      if(selected)fillContactForm(selected);
+    }else if(contactsCache.length){
+      selectContact(contactsCache[0].id);
+    }else{
+      startNewContact();
+    }
+  }catch(error){
+    $("#contact-list").innerHTML=`<div class="empty-state error-text">${escapeHtml(error.message)}</div>`;
+  }
+}
+
+function renderContactList(){
+  const type=$("#contact-type-filter").value;
+  const contacts=contactsCache.filter(contact=>!type||contact.participant_type===type);
+  $("#contact-count").textContent=`${contacts.length} контактів`;
+  $("#contact-list").innerHTML=contacts.length?contacts.map(contact=>{
+    const roles=(contact.roles||[]).slice(0,3).map(role=>escapeHtml(role.role)).join(" · ");
+    const channels=[contact.phone,contact.email].filter(Boolean).map(escapeHtml).join(" · ");
+    const kind=contact.participant_type==="organization"?"Організація":"Фізична особа";
+    return `<button class="contact-row ${contact.id===selectedContactId?"active":""}" type="button" data-contact-id="${escapeHtml(contact.id)}">
+      <span class="contact-avatar" aria-hidden="true">${contact.participant_type==="organization"?"ЮО":"ФО"}</span>
+      <span class="contact-row-main"><b>${escapeHtml(contact.full_name)}</b><small>${escapeHtml(contact.short_name||kind)}</small><em>${channels||roles||"Без контактних каналів"}</em></span>
+      <span class="contact-role-total">${(contact.roles||[]).length}</span>
+    </button>`;
+  }).join(""):'<div class="empty-state">Контактів немає.</div>';
+}
+
+function selectContact(contactId){
+  const contact=contactsCache.find(item=>item.id===contactId);
+  if(!contact)return;
+  selectedContactId=contactId;
+  fillContactForm(contact);
+  renderContactList();
+}
+
+function startNewContact(){
+  selectedContactId=null;
+  $("#contact-form").reset();
+  $("#contact-id").value="";
+  $("#contact-active").checked=true;
+  $("#contact-participant-type").value="person";
+  $("#contact-detail-kind").textContent="Контакт";
+  $("#contact-detail-title").textContent="Новий контакт";
+  $("#contact-save-state").textContent="";
+  $("#contact-roles-section").hidden=true;
+  renderContactList();
+  $("#contact-full-name").focus();
+}
+
+function fillContactForm(contact){
+  const values={
+    "#contact-id":contact.id,
+    "#contact-full-name":contact.full_name,
+    "#contact-participant-type":contact.participant_type,
+    "#contact-short-name":contact.short_name,
+    "#contact-email":contact.email,
+    "#contact-phone":contact.phone,
+    "#contact-additional-phone":contact.additional_phone,
+    "#contact-date":contact.birth_or_registration_date,
+    "#contact-tax-id":contact.tax_id,
+    "#contact-edrpou":contact.edrpou,
+    "#contact-address":contact.address,
+    "#contact-representative":contact.representative_or_contact_person,
+    "#contact-notes":contact.notes,
+  };
+  Object.entries(values).forEach(([selector,value])=>{$(selector).value=value??""});
+  $("#contact-active").checked=Boolean(contact.active);
+  $("#contact-detail-kind").textContent=contact.participant_type==="organization"?"Юридична особа":"Фізична особа";
+  $("#contact-detail-title").textContent=contact.full_name;
+  $("#contact-save-state").textContent="";
+  $("#contact-roles-section").hidden=false;
+  renderContactRoles(contact.roles||[]);
+}
+
+function contactPayload(){
+  const optional=selector=>$(selector).value.trim()||null;
+  return {
+    full_name:$("#contact-full-name").value.trim(),
+    participant_type:$("#contact-participant-type").value,
+    active:$("#contact-active").checked,
+    short_name:optional("#contact-short-name"),
+    email:optional("#contact-email"),
+    phone:optional("#contact-phone"),
+    additional_phone:optional("#contact-additional-phone"),
+    birth_or_registration_date:optional("#contact-date"),
+    tax_id:optional("#contact-tax-id"),
+    edrpou:optional("#contact-edrpou"),
+    address:optional("#contact-address"),
+    representative_or_contact_person:optional("#contact-representative"),
+    notes:optional("#contact-notes"),
+  };
+}
+
+async function saveContact(event){
+  event.preventDefault();
+  const payload=contactPayload();
+  if(!payload.full_name){toast("Вкажіть ПІБ або назву",true);return}
+  const button=$("#contact-save");button.disabled=true;
+  $("#contact-save-state").textContent="Збереження…";
+  try{
+    const result=selectedContactId
+      ?await api(`/api/v1/contacts/${encodeURIComponent(selectedContactId)}`,{method:"PATCH",body:payload})
+      :await api("/api/v1/contacts",{method:"POST",body:payload});
+    selectedContactId=result.contact.id;
+    $("#contact-save-state").textContent="Збережено";
+    toast("Контакт збережено");
+    await loadContacts();
+  }catch(error){
+    $("#contact-save-state").textContent="Помилка";
+    toast(error.message,true);
+  }finally{button.disabled=false}
+}
+
+function renderContactRoleOptions(){
+  $("#contact-role-case").innerHTML=(contactContext.cases||[]).map(item=>`<option value="${escapeHtml(item.id)}">${escapeHtml(item.case_number||item.name||item.id)}</option>`).join("");
+  $("#contact-role-name").innerHTML=(contactContext.roles||[]).map(role=>`<option value="${escapeHtml(role)}">${escapeHtml(role)}</option>`).join("");
+  syncContactProceedings();
+}
+
+function syncContactProceedings(){
+  const caseId=$("#contact-role-case").value;
+  const options=(contactContext.proceedings||[]).filter(item=>!caseId||!item.caseIds?.length||item.caseIds.includes(caseId));
+  $("#contact-role-proceeding").innerHTML='<option value="">Без окремого провадження</option>'+options.map(item=>`<option value="${escapeHtml(item.id)}">${escapeHtml(item.proceeding_number||item.name||item.id)}</option>`).join("");
+}
+
+function renderContactRoles(roles){
+  const cases=new Map((contactContext.cases||[]).map(item=>[item.id,item.case_number||item.name||item.id]));
+  const proceedings=new Map((contactContext.proceedings||[]).map(item=>[item.id,item.proceeding_number||item.name||item.id]));
+  $("#contact-role-count").textContent=roles.length;
+  $("#contact-role-list").innerHTML=roles.length?roles.map(role=>`<div class="contact-role-row"><b>${escapeHtml(role.role)}</b><span>${escapeHtml(cases.get(role.case_id)||role.case_id)}</span><small>${role.proceeding_id?escapeHtml(proceedings.get(role.proceeding_id)||role.proceeding_id):"Уся справа"}</small></div>`).join(""):'<div class="contact-role-empty">Ролей не призначено.</div>';
+}
+
+async function addContactRole(){
+  if(!selectedContactId)return;
+  const caseId=$("#contact-role-case").value,role=$("#contact-role-name").value;
+  if(!caseId||!role){toast("Оберіть справу та роль",true);return}
+  const button=$("#contact-role-add");button.disabled=true;
+  try{
+    const result=await api(`/api/v1/contacts/${encodeURIComponent(selectedContactId)}/roles`,{method:"POST",body:{case_id:caseId,proceeding_id:$("#contact-role-proceeding").value||null,role}});
+    const index=contactsCache.findIndex(item=>item.id===selectedContactId);
+    if(index>=0)contactsCache[index]=result.contact;
+    fillContactForm(result.contact);renderContactList();toast("Роль додано");
+  }catch(error){toast(error.message,true)}finally{button.disabled=false}
 }
 
 async function loadDocumentTree(){
@@ -252,10 +416,17 @@ document.addEventListener("DOMContentLoaded",()=>{
   $("#upload-button").addEventListener("click",upload);$("#process-button").addEventListener("click",processInbox);$("#anomaly-button").addEventListener("click",runAnomalies);$("#refresh-button").addEventListener("click",async()=>{await refresh();await loadAnomalies()});
   $("#tree-refresh").addEventListener("click",loadDocumentTree);
   $("#tree-query").addEventListener("input",renderDocumentTree);
+  $("#contact-new").addEventListener("click",startNewContact);
+  $("#contact-form").addEventListener("submit",saveContact);
+  $("#contact-list").addEventListener("click",event=>{const row=event.target.closest("[data-contact-id]");if(row)selectContact(row.dataset.contactId)});
+  $("#contact-type-filter").addEventListener("change",renderContactList);
+  $("#contact-query").addEventListener("input",()=>{clearTimeout(window.contactSearchTimer);window.contactSearchTimer=setTimeout(loadContacts,180)});
+  $("#contact-role-case").addEventListener("change",syncContactProceedings);
+  $("#contact-role-add").addEventListener("click",addContactRole);
   $$("[data-tree-status]").forEach(button=>button.addEventListener("click",()=>{treeStatus=button.dataset.treeStatus;$$('[data-tree-status]').forEach(item=>item.classList.toggle("active",item===button));renderDocumentTree()}));
   ["#filter-severity","#filter-status","#filter-category"].forEach(selector=>$(selector).addEventListener("change",()=>{findingLimit=100;renderAnomalies()}));$("#filter-query").addEventListener("input",()=>{findingLimit=100;renderAnomalies()});
   $("#anomaly-list").addEventListener("click",event=>{const more=event.target.closest("[data-show-more]");if(more){findingLimit+=100;renderAnomalies();return}const button=event.target.closest("[data-review-status]");if(!button)return;const card=button.closest("[data-fingerprint]");updateAnomalyStatus(card.dataset.fingerprint,button.dataset.reviewStatus)});
   $("#opacity-range").addEventListener("input",event=>setOpacity(event.target.value));$("#collapse-widget").addEventListener("click",()=>$("#widget").classList.toggle("collapsed"));$("#save-google").addEventListener("click",saveGoogle);$("#drive-connect").addEventListener("click",connectGoogle);$("#drive-sync").addEventListener("click",syncDrive);$("#disconnect-google").addEventListener("click",disconnectGoogle);
   $("#flow").addEventListener("change",event=>{$("#channel").value=event.target.value==="01_ВІД_СУДУ"?"ЕСУД_СУД":"ЕСУД_МОЇ"});
-  Promise.all([refresh(),loadAnomalies(),loadDocumentTree()]);
+  Promise.all([refresh(),loadAnomalies(),loadDocumentTree(),loadContactContext().then(loadContacts)]);
 });

@@ -54,6 +54,8 @@
 
 ## Open questions
 
-- Які формати потрібні першими: CAdES/P7S, XAdES, ASiC, PDF signatures?
-- Які локальні бібліотеки або офіційні засоби допускаються?
-- Як зберігати протоколи перевірки для довгострокового відтворення?
+| Question | Owner stage | Closing gate |
+|---|---|---|
+| First signature formats/capabilities | `P02` | `P02 PASS` |
+| Allowed local libraries/official tools | `P02` | `P02 PASS` |
+| Long-term verification protocol retention | `P02`, `C15` | processor + recovery gate |

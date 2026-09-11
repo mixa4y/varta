@@ -1,0 +1,80 @@
+{
+  "source_kind": "caseflow",
+  "source_name": "synthetic.caseflow",
+  "source_key": "synthetic-fixture-v1",
+  "format_version": "caseflow-runtime-json-v1",
+  "source_sha256": "a6b3d6015dcd994d26101f492682189a7bcd630c26b252fa828170b0623870c2",
+  "source_tree_sha256": "9d4212da7805eeefd4ec222a99078ca6bc7a40ff988165ddb04bc1dd6866c36b",
+  "records": 2,
+  "proposed": 2,
+  "imported": 0,
+  "updated": 0,
+  "skipped": 0,
+  "conflicts": 0,
+  "unresolved_links": 0,
+  "resolved_links": 1,
+  "counts": {
+    "caseflow:synthetic.caseflow": 2
+  },
+  "issues": [],
+  "record_results": [
+    {
+      "external_ref": "caseflow:synthetic.caseflow:SYNTHETIC-A",
+      "source_location": "synthetic.caseflow#0",
+      "record_kind": "caseflow:synthetic.caseflow",
+      "action": "import_manual_review",
+      "reasons": [
+        "unsupported:title"
+      ]
+    },
+    {
+      "external_ref": "caseflow:synthetic.caseflow:SYNTHETIC-B",
+      "source_location": "synthetic.caseflow#1",
+      "record_kind": "caseflow:synthetic.caseflow",
+      "action": "import_manual_review",
+      "reasons": [
+        "ambiguous:document_id"
+      ]
+    }
+  ],
+  "field_mappings": [
+    {
+      "source_scope": ".caseflow",
+      "source_field": "document_id",
+      "classification": "ambiguous",
+      "target": "relation pass",
+      "note": "Snapshot-local resolution."
+    },
+    {
+      "source_scope": ".caseflow",
+      "source_field": "id",
+      "classification": "mapped",
+      "target": "ExternalReferenceInput.value",
+      "note": "Stable identity."
+    },
+    {
+      "source_scope": ".caseflow",
+      "source_field": "sha256",
+      "classification": "mapped",
+      "target": "ManagedFileRecord.sha256",
+      "note": "Hash provenance."
+    },
+    {
+      "source_scope": ".caseflow",
+      "source_field": "title",
+      "classification": "unsupported",
+      "target": null,
+      "note": "Raw compatibility payload only."
+    }
+  ],
+  "source_files": [
+    {
+      "relative_path": "synthetic.caseflow",
+      "sha256": "a6b3d6015dcd994d26101f492682189a7bcd630c26b252fa828170b0623870c2",
+      "size": 200
+    }
+  ],
+  "zero_db_writes": true,
+  "source_unchanged": true,
+  "read_path_switch_allowed": false
+}

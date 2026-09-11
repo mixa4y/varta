@@ -2,152 +2,462 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://varta.local/schemas/map-data.schema.json",
   "title": "VARTA Evidence Map snapshot",
+  "description": "Formal, read-only projection of a reviewed VARTA case state.",
   "type": "object",
   "required": [
-    "schemaVersion",
-    "export",
-    "case",
-    "proceedings",
-    "documents",
-    "events",
-    "relations",
-    "inventory"
+    "schemaVersion", "export", "case", "proceedings", "actors", "files",
+    "documents", "events", "claims", "relations", "sourceReferences",
+    "reviewDecisions", "inventory", "exclusions"
   ],
   "properties": {
-    "schemaVersion": {"type": "string", "const": "1.0.0"},
-    "export": {
-      "type": "object",
-      "required": ["exportId", "generatedAt", "profile"],
-      "properties": {
-        "exportId": {"type": "string", "minLength": 1},
-        "generatedAt": {"type": ["string", "null"], "format": "date-time"},
-        "profile": {"type": "string", "minLength": 1},
-        "productVersion": {"type": "string"},
-        "sourceSnapshotSha256": {
-          "type": ["string", "null"],
-          "pattern": "^[A-Fa-f0-9]{64}$"
-        }
-      },
-      "additionalProperties": true
-    },
+    "schemaVersion": {"type": "string", "const": "1.1.0"},
+    "export": {"$ref": "#/$defs/export"},
     "case": {"$ref": "#/$defs/case"},
-    "proceedings": {
-      "type": "array",
-      "items": {"$ref": "#/$defs/node"}
-    },
-    "documents": {
-      "type": "array",
-      "items": {"$ref": "#/$defs/node"}
-    },
-    "events": {
-      "type": "array",
-      "items": {"$ref": "#/$defs/node"}
-    },
-    "relations": {
-      "type": "array",
-      "items": {"$ref": "#/$defs/relation"}
-    },
-    "inventory": {"type": "object"}
+    "proceedings": {"type": "array", "items": {"$ref": "#/$defs/proceeding"}},
+    "actors": {"type": "array", "items": {"$ref": "#/$defs/actor"}},
+    "files": {"type": "array", "items": {"$ref": "#/$defs/file"}},
+    "documents": {"type": "array", "items": {"$ref": "#/$defs/document"}},
+    "events": {"type": "array", "items": {"$ref": "#/$defs/event"}},
+    "claims": {"type": "array", "items": {"$ref": "#/$defs/claim"}},
+    "relations": {"type": "array", "items": {"$ref": "#/$defs/relation"}},
+    "sourceReferences": {"type": "array", "items": {"$ref": "#/$defs/sourceReference"}},
+    "reviewDecisions": {"type": "array", "items": {"$ref": "#/$defs/reviewDecision"}},
+    "inventory": {"$ref": "#/$defs/inventory"},
+    "exclusions": {"type": "array", "items": {"$ref": "#/$defs/exclusion"}}
   },
   "$defs": {
+    "nonEmptyString": {"type": "string", "minLength": 1},
+    "nullableString": {"type": ["string", "null"]},
+    "stringArray": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+    "idArray": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+    "classification": {
+      "type": "string",
+      "enum": ["confirmed_fact", "party_position", "user_position", "court_reasoning", "legal_conclusion", "contradiction", "open_question", "unverified"]
+    },
+    "reviewStatus": {
+      "type": "string",
+      "enum": ["unreviewed", "manual_review_required", "in_review", "confirmed", "rejected", "resolved", "superseded"]
+    },
+    "entityType": {
+      "type": "string",
+      "enum": ["case", "proceeding", "actor", "file", "document", "event", "claim", "relation", "source_reference", "review_decision"]
+    },
+    "entityRef": {
+      "type": "object",
+      "required": ["type", "id"],
+      "properties": {
+        "type": {"$ref": "#/$defs/entityType"},
+        "id": {"$ref": "#/$defs/nonEmptyString"},
+        "role": {"type": ["string", "null"]}
+      },
+      "additionalProperties": false
+    },
+    "dateValue": {
+      "type": "object",
+      "required": ["role", "value", "precision", "sourceReferenceIds", "reviewStatus"],
+      "properties": {
+        "role": {"type": "string", "enum": ["document_date", "submitted_date", "registered_date", "received_date", "opened_date", "closed_date", "effective_date", "hearing_date", "issued_date", "due_date", "other"]},
+        "value": {"type": ["string", "null"]},
+        "precision": {"type": "string", "enum": ["exact_datetime", "exact_date", "month", "year", "approximate", "unknown"]},
+        "timezone": {"type": ["string", "null"]},
+        "sourceReferenceIds": {"$ref": "#/$defs/idArray"},
+        "reviewStatus": {"$ref": "#/$defs/reviewStatus"},
+        "note": {"type": ["string", "null"]}
+      },
+      "additionalProperties": false
+    },
+    "amount": {
+      "type": "object",
+      "required": ["label", "value", "currency", "classification", "sourceReferenceIds", "reviewStatus"],
+      "properties": {
+        "label": {"$ref": "#/$defs/nonEmptyString"},
+        "value": {"type": ["number", "null"]},
+        "displayValue": {"type": ["string", "null"]},
+        "currency": {"type": ["string", "null"]},
+        "classification": {"$ref": "#/$defs/classification"},
+        "sourceReferenceIds": {"$ref": "#/$defs/idArray"},
+        "reviewStatus": {"$ref": "#/$defs/reviewStatus"},
+        "note": {"type": ["string", "null"]}
+      },
+      "additionalProperties": false
+    },
+    "export": {
+      "type": "object",
+      "required": ["exportId", "generatedAt", "profile", "productVersion", "profileVersion", "sourceRevision", "sourceSnapshotSha256", "dataCutoff", "language", "sealed"],
+      "properties": {
+        "exportId": {"$ref": "#/$defs/nonEmptyString"},
+        "generatedAt": {"type": ["string", "null"], "format": "date-time"},
+        "profile": {"type": "string", "enum": ["full_local", "redacted", "metadata_only"]},
+        "productVersion": {"$ref": "#/$defs/nonEmptyString"},
+        "profileVersion": {"$ref": "#/$defs/nonEmptyString"},
+        "sourceRevision": {"type": ["string", "null"]},
+        "sourceSnapshotSha256": {"type": ["string", "null"], "pattern": "^[A-Fa-f0-9]{64}$"},
+        "dataCutoff": {"type": ["string", "null"]},
+        "language": {"type": "string", "minLength": 2},
+        "sealed": {"type": "boolean"},
+        "redactionPolicyId": {"type": ["string", "null"]},
+        "knownLimitations": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    },
     "case": {
       "type": "object",
-      "required": ["id", "number", "title"],
+      "required": ["id", "number", "numberStatus", "folderKey", "title", "aliases", "caseType", "jurisdiction", "primaryCourtActorId", "dates", "actorIds", "proceedingIds", "claimIds", "sourceReferenceIds", "reviewStatus"],
       "properties": {
-        "id": {"type": "string", "minLength": 1},
+        "id": {"$ref": "#/$defs/nonEmptyString"},
         "number": {"type": ["string", "null"]},
-        "title": {"type": "string", "minLength": 1}
+        "numberStatus": {"type": "string", "enum": ["unknown", "candidate", "manual_review_required", "confirmed", "rejected"]},
+        "folderKey": {"$ref": "#/$defs/nonEmptyString"},
+        "title": {"$ref": "#/$defs/nonEmptyString"},
+        "aliases": {"$ref": "#/$defs/stringArray"},
+        "caseType": {"$ref": "#/$defs/nullableString"},
+        "jurisdiction": {"$ref": "#/$defs/nullableString"},
+        "primaryCourtActorId": {"type": ["string", "null"]},
+        "summary": {"$ref": "#/$defs/nullableString"},
+        "status": {"$ref": "#/$defs/nullableString"},
+        "dates": {"type": "array", "items": {"$ref": "#/$defs/dateValue"}},
+        "actorIds": {"$ref": "#/$defs/idArray"},
+        "proceedingIds": {"$ref": "#/$defs/idArray"},
+        "claimIds": {"$ref": "#/$defs/idArray"},
+        "sourceReferenceIds": {"$ref": "#/$defs/idArray"},
+        "reviewStatus": {"$ref": "#/$defs/reviewStatus"},
+        "tags": {"$ref": "#/$defs/stringArray"}
       },
-      "additionalProperties": true
+      "additionalProperties": false
     },
-    "node": {
+    "membership": {
       "type": "object",
-      "required": ["id"],
+      "required": ["contextType", "contextId", "role", "isPrimary", "sourceReferenceIds", "reviewStatus"],
       "properties": {
-        "id": {"type": "string", "minLength": 1},
-        "label": {"type": "string"},
-        "subtitle": {"type": "string"},
-        "caseIds": {
-          "type": "array",
-          "items": {"type": "string"},
-          "uniqueItems": true
-        },
-        "proceedingIds": {
-          "type": "array",
-          "items": {"type": "string"},
-          "uniqueItems": true
-        },
-        "sourceReferences": {
-          "type": "array",
-          "items": {"type": "string"},
-          "uniqueItems": true
-        },
-        "classification": {"$ref": "#/$defs/classification"},
-        "reviewStatus": {"type": "string"},
-        "map": {
-          "type": "object",
-          "properties": {
-            "x": {"type": "number"},
-            "y": {"type": "number"}
-          },
-          "additionalProperties": false
-        }
+        "contextType": {"type": "string", "enum": ["case", "proceeding"]},
+        "contextId": {"$ref": "#/$defs/nonEmptyString"},
+        "role": {"$ref": "#/$defs/nonEmptyString"},
+        "isPrimary": {"type": "boolean"},
+        "sourceReferenceIds": {"$ref": "#/$defs/idArray"},
+        "reviewStatus": {"$ref": "#/$defs/reviewStatus"},
+        "note": {"type": ["string", "null"]}
       },
-      "additionalProperties": true
+      "additionalProperties": false
     },
-    "relation": {
+    "proceeding": {
       "type": "object",
-      "required": ["id", "fromId", "toId", "relationType", "classification", "reviewStatus"],
+      "required": ["id", "caseId", "number", "folderKey", "aliases", "title", "label", "subtitle", "kind", "courtActorIds", "instance", "status", "dates", "applicantActorIds", "participantActorIds", "judgeActorIds", "originDocumentIds", "originEventIds", "documentIds", "eventIds", "claimIds", "relatedProceedingIds", "sourceReferenceIds", "reviewStatus"],
       "properties": {
-        "id": {"type": "string", "minLength": 1},
-        "fromId": {"type": "string", "minLength": 1},
-        "toId": {"type": "string", "minLength": 1},
-        "relationType": {"type": "string", "minLength": 1},
-        "label": {"type": "string"},
-        "basisDocumentIds": {
-          "type": "array",
-          "items": {"type": "string"},
-          "uniqueItems": true
-        },
-        "sourceReferences": {
-          "type": "array",
-          "items": {"type": "string"},
-          "uniqueItems": true
-        },
+        "id": {"$ref": "#/$defs/nonEmptyString"},
+        "caseId": {"$ref": "#/$defs/nonEmptyString"},
+        "number": {"$ref": "#/$defs/nonEmptyString"},
+        "folderKey": {"$ref": "#/$defs/nonEmptyString"},
+        "aliases": {"$ref": "#/$defs/stringArray"},
+        "title": {"$ref": "#/$defs/nonEmptyString"},
+        "label": {"$ref": "#/$defs/nonEmptyString"},
+        "subtitle": {"type": ["string", "null"]},
+        "kind": {"$ref": "#/$defs/nullableString"},
+        "subject": {"$ref": "#/$defs/nullableString"},
+        "courtActorIds": {"$ref": "#/$defs/idArray"},
+        "instance": {"type": ["string", "null"], "enum": [null, "first_instance", "appeal", "cassation", "enforcement", "other"]},
+        "status": {"$ref": "#/$defs/nullableString"},
+        "result": {"$ref": "#/$defs/nullableString"},
+        "summary": {"$ref": "#/$defs/nullableString"},
+        "dates": {"type": "array", "items": {"$ref": "#/$defs/dateValue"}},
+        "applicantActorIds": {"$ref": "#/$defs/idArray"},
+        "participantActorIds": {"$ref": "#/$defs/idArray"},
+        "judgeActorIds": {"$ref": "#/$defs/idArray"},
+        "originDocumentIds": {"$ref": "#/$defs/idArray"},
+        "originEventIds": {"$ref": "#/$defs/idArray"},
+        "documentIds": {"$ref": "#/$defs/idArray"},
+        "eventIds": {"$ref": "#/$defs/idArray"},
+        "claimIds": {"$ref": "#/$defs/idArray"},
+        "relatedProceedingIds": {"$ref": "#/$defs/idArray"},
+        "sourceReferenceIds": {"$ref": "#/$defs/idArray"},
+        "reviewStatus": {"$ref": "#/$defs/reviewStatus"},
+        "tags": {"$ref": "#/$defs/stringArray"},
+        "map": {"$ref": "#/$defs/mapPosition"}
+      },
+      "additionalProperties": false
+    },
+    "actorRole": {
+      "type": "object",
+      "required": ["role", "caseIds", "proceedingIds", "sourceReferenceIds", "reviewStatus"],
+      "properties": {
+        "role": {"$ref": "#/$defs/nonEmptyString"},
+        "caseIds": {"$ref": "#/$defs/idArray"},
+        "proceedingIds": {"$ref": "#/$defs/idArray"},
+        "sourceReferenceIds": {"$ref": "#/$defs/idArray"},
+        "reviewStatus": {"$ref": "#/$defs/reviewStatus"}
+      },
+      "additionalProperties": false
+    },
+    "contactValue": {
+      "type": "object",
+      "required": ["type", "value", "label", "sourceReferenceIds", "reviewStatus"],
+      "properties": {
+        "type": {"type": "string", "enum": ["email", "phone", "address", "website", "bank_account", "other"]},
+        "value": {"type": ["string", "null"]},
+        "label": {"type": ["string", "null"]},
+        "sourceReferenceIds": {"$ref": "#/$defs/idArray"},
+        "reviewStatus": {"$ref": "#/$defs/reviewStatus"}
+      },
+      "additionalProperties": false
+    },
+    "actor": {
+      "type": "object",
+      "required": ["id", "actorType", "displayName", "roles", "contacts", "identifiers", "sourceReferenceIds", "reviewStatus"],
+      "properties": {
+        "id": {"$ref": "#/$defs/nonEmptyString"},
+        "actorType": {"type": "string", "enum": ["person", "organization", "court", "authority", "unknown"]},
+        "displayName": {"$ref": "#/$defs/nonEmptyString"},
+        "normalizedName": {"type": ["string", "null"]},
+        "roles": {"type": "array", "items": {"$ref": "#/$defs/actorRole"}},
+        "contacts": {"type": "array", "items": {"$ref": "#/$defs/contactValue"}},
+        "identifiers": {"type": "array", "items": {"$ref": "#/$defs/contactValue"}},
+        "sourceReferenceIds": {"$ref": "#/$defs/idArray"},
+        "reviewStatus": {"$ref": "#/$defs/reviewStatus"},
+        "notes": {"type": ["string", "null"]}
+      },
+      "additionalProperties": false
+    },
+    "file": {
+      "type": "object",
+      "required": ["id", "documentId", "kind", "originalName", "managedName", "sourceRelativePath", "storageReference", "extension", "mediaType", "sizeBytes", "sha256", "signatureFileIds", "derivedFileIds", "processingRunIds", "integrityStatus", "sourceReferenceIds", "reviewStatus"],
+      "properties": {
+        "id": {"$ref": "#/$defs/nonEmptyString"},
+        "documentId": {"type": ["string", "null"]},
+        "kind": {"type": "string", "enum": ["content", "attachment", "signature", "ocr_text", "transcript", "metadata_snapshot", "derived", "unknown"]},
+        "originalName": {"$ref": "#/$defs/nonEmptyString"},
+        "managedName": {"type": ["string", "null"]},
+        "sourceRelativePath": {"type": ["string", "null"]},
+        "storageReference": {"type": ["string", "null"]},
+        "extension": {"type": ["string", "null"]},
+        "mediaType": {"type": ["string", "null"]},
+        "sizeBytes": {"type": ["integer", "null"], "minimum": 0},
+        "sha256": {"type": ["string", "null"], "pattern": "^[A-Fa-f0-9]{64}$"},
+        "signatureFileIds": {"$ref": "#/$defs/idArray"},
+        "derivedFileIds": {"$ref": "#/$defs/idArray"},
+        "processingRunIds": {"$ref": "#/$defs/idArray"},
+        "integrityStatus": {"type": "string", "enum": ["verified", "mismatch", "reference_unavailable", "not_checked", "error"]},
+        "sourceReferenceIds": {"$ref": "#/$defs/idArray"},
+        "reviewStatus": {"$ref": "#/$defs/reviewStatus"},
+        "manualReviewReason": {"type": ["string", "null"]}
+      },
+      "additionalProperties": false
+    },
+    "document": {
+      "type": "object",
+      "required": ["id", "caseIds", "memberships", "title", "label", "subtitle", "date", "documentType", "processRole", "dates", "summary", "actorIds", "fileIds", "attachmentDocumentIds", "claimIds", "eventIds", "relationIds", "amounts", "sourceReferenceIds", "classification", "reviewStatus", "isKey"],
+      "properties": {
+        "id": {"$ref": "#/$defs/nonEmptyString"},
+        "caseIds": {"$ref": "#/$defs/idArray"},
+        "memberships": {"type": "array", "items": {"$ref": "#/$defs/membership"}},
+        "title": {"$ref": "#/$defs/nonEmptyString"},
+        "label": {"$ref": "#/$defs/nonEmptyString"},
+        "subtitle": {"type": ["string", "null"]},
+        "date": {"type": ["string", "null"]},
+        "documentType": {"type": ["string", "null"]},
+        "processRole": {"type": ["string", "null"]},
+        "externalReference": {"type": ["string", "null"]},
+        "dates": {"type": "array", "items": {"$ref": "#/$defs/dateValue"}},
+        "summary": {"type": ["string", "null"]},
+        "actorIds": {"$ref": "#/$defs/idArray"},
+        "fileIds": {"$ref": "#/$defs/idArray"},
+        "attachmentDocumentIds": {"$ref": "#/$defs/idArray"},
+        "claimIds": {"$ref": "#/$defs/idArray"},
+        "eventIds": {"$ref": "#/$defs/idArray"},
+        "relationIds": {"$ref": "#/$defs/idArray"},
+        "amounts": {"type": "array", "items": {"$ref": "#/$defs/amount"}},
+        "sourceReferenceIds": {"$ref": "#/$defs/idArray"},
         "classification": {"$ref": "#/$defs/classification"},
-        "reviewStatus": {"type": "string", "minLength": 1},
-        "uncertaintyNote": {"type": ["string", "null"]}
+        "reviewStatus": {"$ref": "#/$defs/reviewStatus"},
+        "isKey": {"type": "boolean"},
+        "manualReviewReason": {"type": ["string", "null"]},
+        "tags": {"$ref": "#/$defs/stringArray"},
+        "map": {"$ref": "#/$defs/mapPosition"}
+      },
+      "additionalProperties": false
+    },
+    "event": {
+      "type": "object",
+      "required": ["id", "caseIds", "memberships", "title", "label", "subtitle", "date", "eventType", "dates", "description", "actorIds", "documentIds", "claimIds", "relationIds", "sourceReferenceIds", "classification", "status", "reviewStatus"],
+      "properties": {
+        "id": {"$ref": "#/$defs/nonEmptyString"},
+        "caseIds": {"$ref": "#/$defs/idArray"},
+        "memberships": {"type": "array", "items": {"$ref": "#/$defs/membership"}},
+        "title": {"$ref": "#/$defs/nonEmptyString"},
+        "label": {"$ref": "#/$defs/nonEmptyString"},
+        "subtitle": {"type": ["string", "null"]},
+        "date": {"type": ["string", "null"]},
+        "eventType": {"type": ["string", "null"]},
+        "dates": {"type": "array", "items": {"$ref": "#/$defs/dateValue"}},
+        "description": {"type": ["string", "null"]},
+        "actorIds": {"$ref": "#/$defs/idArray"},
+        "documentIds": {"$ref": "#/$defs/idArray"},
+        "claimIds": {"$ref": "#/$defs/idArray"},
+        "relationIds": {"$ref": "#/$defs/idArray"},
+        "sourceReferenceIds": {"$ref": "#/$defs/idArray"},
+        "classification": {"$ref": "#/$defs/classification"},
+        "status": {"type": ["string", "null"]},
+        "reviewStatus": {"$ref": "#/$defs/reviewStatus"},
+        "processConsequence": {"type": ["string", "null"]},
+        "nextAction": {"type": ["string", "null"]},
+        "deadline": {"type": ["string", "null"]},
+        "map": {"$ref": "#/$defs/mapPosition"}
+      },
+      "additionalProperties": false
+    },
+    "claim": {
+      "type": "object",
+      "required": ["id", "subject", "text", "classification", "assertedByActorIds", "basisDocumentIds", "sourceReferenceIds", "legalCitationIds", "reviewStatus", "reviewDecisionIds"],
+      "properties": {
+        "id": {"$ref": "#/$defs/nonEmptyString"},
+        "subject": {"$ref": "#/$defs/entityRef"},
+        "text": {"$ref": "#/$defs/nonEmptyString"},
+        "classification": {"$ref": "#/$defs/classification"},
+        "assertedByActorIds": {"$ref": "#/$defs/idArray"},
+        "basisDocumentIds": {"$ref": "#/$defs/idArray"},
+        "sourceReferenceIds": {"$ref": "#/$defs/idArray"},
+        "legalCitationIds": {"$ref": "#/$defs/idArray"},
+        "reviewStatus": {"$ref": "#/$defs/reviewStatus"},
+        "reviewDecisionIds": {"$ref": "#/$defs/idArray"},
+        "uncertaintyNote": {"type": ["string", "null"]},
+        "processConsequence": {"type": ["string", "null"]}
       },
       "allOf": [
         {
-          "if": {
-            "properties": {
-              "classification": {"const": "confirmed_fact"}
-            },
-            "required": ["classification"]
-          },
+          "if": {"properties": {"classification": {"const": "confirmed_fact"}}},
           "then": {
             "anyOf": [
-              {"required": ["basisDocumentIds"]},
-              {"required": ["sourceReferences"]}
+              {"properties": {"basisDocumentIds": {"minItems": 1}}, "required": ["basisDocumentIds"]},
+              {"properties": {"sourceReferenceIds": {"minItems": 1}}, "required": ["sourceReferenceIds"]}
             ]
           }
         }
       ],
-      "additionalProperties": true
+      "additionalProperties": false
     },
-    "classification": {
-      "type": "string",
-      "enum": [
-        "confirmed_fact",
-        "party_position",
-        "user_position",
-        "court_reasoning",
-        "legal_conclusion",
-        "contradiction",
-        "open_question",
-        "unverified"
-      ]
+    "relation": {
+      "type": "object",
+      "required": ["id", "fromType", "fromId", "toType", "toId", "relationType", "label", "basisDocumentIds", "sourceReferenceIds", "classification", "reviewStatus", "reviewDecisionIds"],
+      "properties": {
+        "id": {"$ref": "#/$defs/nonEmptyString"},
+        "fromType": {"$ref": "#/$defs/entityType"},
+        "fromId": {"$ref": "#/$defs/nonEmptyString"},
+        "toType": {"$ref": "#/$defs/entityType"},
+        "toId": {"$ref": "#/$defs/nonEmptyString"},
+        "relationType": {"$ref": "#/$defs/nonEmptyString"},
+        "label": {"type": ["string", "null"]},
+        "basisDocumentIds": {"$ref": "#/$defs/idArray"},
+        "sourceReferenceIds": {"$ref": "#/$defs/idArray"},
+        "classification": {"$ref": "#/$defs/classification"},
+        "reviewStatus": {"$ref": "#/$defs/reviewStatus"},
+        "reviewDecisionIds": {"$ref": "#/$defs/idArray"},
+        "uncertaintyNote": {"type": ["string", "null"]},
+        "validFrom": {"type": ["string", "null"]},
+        "validTo": {"type": ["string", "null"]}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"classification": {"const": "confirmed_fact"}}},
+          "then": {
+            "anyOf": [
+              {"properties": {"basisDocumentIds": {"minItems": 1}}, "required": ["basisDocumentIds"]},
+              {"properties": {"sourceReferenceIds": {"minItems": 1}}, "required": ["sourceReferenceIds"]}
+            ]
+          }
+        }
+      ],
+      "additionalProperties": false
+    },
+    "sourceReference": {
+      "type": "object",
+      "required": ["id", "sourceEntity", "sourceFileId", "locationType", "location", "excerpt", "sha256", "createdBy", "createdAt", "reviewStatus"],
+      "properties": {
+        "id": {"$ref": "#/$defs/nonEmptyString"},
+        "sourceEntity": {"$ref": "#/$defs/entityRef"},
+        "sourceFileId": {"type": ["string", "null"]},
+        "locationType": {"type": "string", "enum": ["document", "page", "paragraph", "cell", "timecode", "bounding_box", "metadata", "whole_file", "manual_note"]},
+        "location": {"type": ["string", "null"]},
+        "excerpt": {"type": ["string", "null"]},
+        "sha256": {"type": ["string", "null"], "pattern": "^[A-Fa-f0-9]{64}$"},
+        "createdBy": {"$ref": "#/$defs/nonEmptyString"},
+        "createdAt": {"type": ["string", "null"], "format": "date-time"},
+        "reviewStatus": {"$ref": "#/$defs/reviewStatus"},
+        "note": {"type": ["string", "null"]}
+      },
+      "additionalProperties": false
+    },
+    "reviewDecision": {
+      "type": "object",
+      "required": ["id", "subject", "decision", "previousStatus", "newStatus", "actorId", "decidedAt", "basisSourceReferenceIds", "note"],
+      "properties": {
+        "id": {"$ref": "#/$defs/nonEmptyString"},
+        "subject": {"$ref": "#/$defs/entityRef"},
+        "decision": {"type": "string", "enum": ["confirm", "reject", "request_review", "resolve", "supersede", "merge", "split"]},
+        "previousStatus": {"type": ["string", "null"]},
+        "newStatus": {"$ref": "#/$defs/reviewStatus"},
+        "actorId": {"$ref": "#/$defs/nonEmptyString"},
+        "decidedAt": {"type": ["string", "null"], "format": "date-time"},
+        "basisSourceReferenceIds": {"$ref": "#/$defs/idArray"},
+        "note": {"type": ["string", "null"]}
+      },
+      "additionalProperties": false
+    },
+    "inventory": {
+      "type": "object",
+      "required": ["proceedingCount", "actorCount", "logicalDocumentCount", "physicalFileCount", "uniqueSha256Count", "eventCount", "claimCount", "relationCount", "sourceReferenceCount", "reviewDecisionCount", "manualReviewRequiredCount", "missingSourceCount", "unregisteredFileCount", "duplicateSignalCount"],
+      "properties": {
+        "proceedingCount": {"type": "integer", "minimum": 0},
+        "actorCount": {"type": "integer", "minimum": 0},
+        "logicalDocumentCount": {"type": "integer", "minimum": 0},
+        "physicalFileCount": {"type": "integer", "minimum": 0},
+        "uniqueSha256Count": {"type": "integer", "minimum": 0},
+        "eventCount": {"type": "integer", "minimum": 0},
+        "claimCount": {"type": "integer", "minimum": 0},
+        "relationCount": {"type": "integer", "minimum": 0},
+        "sourceReferenceCount": {"type": "integer", "minimum": 0},
+        "reviewDecisionCount": {"type": "integer", "minimum": 0},
+        "manualReviewRequiredCount": {"type": "integer", "minimum": 0},
+        "missingSourceCount": {"type": "integer", "minimum": 0},
+        "unregisteredFileCount": {"type": "integer", "minimum": 0},
+        "duplicateSignalCount": {"type": "integer", "minimum": 0},
+        "countsByProceeding": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}},
+        "historicalClaims": {"type": "array", "items": {"$ref": "#/$defs/historicalCount"}}
+      },
+      "additionalProperties": false
+    },
+    "historicalCount": {
+      "type": "object",
+      "required": ["metric", "claimedValue", "verifiedValue", "status", "note"],
+      "properties": {
+        "metric": {"$ref": "#/$defs/nonEmptyString"},
+        "claimedValue": {"type": ["integer", "null"], "minimum": 0},
+        "verifiedValue": {"type": ["integer", "null"], "minimum": 0},
+        "status": {"type": "string", "enum": ["unverified", "confirmed", "contradicted", "not_comparable"]},
+        "note": {"type": ["string", "null"]}
+      },
+      "additionalProperties": false
+    },
+    "exclusion": {
+      "type": "object",
+      "required": ["entity", "reasonCode", "reason", "sourceReferenceIds", "reviewStatus"],
+      "properties": {
+        "entity": {"$ref": "#/$defs/entityRef"},
+        "reasonCode": {"type": "string", "enum": ["not_key", "outside_scope", "privacy_redaction", "unsupported_format", "duplicate_representation", "unverified", "error", "other"]},
+        "reason": {"$ref": "#/$defs/nonEmptyString"},
+        "sourceReferenceIds": {"$ref": "#/$defs/idArray"},
+        "reviewStatus": {"$ref": "#/$defs/reviewStatus"}
+      },
+      "additionalProperties": false
+    },
+    "mapPosition": {
+      "type": "object",
+      "required": ["x", "y", "lane", "level", "collapsedByDefault"],
+      "properties": {
+        "x": {"type": ["number", "null"]},
+        "y": {"type": ["number", "null"]},
+        "lane": {"type": ["integer", "null"]},
+        "level": {"type": ["integer", "null"]},
+        "collapsedByDefault": {"type": "boolean"}
+      },
+      "additionalProperties": false
     }
   },
   "additionalProperties": false

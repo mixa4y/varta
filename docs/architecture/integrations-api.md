@@ -8,7 +8,7 @@
 
 ## Призначення
 
-Визначити нейтральні контракти адаптерів без вигадування API конкретних постачальників. Core CSMD працює без зовнішніх інтеграцій.
+Визначити нейтральні контракти адаптерів без вигадування API конкретних постачальників. Core VARTA працює без зовнішніх інтеграцій.
 
 ## Принципи
 
@@ -45,8 +45,14 @@ Adapter result повинен мати `operation_id`, `status`, `started_at`, `
 
 Airtable не використовується в core. Будь-який майбутній Airtable adapter вимагатиме окремого рішення, mapping та явного увімкнення; він не може стати джерелом істини без нового ADR.
 
+Notion не є adapter першого release path і не входить до documentation
+workflow/source of truth. Його додавання потребує нового ADR; `ADR-001` не
+дозволяє зробити його required dependency.
+
 ## Open questions
 
-- Чи потрібні інтеграції взагалі в першому релізі?
-- Яка політика idempotency, retries і offline queue?
-- Які класи даних заборонено передавати назовні?
+| Question | Owner stage | Closing gate |
+|---|---|---|
+| Які optional integrations взагалі входять до першого release? | `C16` | `C16 TECH PASS`; default none |
+| Idempotency/retry/offline queue contract | `C09`, `C10` | respective PASS |
+| Які data classes заборонено передавати назовні? | `C16` | final privacy gate |

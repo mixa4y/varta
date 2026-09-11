@@ -1,0 +1,124 @@
+{
+  "schema_version": 1,
+  "stage_id": "C01",
+  "patch_id": "C01-02",
+  "title": "VARTA roadmap and localhost controller",
+  "logical_owner": "roadmap execution tooling",
+  "provenance": "pre-existing untracked scope before C01 plus C01 stabilization records",
+  "disposition": "ready_for_exact_checkpoint_review",
+  "integration_order": 2,
+  "dependencies": [
+    "HEAD bc51a0095adb664c9bebd98764c101976f75e575"
+  ],
+  "staging_policy": "atomic whole-file patch via explicit pathspec; never git add . or -A",
+  "mixed_file_decision": {
+    "docs/interactive/varta-chat-roadmap.html": "static roadmap and live controller surface are one tested artifact",
+    "docs/chat-roadmap.md": "package semantics and controller protocol are one canonical contract",
+    "tests/test_roadmap_controller.py": "catalog, state, HTTP security and Windows launcher staging form one acceptance suite"
+  },
+  "files": [
+    {
+      "path": "START_ROADMAP.cmd",
+      "role": "double-click start wrapper",
+      "mode": "whole_file",
+      "sha256_at_inventory": "cd1e352c3aa8f09563011247d4cfc9b17c39aeb91ef6e69a17c3cf542e660d34",
+      "sha256_at_c01_gate": "cbcd9bc37e7dbd1bc8355a3abc1732d5edfb24906cc84340fe6c8707588a859a"
+    },
+    {
+      "path": "STOP_ROADMAP.cmd",
+      "role": "double-click stop wrapper",
+      "mode": "whole_file",
+      "sha256_at_inventory": "473f43eddd5e39bb39dc79e0efb5478873eea37ecb4e4ce263295325ed9f4723"
+    },
+    {
+      "path": "docs/chat-roadmap.md",
+      "role": "canonical chat work-package roadmap",
+      "mode": "whole_file",
+      "sha256_at_inventory": "6757e31a5b5dafc28b4db8944a006703443cdc2ab3c8efd8c25d1986213c317e"
+    },
+    {
+      "path": "docs/interactive/varta-chat-roadmap.html",
+      "role": "static and live roadmap UI",
+      "mode": "whole_file",
+      "sha256_at_inventory": "ab3431bd1a15d15e5699e73c87b74383656c389b2d1c142e3e0c3ca3e4ca6900"
+    },
+    {
+      "path": "docs/roadmap-controller.md",
+      "role": "controller operation and security contract",
+      "mode": "whole_file",
+      "sha256_at_inventory": "cb5557cceb2d9e12133e7ed68bc5d3f368ea1ceed2fd18bbaa8ea0e21e574638",
+      "sha256_at_c01_gate": "14ed9a41b9e2c74e8b17e8bcf635aa9514e22815093dca919d5011db469def06"
+    },
+    {
+      "path": "tests/test_roadmap_controller.py",
+      "role": "integrated controller acceptance tests",
+      "mode": "whole_file",
+      "sha256_at_inventory": "bc31d353e7b92b6634819a2fe46860e7ac44203e8f6087a316fad2940fa286e9",
+      "sha256_at_c01_gate": "ab2484f4defda7634dec0b6aa9775194266cc897189895c573ca08da65d9a6da"
+    },
+    {
+      "path": "tools/roadmap_controller/__init__.py",
+      "role": "Python package marker",
+      "mode": "whole_file",
+      "sha256_at_inventory": "b2e72e2fc23f95d6b6fe2ca81c62dff340be47a5936435a91e3e32a6afd5e0ed",
+      "sha256_at_c01_gate": "937f9f7ce97ecaa50dcd71ec4215a6ad18865ef34416edf16a3cc801e1ca9524"
+    },
+    {
+      "path": "tools/roadmap_controller/browser_smoke.cjs",
+      "role": "Playwright browser smoke source",
+      "mode": "whole_file",
+      "sha256_at_inventory": "b5071b72aff813cda9eeb9a331bfd2411d01a8b0d6d379c76a2b2e447873e437"
+    },
+    {
+      "path": "tools/roadmap_controller/server.py",
+      "role": "localhost controller and state machine",
+      "mode": "whole_file",
+      "sha256_at_inventory": "38625eed54b5b2e0e1dc39bb31644938ea34615ecd8f2614dd03526517c6bc4f",
+      "sha256_at_c01_gate": "8d6b20e53249e6c7048f787731c793fa9f882ce2ff70a3358ab02ce80f022be6"
+    },
+    {
+      "path": "tools/roadmap_controller/stages.json",
+      "role": "allowlisted 20-stage machine catalog",
+      "mode": "whole_file",
+      "sha256_at_inventory": "cda517e91c59cf8888bb9ba1cced951d04f136d285e2c7c651a8b466ca34cd1e"
+    },
+    {
+      "path": "tools/windows/start_varta_roadmap.ps1",
+      "role": "hidden-process launcher and health check",
+      "mode": "whole_file",
+      "sha256_at_inventory": "77168dc1fd18e61a9f6e84d054547e902a7e7d9f257e83195948f54dc525e8d2"
+    },
+    {
+      "path": "tools/windows/stop_varta_roadmap.ps1",
+      "role": "authenticated local controller stop",
+      "mode": "whole_file",
+      "sha256_at_inventory": "09fa3cca6fdcca9170d1a4cae96e8151b5c7761f92d141c221cb038eee1b0e7b"
+    },
+    {
+      "path": "docs/changes/C01-02-roadmap-controller.md",
+      "role": "C01 change record and C02 handoff",
+      "mode": "whole_file",
+      "sha256_at_c01_gate": "a6df8c189c1ac429d9fe5fc3ff132e5b20e30a9e91b8a8d1e712f3e86dcab9b8"
+    },
+    {
+      "path": "docs/changes/manifests/C01-02-roadmap-controller.json",
+      "role": "exact logical patch manifest",
+      "mode": "whole_file",
+      "hash_policy": "self-listed without recursive self-hash"
+    }
+  ],
+  "verification": [
+    "full pytest, required Ruff, mypy and compileall",
+    "controller targeted tests and syntax parsers",
+    "working and cached git diff checks",
+    "tracked, staged and untracked privacy scan",
+    "wheel package-data and installed repository bootstrap",
+    "synthetic local HTTP and SQLite restart persistence smoke",
+    "exact manifest/status bijection"
+  ],
+  "handoff": {
+    "next_stage": "C02",
+    "requires_before_unlock": "separate C01 GITHUB SYNCED checkpoint",
+    "does_not_start_next_stage": true
+  }
+}

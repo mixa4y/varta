@@ -53,6 +53,8 @@
 
 ## Open questions
 
-- Які шаблони українських формулювань списків додатків підтримувати першими?
-- Як рахувати сторінки, якщо один PDF містить кілька додатків?
-- Чи потрібне ручне прив'язування з навчанням правил для конкретної організації?
+| Question | Owner stage | Closing gate |
+|---|---|---|
+| First Ukrainian attachment-list patterns | `P02` | `P02 PASS` |
+| Page counting for multiple attachments in one PDF | `P02` | `P02 PASS` |
+| Manual linking/training boundary | `P02`, `C13` | processor + review workflow PASS |

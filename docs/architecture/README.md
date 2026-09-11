@@ -1,50 +1,71 @@
-# CSMD
+# VARTA architecture
 
 | Metadata | Value |
 |---|---|
-| Status | `DRAFT` |
-| Version | `v0.1` |
-| Date | `2026-07-24` |
+| Status | `ACTIVE` |
+| Version | `v1.0` |
+| Date | `2026-08-18` |
 
-CSMD — local-first система для приймання, систематизації, перевірки та аналізу матеріалів судових справ. Основна реалізація: Python-застосунок, SQLite і локальне файлове сховище.
+Цей каталог містить approved target architecture VARTA та успадковані
+деталізовані drafts. Архітектурний approval не означає, що відповідний код
+уже реалізований.
 
-## Мета
+## Approved baseline
 
-Система повинна забезпечувати відтворювану роботу з документами та цифровими доказами, не змінюючи отримані оригінали. CSMD має підтримувати інвентаризацію, SHA-256, метадані, OCR, перевірку КЕП, зіставлення версій, аналіз додатків, хронологію, зв'язки та звіти.
+- modular local-first Python application;
+- embedded browser UI на explicit loopback;
+- SQLite як єдине writable structured source of truth;
+- managed filesystem як authoritative storage registered bytes;
+- immutable originals і reproducible derived artifacts;
+- application-service boundary для HTTP, CLI, workers та adapters;
+- short-lived SQLite Unit of Work per application operation;
+- isolated workers без shared/direct repository connection;
+- one multi-case workspace, zero/one active UI case;
+- `.varta` target із контрольованим read-only `.caseflow` transition;
+- Notion поза runtime, docs workflow, integrations і source of truth.
 
-## Основні принципи
+## Dependency direction
 
-- `local_first`: основні дані та обробка залишаються локальними.
-- `immutable_originals`: отримані оригінали не змінюються й не перезаписуються.
-- `traceability`: кожен похідний результат пов'язаний із джерелом і запуском обробки.
-- `reproducibility`: суттєві операції мають параметри, версію інструмента й журнал.
-- `case_agnostic`: у коді немає реквізитів конкретної справи.
-- `human_review`: неоднозначні висновки передаються на ручну перевірку.
+```text
+presentation -> application -> domain
+                      |
+                      v
+             infrastructure ports
+```
 
-## Архітектурна база
+`domain` не залежить від presentation/infrastructure. Browser assets не
+імпортують Python repository/SQLite. Workers повертають result manifests, які
+валідує/finalizes application service.
 
-- Python для доменної та прикладної логіки.
-- SQLite для структурованих локальних даних.
-- Файлова система для оригіналів, робочих копій, похідних матеріалів і звітів.
-- Необов'язкові адаптери для зовнішніх систем.
-- Airtable не використовується в core і не є системою обліку CSMD.
+## Canonical decision set
 
-## Межі першої версії
+Див. [`architecture-decision-log.md`](architecture-decision-log.md),
+[`technical-specification.md`](technical-specification.md) і
+[`open-questions.md`](open-questions.md).
 
-До початкового scope входять приймання файлів і архівів, реєстр файлів, SHA-256, базові метадані, модель даних, журнал операцій і каркас звітів. OCR, КЕП, семантичне зіставлення, транскрибування та граф зв'язків уточнюються окремими рішеннями.
+## Implementation contracts
 
-## Безпека
+- [`local-api-v1.md`](local-api-v1.md) — versioning, contacts application
+  boundary, stable envelopes і compatibility policy, реалізовані у C03.
+- [`sqlite-lifecycle.md`](sqlite-lifecycle.md) — C04 per-operation UoW,
+  migration compatibility і DB-only recovery foundation.
+- [`managed-storage.md`](managed-storage.md) — C05 layout v1, streaming
+  immutable originals, collision policy та DB/filesystem reconciliation.
+- [`intake-v1.md`](intake-v1.md) — C06 authoritative file/folder/ZIP intake,
+  idempotency, provenance та SQLite inventory.
+- [`workspace-v1.md`](workspace-v1.md) — C07 multi-case workspace, temporary
+  intake case, candidates/manual confirmation, memberships і active case.
 
-Приватні ключі та паролі не повинні передаватися стороннім сервісам. У документації й тестових даних не допускаються реальні персональні дані без окремої правової підстави та контрольованого режиму доступу.
+## Legacy detail documents
 
-## Assumptions
+Data model, reports, naming, matching, signatures та integrations залишаються
+деталізованими `DRAFT`/target documents. Якщо вони суперечать `APPROVED` ADR,
+чинним є ADR. Їхні невирішені implementation details мають owner stage у
+`open-questions.md`; UI/source-of-truth/workspace/ID/UoW рішення більше не є
+open.
 
-- Основне середовище запуску — Windows.
-- На першому етапі система розрахована на одного локального користувача.
-- SQLite є достатньою до появи підтвердженої потреби в багатокористувацькому сервері.
+## Security and privacy
 
-## Open questions
-
-- Яка юридично значуща політика зберігання потрібна для конкретного використання?
-- Які формати КЕП і КНЕДП мають підтримуватися першими?
-- Який UI потрібен у першому релізі: desktop, local web або CLI?
+Case materials, registers, signatures, secrets, runtime DB, logs і generated
+maps не входять до Git. External adapters optional/disabled by default і не
+змінюють local authority. Originals не змінюються під час міграції або тестів.
