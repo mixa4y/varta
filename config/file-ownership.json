@@ -132,6 +132,7 @@
       "owners": [
         "R01",
         "R03",
+        "C11",
         "CORE"
       ],
       "category": "shared-transaction-boundary",
@@ -154,9 +155,9 @@
     },
     {
       "path": "case_docket/application/profile_ports.py",
-      "owners": ["R01"],
+      "owners": ["R01", "C11"],
       "category": "stage-source",
-      "disposition": "stage-owned"
+      "disposition": "hunk-review"
     },
     {
       "path": "tests/test_case_profile_r01.py",
@@ -193,9 +194,9 @@
     },
     {
       "path": "case_docket/repository/sqlite_evidence_map_export.py",
-      "owners": ["R03"],
+      "owners": ["R03", "C11"],
       "category": "stage-source",
-      "disposition": "stage-owned"
+      "disposition": "hunk-review"
     },
     {
       "path": "tests/test_evidence_map_export_r03.py",
