@@ -62,3 +62,13 @@ secrets/
 *.dpapi
 google_token*.json
 google_client_secret*.json
+
+# User-authorized public case corpus (2026-09-13); runtime stays private.
+!workspaces/
+workspaces/*
+!workspaces/materialy-spravy/
+workspaces/materialy-spravy/*
+!workspaces/materialy-spravy/corpus/
+!workspaces/materialy-spravy/corpus/**
+!workspaces/materialy-spravy/README.md
+!workspaces/materialy-spravy/materialy.json

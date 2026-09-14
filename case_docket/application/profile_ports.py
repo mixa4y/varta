@@ -6,6 +6,7 @@ from typing import Protocol, Self
 
 @dataclass(frozen=True, slots=True)
 class CaseProfileDTO:
+    case_profile_id: str
     case_id: str
     profile_version: str
     schema_version: str

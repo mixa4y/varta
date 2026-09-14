@@ -187,6 +187,7 @@ class SQLiteCaseProfileRepository(CaseProfileRepositoryPort):
         if not isinstance(profile, dict):
             raise ValueError("case_profiles.profile_json має містити JSON object")
         return CaseProfileDTO(
+            case_profile_id=str(row["id"]),
             case_id=str(row["case_id"]),
             profile_version=str(row["profile_version"]),
             schema_version=str(row["schema_version"]),

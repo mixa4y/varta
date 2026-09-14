@@ -113,7 +113,10 @@ class SQLiteEvidenceMapExportRepository:
             raise EvidenceMapExportAuditError("case profile does not exist")
         if row["case_id"] != command.case_id:
             raise EvidenceMapExportAuditError("case profile belongs to another case")
-        if row["schema_version"] != command.schema_version:
+        # Profile and projection are independent versioned contracts. C11 1.2
+        # consumes the unchanged R01 profile 1.1; no other mismatch is allowed.
+        compatible = (row["schema_version"], command.schema_version) == ("1.1.0", "1.2.0")
+        if row["schema_version"] != command.schema_version and not compatible:
             raise EvidenceMapExportAuditError("case profile schema version does not match export")
 
     @staticmethod

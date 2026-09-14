@@ -408,10 +408,12 @@ C01 -> C02 -> C03 -> C04 -> C05 -> C06 -> C07 -> C08
      -> R01 -> R02 -> R03 -> R04 -> R05 -> C11 -> C12 -> C13 -> C14 -> C15 -> C16
 ```
 
-Після відокремлення R05 обов’язковий порядок: `R04 → R05 → C11 → C12`.
-C11 очікує R05 TECH PASS і GITHUB SYNCED; C12 очікує C11 TECH PASS і GITHUB SYNCED.
+Порядок роботи визначають чинні prerequisite contracts та їхні докази,
+а не повторний прохід фіксованого ланцюга `R04 → R05 → C11 → C12`.
+Для C11 перевіряються R01–R04 source/profile/audit contracts і готовність R05;
+чинні gates не повторюються без зміни релевантних входів. C12 має власний gate C11.
 Попередні напрацювання C11/C12 видалено 2026-09-09; історія серій зберігається.
-Наступний critical package — `R05`. Спеціалізовані processor
+Наступний незавершений package визначається актуальним controller/checkpoint, не цим історичним списком. Спеціалізовані processor
 чати `P01`–`P04` можуть виконуватися паралельно після `C10`, якщо вони не
 редагують спільні контракти без координації.
 
@@ -1253,7 +1255,7 @@ R01–R04 source/profile/audit contracts залишаються prerequisites ч
 ### Що треба зробити після розблокування
 
 Реалізувати read-only projection через EvidenceMapSourceQueryService, schema
-1.1.0 validation, integrity/source-basis checks, deterministic ordering, canonical
+1.2.0 validation (окремо від незмінної legacy 1.1.0), integrity/source-basis checks, deterministic ordering, canonical
 SHA-256, explicit export audit та golden/restart/UI-caller/export-caller gates.
 
 ### Який результат отримаємо
@@ -1280,7 +1282,8 @@ restart і однаково працює для UI та export caller.
 > Продовжи C11 у наявному постійному task тільки після R05 TECH PASS і GITHUB SYNCED.
 > Використовуй EvidenceMapSourceQueryService як єдине типізоване джерело;
 > заборонені direct SQL, Any, optional query callbacks і silent empty fallback.
-> Заверши schema 1.1.0 projection, integrity/source-basis validation,
+> Заверши schema 1.2.0 projection зі збереженням findings/reviews і nullable номера,
+> typed persisted profile ID, integrity/source-basis validation,
 > deterministic ordering/timestamps, canonical SHA-256, export audit,
 > golden/restart/UI-caller/export-caller gates. Відсутній компонент у межах C11
 > реалізуй, а не оголошуй блокером. HTML UI, C12/C14/Pxx та реальні case data у

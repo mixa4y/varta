@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-param" content="_csrf">
+    <meta name="csrf-token" content="V1BuQUtZb1cdChp1HWslISAJPzINFyZhAiggcg0tKxQkMRooDTQuEg==">
+        <title>Протокол</title>
+    
+</head>
+<body id="body">
+    
+
+<style type="text/css">
+    h1 {  font-size: 2.2rem;  }
+    h2 {  font-size: 1.4rem;  }
+    .conference-param {}
+    .conference-param p {  font-size: 1.5rem;  }
+    .conference-param label {  font-weight: 400;  }
+    .conference-param strong {}
+    table .td-detail {}
+    table .td-detail p {  margin-bottom: 0.2rem;  }
+
+
+    .container-fluid .col-md-12 {  margin: 0px!important;  }
+</style>
+
+
+
+    <script>
+        function openWindow(file, time_start){
+            let html = "<html><head><meta charset='UTF-8'></head><body>"
+                + "<video controls='' preload='auto' autoplay='true' muted='false' name='media' style='width: 100%'>"
+                + "<source src='"+file+"' type='video/mp4'>"
+                + "</video>"
+                + "<script type='text/javascript'>"
+                + "let video = document.getElementsByTagName('video')[0];"
+                + "video.currentTime = "+parseInt(time_start)+";"
+                + "<\/script>"
+                + "</body></html>";
+
+
+            let params = `scrollbars=no,resizable=no,status=no,location=no,toolbar=no,menubar=no,width=800,height=600,left=100,top=100`;
+            let wnd = window.open('about:blank', '', params);
+            wnd.document.write(html);
+        }
+
+        window.onload = function() {
+            let elements = document.getElementsByClassName('record-play-local');
+            if(elements){
+                for(let el in elements){
+                    elements[el].onclick = function(){
+                        openWindow(elements[el].getAttribute('data-file-name'), elements[el].getAttribute('data-time-start'));
+                    }
+                }
+            }
+        };
+    </script>
+
+    
+
+
+<div class="container-fluid appointment-protocol-content">
+    <input type="hidden" name="appointment_id" value="3015499">
+    <input type="hidden" name="appointment_owner_id" value="104378">
+    <input type="hidden" name="appointment_owner_name" value="Олександра Негірьова Денисівна">
+
+
+    <div class="row" id="print-content">
+        <style type="text/css">
+            .container-fluid .col-md-12 {  margin-left: -15px;  }
+            h1 {
+                -webkit-tap-highlight-color: rgba(0, 0, 0, 0);  text-align: center;  box-sizing: border-box;  border-radius: 0 !important;  margin: .67em 0;  font-family: inherit;
+                line-height: 1.1;  color: inherit;  margin-top: 20px;  margin-bottom: 10px;  text-transform: uppercase;  font-weight: bold;  font-size: 1.5rem;
+            }
+            .conference-param {
+                -webkit-tap-highlight-color: rgba(0, 0, 0, 0);  font-size: 14px;
+                line-height: 1.42857143;  color: #333;  font-family: 'Open Sans', sans-serif;  box-sizing: border-box;  border-radius: 0 !important;
+                position: relative;  min-height: 1px;  padding-right: 15px;  padding-left: 15px;  float: left;  width: 100%;  margin-left: -15px;
+            }
+            .conference-param p {
+                -webkit-tap-highlight-color: rgba(0, 0, 0, 0);  line-height: 1.42857143;  color: #333;
+                font-family: 'Open Sans', sans-serif;  box-sizing: border-box;  border-radius: 0 !important;  margin: 0 0 10px;  font-size: 1.0rem;
+            }
+            .conference-param p label {
+                -webkit-tap-highlight-color: rgba(0, 0, 0, 0);  line-height: 1.42857143;  color: #333;  font-family: 'Open Sans', sans-serif;  font-size: 14px;
+                box-sizing: border-box;  border-radius: 0 !important;  display: inline-block;  max-width: 100%;  margin-bottom: 5px;  font-weight: 400;
+            }
+            .conference-param p strong {
+                -webkit-tap-highlight-color: rgba(0, 0, 0, 0);  line-height: 1.42857143;  color: #333;
+                font-family: 'Open Sans', sans-serif;  font-size: 14px;  box-sizing: border-box;  border-radius: 0 !important;  font-weight: bold;
+            }
+            .conference-param span {
+                font-size: 1.4rem;
+            }
+            h2 {
+                -webkit-tap-highlight-color: rgba(0, 0, 0, 0);  box-sizing: border-box;  border-radius: 0 !important;  font-family: inherit;  line-height: 1.1;
+                color: inherit;  margin-top: 20px;  margin-bottom: 10px;  text-transform: uppercase;  font-weight: bold;  font-size: 16px;
+            }
+            table {
+                -webkit-tap-highlight-color: rgba(0, 0, 0, 0);  font-size: 14px;  line-height: 1.42857143;  color: #333;  font-family: 'Open Sans', sans-serif;
+                box-sizing: border-box;  border-radius: 0 !important;  border-spacing: 0;  border-collapse: collapse;  background-color: transparent;
+                width: 100%;  max-width: 100%;  margin-bottom: 20px;  border: 1px solid #ddd;
+            }
+            table thead {
+                -webkit-tap-highlight-color: rgba(0, 0, 0, 0);  font-size: 14px;  line-height: 1.42857143;  color: #333;  font-family: 'Open Sans', sans-serif;
+                border-spacing: 0;  border-collapse: collapse;  box-sizing: border-box;  border-radius: 0 !important;
+            }
+            table thead tr {
+                -webkit-tap-highlight-color: rgba(0, 0, 0, 0);  font-size: 14px;  line-height: 1.42857143;  color: #333;  font-family: 'Open Sans', sans-serif;
+                border-spacing: 0;  border-collapse: collapse;  box-sizing: border-box;  border-radius: 0 !important;
+            }
+            table thead tr th {
+                -webkit-tap-highlight-color: rgba(0, 0, 0, 0);  font-size: 14px;  font-family: 'Open Sans', sans-serif;  border-spacing: 0;
+                border-collapse: collapse;  box-sizing: border-box;  border-radius: 0 !important;  text-align: left;  color: #637A84;  padding: 8px;
+                line-height: 1.42857143;  vertical-align: bottom;  border: 1px solid #ddd;  border-bottom-width: 2px;  border-top: 0;
+            }
+            table tbody {
+                -webkit-tap-highlight-color: rgba(0, 0, 0, 0);  font-size: 14px;  line-height: 1.42857143;  color: #333;  font-family: 'Open Sans', sans-serif;
+                border-spacing: 0;  border-collapse: collapse;  box-sizing: border-box;  border-radius: 0 !important;
+            }
+            table tbody tr {
+                -webkit-tap-highlight-color: rgba(0, 0, 0, 0);  font-size: 14px;  line-height: 1.42857143;  color: #333;  font-family: 'Open Sans', sans-serif;
+                border-spacing: 0;  border-collapse: collapse;  box-sizing: border-box;  border-radius: 0 !important;
+            }
+            table tbody tr td {
+                -webkit-tap-highlight-color: rgba(0, 0, 0, 0);  font-size: 14px;  color: #333;  font-family: 'Open Sans', sans-serif;
+                border-spacing: 0;  border-collapse: collapse;  box-sizing: border-box;  border-radius: 0 !important;  padding: 8px;
+                line-height: 1.42857143;  vertical-align: top;  border: 1px solid #ddd;
+            }
+            table tbody tr td.td-detail {
+                -webkit-tap-highlight-color: rgba(0, 0, 0, 0);  font-size: 14px;  color: #333;  font-family: 'Open Sans', sans-serif;  border-spacing: 0;  border-collapse: collapse;
+                box-sizing: border-box;  border-radius: 0 !important;  padding: 8px;  line-height: 1.42857143;  vertical-align: top;  border: 1px solid #ddd;
+            }
+            table tbody tr td.td-detail p {
+                -webkit-tap-highlight-color: rgba(0, 0, 0, 0);  font-size: 14px;  color: #333;  font-family: 'Open Sans', sans-serif;  border-spacing: 0;
+                border-collapse: collapse;  line-height: 1.42857143;  box-sizing: border-box;  border-radius: 0 !important;  margin: 0 0 10px;  margin-bottom: 0.2rem;
+            }
+
+            table.table-actions td p.participant-id span.participant-name:empty + span.divide {  display: none;  }
+            table.table-actions p {  margin: 0px;  }
+
+            table.table-actions tr.highlight td {  background-color: #F5F5F5!important; }
+
+            table.table-pool ol {  margin-left: 0px;  padding-left: 1.5rem;  }
+            table.table-pool p {  margin-bottom: 0px;  }
+            table.table-pool hr + p {  margin-top: 0.74rem;  }
+
+            @media print {
+                table.table-actions thead tr th:last-child {  display: none;  }
+                table.table-actions tbody tr td:last-child {  display: none;  }
+                table.table-actions th, table.table-actions td { padding: 2px 8px;  }
+                table.table-actions td.td-detail { padding: 2px 8px;  }
+                table.table-actions td.td-detail p:empty {  display: none!important;  }
+                table.table-actions td.td-detail p {  margin: 0px!important;  }
+            }
+
+            table.table-consisting .table-col-participant {  padding-left: 4.0rem;  }
+            .text-right {  text-align: right;  }
+            .text-center {  text-align: center;  }
+
+
+            .record-play {
+                color: rgb(99, 122, 132);  font-weight: 600;  display: inline-block;  font-size: 11px;  font-weight: 600;
+                margin-bottom: 0.4rem;  border: solid 1px #CFD8DC;  padding: 0.1rem 0.3rem;  border-radius: 2px!important;
+                box-sizing: border-box;
+                margin: 0px!important;
+            }
+            .record-play-local {}
+            .record-play:last-child {  margin-bottom: 0px;  }
+            .record-play svg {  margin-right: 6px;  vertical-align: middle;  margin-top: -1px;  fill: #637A84;  width: 9px;  }
+            .record-play:hover {
+                cursor: pointer;  color: #00274E !important;
+                box-shadow: 1px 1px 2px 1px #ECEFF1;
+            }
+        </style>
+
+
+        <input type="hidden" name="conference_end_time" value="1718696843">
+        <input type="hidden" name="conference_start_date" value="2024-06-18">
+        <input type="hidden" name="conference_start_time" value="10:30:18">
+
+                    <div class="col-md-12 text-right">
+                <p data-id="_el_case_number">Справа № <strong>754/3701/24</strong></p>
+                <p data-id="_el_proceedings_number">Провадження № <strong>2/754/2724/24</strong></p>
+            </div>
+            
+        <div class="col-md-12 text-center">
+            <h1>
+                Протокол судового засідання № 3015499            </h1>
+        </div>
+        <div class="col-md-12">
+            <p><strong>18.06.2024</strong></p>
+            <h4 class="text-center">Деснянський районний суд міста Києва ВКЗ</h4>
+        </div>
+        <div class="col-md-12">
+
+            
+
+            <table class="table table-bordered table-consisting"><tr class="tr_top tr_top_title"><td colspan="2"><strong>У складі: </strong></td></tr><tr class='tr_top' data-in-top='true' data-user='0-Бабко Валерія Валеріївна '><td class='table-col-participant role_name'>Головуючий суддя</td><td class='user_name'>Бабко Валерія Валеріївна  (в залі суду)</td></tr><tr class='tr_top' data-in-top='true' data-user='104378-Негірьова Олександра Денисівна'><td class='table-col-participant role_name'>Секретар судового засідання</td><td class='user_name'>Негірьова Олександра Денисівна (в залі суду)</td></tr><tr class="tr_other tr_other_title"><td colspan="2"><strong>За участю (найменування сторін та інших осіб, що беруть участь у справі):</strong></td></tr><tr class='tr_other' data-in-top='false' data-user='0-Дивак В.В.'><td class='table-col-participant role_name'>Представник позивача</td><td class='user_name'>Дивак В.В. (в залі суду)</td></tr><tr class='tr_other' data-in-top='false' data-user='0-Сидоренко В.В.'><td class='table-col-participant role_name'>Представник відповідача</td><td class='user_name'>Сидоренко В.В. (в залі суду)</td></tr></table>
+        </div>
+
+        
+        <div class="col-md-12">
+                            <p>
+                    <span data-id="_el_court_oc">
+                        розглянув у відкритому судовому засіданні в залі суду №                     </span>
+                    <span data-id="_el_courtroom_number">20</span> &nbsp;
+                    <span data-id="_el_court_name">Цивільну справу</span>
+                    <span data-id="_el_description">за позовом Ткачука Михайла Васильовича до Довгого Богдана Сергійовича про стягнення збитків</span>
+                </p>
+                            <p class="technical_fixation_message">Технічна фіксація здійснюється за допомогою <span data-id="_el_technical_fixation">підсистеми відеоконференцзв'язку: vkz.court.gov.ua</span>            </p>
+                            <p  style='display:none' data-id="_el_serialnumber_archive_copy">
+                    Для створення архівної (робочої) копії фонограми надано компакт-диск, серійний номер &nbsp;
+                    <span data-id="_el_serialnumber_archive_copy"></span>
+                </p>
+                        </div>
+
+
+        
+
+        
+
+
+
+        <div class="col-md-12">
+            <h2>Перелік всіх дій:</h2>
+            <table class="table table-bordered table-actions">
+                <thead>
+                <tr>
+                    <th>№</th>
+                    <th>Час</th>
+                    <th>Дія, учасник</th>
+                    <th>Додаткова інформація</th>
+                    <th style='width: 185px'>Посилання на відео</th>                </tr>
+                </thead>
+                <tbody>
+                <tr class='highlight ' data-id='68844854' data-date='2024-06-18' data-time='10:24:46'><td>1</td><td><span  data-default='10:24:46'>10:24:46<span></td><td><p class='participant-id' data-participant-id='104378-Негірьова Олександра Денисівна'><span class='participant-role' data-id='364'>Секретар судового засідання</span><span class='participant-name'>: Негірьова Олександра Денисівна</span><span class='divide' style='display: inline-block'>&nbsp;-&nbsp;</span><span class='participant-action'>Відкрито сторінку засідання</span></p></td><td class='td-detail'><p>Авторизовано за КЕП (ЕЦП) (58E2D9E7F900307B040000002D083500724DA700)</p><p>Мікрофон вимкнено</p><p>Камеру вимкнено</p></td><td></td></tr><tr class='highlight ' data-id='68848479' data-date='2024-06-18' data-time='10:30:17'><td>2</td><td><span  data-default='10:30:17'>10:30:17<span></td><td><p class='participant-id' data-participant-id='104378-Негірьова Олександра Денисівна'><span class='participant-role' data-id='364'>Секретар судового засідання</span><span class='participant-name'>: Негірьова Олександра Денисівна</span><span class='divide' style='display: inline-block'>&nbsp;-&nbsp;</span><span class='participant-action'>Увімкнено мікрофон</span></p></td><td class='td-detail'><p></p></td><td></td></tr><tr class='highlight ' data-id='68848487' data-date='2024-06-18' data-time='10:30:18'><td>3</td><td><span  data-default='10:30:18'>10:30:18<span></td><td><p class='participant-id' data-participant-id='104378-'><span class='participant-role' data-id='0'></span><span class='participant-name'></span><span class='divide' style='display: none'>&nbsp;-&nbsp;</span><span class='participant-action'>Засідання розпочато</span></p></td><td class='td-detail'><p>Увімкнено мікрофон</p><p>Камеру вимкнено</p></td><td></td></tr><tr class='highlight ' data-id='68848493' data-date='2024-06-18' data-time='10:30:19'><td>4</td><td><span  data-default='10:30:19'>10:30:19<span></td><td><p class='participant-id' data-participant-id='104378-Негірьова Олександра Денисівна'><span class='participant-role' data-id='364'>Секретар судового засідання</span><span class='participant-name'>: Негірьова Олександра Денисівна</span><span class='divide' style='display: inline-block'>&nbsp;-&nbsp;</span><span class='participant-action'>Включено відеозапис засідання</span></p></td><td class='td-detail'><p></p></td><td><a target='_blank' class='record-play' href='https://vkz.court.gov.ua/conference/show-record?appointment_id=3015499&time=1718695819'><svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" class="cr-icon"
+	 viewBox="0 0 320.001 320.001" style="enable-background:new 0 0 320.001 320.001;" xml:space="preserve">
+<path d="M295.84,146.049l-256-144c-4.96-2.784-11.008-2.72-15.904,0.128C19.008,5.057,16,10.305,16,16.001v288
+	c0,5.696,3.008,10.944,7.936,13.824c2.496,1.44,5.28,2.176,8.064,2.176c2.688,0,5.408-0.672,7.84-2.048l256-144
+	c5.024-2.848,8.16-8.16,8.16-13.952S300.864,148.897,295.84,146.049z"/>
+</svg>Зі сховища</a><span target='_blank' class='record-play record-play-local' data-file-name='09338c35f44e5b9edbfef6172c314fda_04f6b8a4-22a8-464a-aab0-a166a9f76b64.mp4' data-time-start='0'><svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" class="cr-icon"
+	 viewBox="0 0 320.001 320.001" style="enable-background:new 0 0 320.001 320.001;" xml:space="preserve">
+<path d="M295.84,146.049l-256-144c-4.96-2.784-11.008-2.72-15.904,0.128C19.008,5.057,16,10.305,16,16.001v288
+	c0,5.696,3.008,10.944,7.936,13.824c2.496,1.44,5.28,2.176,8.064,2.176c2.688,0,5.408-0.672,7.84-2.048l256-144
+	c5.024-2.848,8.16-8.16,8.16-13.952S300.864,148.897,295.84,146.049z"/>
+</svg>Локально</span></td></tr><tr class='is-manually' data-id='68848503' data-date='2024-06-18' data-time='10:30:20'><td>5</td><td><span class='xeditable-time' data-default='10:30:20'>10:30:20<span></td><td><p class='participant-id' data-participant-id='104378-'><span class='participant-role' data-id='0'></span><span class='participant-name'></span><span class='divide' style='display: none'>&nbsp;-&nbsp;</span><span class='participant-action'>Відкриття судового засідання</span></p></td><td class='td-detail'><p></p><p></p></td><td><a target='_blank' class='record-play' href='https://vkz.court.gov.ua/conference/show-record?appointment_id=3015499&time=1718695820'><svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" class="cr-icon"
+	 viewBox="0 0 320.001 320.001" style="enable-background:new 0 0 320.001 320.001;" xml:space="preserve">
+<path d="M295.84,146.049l-256-144c-4.96-2.784-11.008-2.72-15.904,0.128C19.008,5.057,16,10.305,16,16.001v288
+	c0,5.696,3.008,10.944,7.936,13.824c2.496,1.44,5.28,2.176,8.064,2.176c2.688,0,5.408-0.672,7.84-2.048l256-144
+	c5.024-2.848,8.16-8.16,8.16-13.952S300.864,148.897,295.84,146.049z"/>
+</svg>Зі сховища</a><span target='_blank' class='record-play record-play-local' data-file-name='09338c35f44e5b9edbfef6172c314fda_04f6b8a4-22a8-464a-aab0-a166a9f76b64.mp4' data-time-start='1'><svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" class="cr-icon"
+	 viewBox="0 0 320.001 320.001" style="enable-background:new 0 0 320.001 320.001;" xml:space="preserve">
+<path d="M295.84,146.049l-256-144c-4.96-2.784-11.008-2.72-15.904,0.128C19.008,5.057,16,10.305,16,16.001v288
+	c0,5.696,3.008,10.944,7.936,13.824c2.496,1.44,5.28,2.176,8.064,2.176c2.688,0,5.408-0.672,7.84-2.048l256-144
+	c5.024-2.848,8.16-8.16,8.16-13.952S300.864,148.897,295.84,146.049z"/>
+</svg>Локально</span></td></tr><tr class='is-manually' data-id='68848557' data-date='2024-06-18' data-time='10:30:26'><td>6</td><td><span class='xeditable-time' data-default='10:30:26'>10:30:26<span></td><td><p class='participant-id' data-participant-id='0-Бабко Валерія Валеріївна '><span class='participant-role' data-id='361'>Головуючий суддя</span><span class='participant-name'>: Бабко Валерія Валеріївна </span><span class='divide' style='display: none'>&nbsp;-&nbsp;</span><span class='participant-action'></span></p></td><td class='td-detail'><p></p><p>Оголошення явки сторін</p></td><td><a target='_blank' class='record-play' href='https://vkz.court.gov.ua/conference/show-record?appointment_id=3015499&time=1718695826'><svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" class="cr-icon"
+	 viewBox="0 0 320.001 320.001" style="enable-background:new 0 0 320.001 320.001;" xml:space="preserve">
+<path d="M295.84,146.049l-256-144c-4.96-2.784-11.008-2.72-15.904,0.128C19.008,5.057,16,10.305,16,16.001v288
+	c0,5.696,3.008,10.944,7.936,13.824c2.496,1.44,5.28,2.176,8.064,2.176c2.688,0,5.408-0.672,7.84-2.048l256-144
+	c5.024-2.848,8.16-8.16,8.16-13.952S300.864,148.897,295.84,146.049z"/>
+</svg>Зі сховища</a><span target='_blank' class='record-play record-play-local' data-file-name='09338c35f44e5b9edbfef6172c314fda_04f6b8a4-22a8-464a-aab0-a166a9f76b64.mp4' data-time-start='7'><svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" class="cr-icon"
+	 viewBox="0 0 320.001 320.001" style="enable-background:new 0 0 320.001 320.001;" xml:space="preserve">
+<path d="M295.84,146.049l-256-144c-4.96-2.784-11.008-2.72-15.904,0.128C19.008,5.057,16,10.305,16,16.001v288
+	c0,5.696,3.008,10.944,7.936,13.824c2.496,1.44,5.28,2.176,8.064,2.176c2.688,0,5.408-0.672,7.84-2.048l256-144
+	c5.024-2.848,8.16-8.16,8.16-13.952S300.864,148.897,295.84,146.049z"/>
+</svg>Локально</span></td></tr><tr class='is-manually' data-id='68848712' data-date='2024-06-18' data-time='10:30:41'><td>7</td><td><span class='xeditable-time' data-default='10:30:41'>10:30:41<span></td><td><p class='participant-id' data-participant-id='0-Дивак В.В.'><span class='participant-role' data-id='368'>Представник позивача</span><span class='participant-name'>: Дивак В.В.</span><span class='divide' style='display: none'>&nbsp;-&nbsp;</span><span class='participant-action'></span></p></td><td class='td-detail'><p></p><p></p></td><td><a target='_blank' class='record-play' href='https://vkz.court.gov.ua/conference/show-record?appointment_id=3015499&time=1718695841'><svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" class="cr-icon"
+	 viewBox="0 0 320.001 320.001" style="enable-background:new 0 0 320.001 320.001;" xml:space="preserve">
+<path d="M295.84,146.049l-256-144c-4.96-2.784-11.008-2.72-15.904,0.128C19.008,5.057,16,10.305,16,16.001v288
+	c0,5.696,3.008,10.944,7.936,13.824c2.496,1.44,5.28,2.176,8.064,2.176c2.688,0,5.408-0.672,7.84-2.048l256-144
+	c5.024-2.848,8.16-8.16,8.16-13.952S300.864,148.897,295.84,146.049z"/>
+</svg>Зі сховища</a><span target='_blank' class='record-play record-play-local' data-file-name='09338c35f44e5b9edbfef6172c314fda_04f6b8a4-22a8-464a-aab0-a166a9f76b64.mp4' data-time-start='22'><svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" class="cr-icon"
+	 viewBox="0 0 320.001 320.001" style="enable-background:new 0 0 320.001 320.001;" xml:space="preserve">
+<path d="M295.84,146.049l-256-144c-4.96-2.784-11.008-2.72-15.904,0.128C19.008,5.057,16,10.305,16,16.001v288
+	c0,5.696,3.008,10.944,7.936,13.824c2.496,1.44,5.28,2.176,8.064,2.176c2.688,0,5.408-0.672,7.84-2.048l256-144
+	c5.024-2.848,8.16-8.16,8.16-13.952S300.864,148.897,295.84,146.049z"/>
+</svg>Локально</span></td></tr><tr class='is-manually' data-id='68848719' data-date='2024-06-18' data-time='10:30:41'><td>8</td><td><span class='xeditable-time' data-default='10:30:41'>10:30:41<span></td><td><p class='participant-id' data-participant-id='0-Сидоренко В.В.'><span class='participant-role' data-id='370'>Представник відповідача</span><span class='participant-name'>: Сидоренко В.В.</span><span class='divide' style='display: none'>&nbsp;-&nbsp;</span><span class='participant-action'></span></p></td><td class='td-detail'><p></p><p></p></td><td><a target='_blank' class='record-play' href='https://vkz.court.gov.ua/conference/show-record?appointment_id=3015499&time=1718695841'><svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" class="cr-icon"
+	 viewBox="0 0 320.001 320.001" style="enable-background:new 0 0 320.001 320.001;" xml:space="preserve">
+<path d="M295.84,146.049l-256-144c-4.96-2.784-11.008-2.72-15.904,0.128C19.008,5.057,16,10.305,16,16.001v288
+	c0,5.696,3.008,10.944,7.936,13.824c2.496,1.44,5.28,2.176,8.064,2.176c2.688,0,5.408-0.672,7.84-2.048l256-144
+	c5.024-2.848,8.16-8.16,8.16-13.952S300.864,148.897,295.84,146.049z"/>
+</svg>Зі сховища</a><span target='_blank' class='record-play record-play-local' data-file-name='09338c35f44e5b9edbfef6172c314fda_04f6b8a4-22a8-464a-aab0-a166a9f76b64.mp4' data-time-start='22'><svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" class="cr-icon"
+	 viewBox="0 0 320.001 320.001" style="enable-background:new 0 0 320.001 320.001;" xml:space="preserve">
+<path d="M295.84,146.049l-256-144c-4.96-2.784-11.008-2.72-15.904,0.128C19.008,5.057,16,10.305,16,16.001v288
+	c0,5.696,3.008,10.944,7.936,13.824c2.496,1.44,5.28,2.176,8.064,2.176c2.688,0,5.408-0.672,7.84-2.048l256-144
+	c5.024-2.848,8.16-8.16,8.16-13.952S300.864,148.897,295.84,146.049z"/>
+</svg>Локально</span></td></tr><tr class='is-manually' data-id='68848732' data-date='2024-06-18' data-time='10:30:42'><td>9</td><td><span class='xeditable-time' data-default='10:30:42'>10:30:42<span></td><td><p class='participant-id' data-participant-id='104378-'><span class='participant-role' data-id='0'></span><span class='participant-name'></span><span class='divide' style='display: none'>&nbsp;-&nbsp;</span><span class='participant-action'>Головуючий встановлює особу учасників процесу</span></p></td><td class='td-detail'><p></p><p></p></td><td><a target='_blank' class='record-play' href='https://vkz.court.gov.ua/conference/show-record?appointment_id=3015499&time=1718695842'><svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" class="cr-icon"
+	 viewBox="0 0 320.001 320.001" style="enable-background:new 0 0 320.001 320.001;" xml:space="preserve">
+<path d="M295.84,146.049l-256-144c-4.96-2.784-11.008-2.72-15.904,0.128C19.008,5.057,16,10.305,16,16.001v288
+	c0,5.696,3.008,10.944,7.936,13.824c2.496,1.44,5.28,2.176,8.064,2.176c2.688,0,5.408-0.672,7.84-2.048l256-144
+	c5.024-2.848,8.16-8.16,8.16-13.952S300.864,148.897,295.84,146.049z"/>
+</svg>Зі сховища</a><span target='_blank' class='record-play record-play-local' data-file-name='09338c35f44e5b9edbfef6172c314fda_04f6b8a4-22a8-464a-aab0-a166a9f76b64.mp4' data-time-start='23'><svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" class="cr-icon"
+	 viewBox="0 0 320.001 320.001" style="enable-background:new 0 0 320.001 320.001;" xml:space="preserve">
+<path d="M295.84,146.049l-256-144c-4.96-2.784-11.008-2.72-15.904,0.128C19.008,5.057,16,10.305,16,16.001v288
+	c0,5.696,3.008,10.944,7.936,13.824c2.496,1.44,5.28,2.176,8.064,2.176c2.688,0,5.408-0.672,7.84-2.048l256-144
+	c5.024-2.848,8.16-8.16,8.16-13.952S300.864,148.897,295.84,146.049z"/>
+</svg>Локально</span></td></tr><tr class='is-manually' data-id='68848760' data-date='2024-06-18' data-time='10:30:44'><td>10</td><td><span class='xeditable-time' data-default='10:30:44'>10:30:44<span></td><td><p class='participant-id' data-participant-id='0-Сидоренко В.В.'><span class='participant-role' data-id='370'>Представник відповідача</span><span class='participant-name'>: Сидоренко В.В.</span><span class='divide' style='display: none'>&nbsp;-&nbsp;</span><span class='participant-action'></span></p></td><td class='td-detail'><p></p><p></p></td><td><a target='_blank' class='record-play' href='https://vkz.court.gov.ua/conference/show-record?appointment_id=3015499&time=1718695844'><svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" class="cr-icon"
+	 viewBox="0 0 320.001 320.001" style="enable-background:new 0 0 320.001 320.001;" xml:space="preserve">
+<path d="M295.84,146.049l-256-144c-4.96-2.784-11.008-2.72-15.904,0.128C19.008,5.057,16,10.305,16,16.001v288
+	c0,5.696,3.008,10.944,7.936,13.824c2.496,1.44,5.28,2.176,8.064,2.176c2.688,0,5.408-0.672,7.84-2.048l256-144
+	c5.024-2.848,8.16-8.16,8.16-13.952S300.864,148.897,295.84,146.049z"/>
+</svg>Зі сховища</a><span target='_blank' class='record-play record-play-local' data-file-name='09338c35f44e5b9edbfef6172c314fda_04f6b8a4-22a8-464a-aab0-a166a9f76b64.mp4' data-time-start='25'><svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" class="cr-icon"
+	 viewBox="0 0 320.001 320.001" style="enable-background:new 0 0 320.001 320.001;" xml:space="preserve">
+<path d="M295.84,146.049l-256-144c-4.96-2.784-11.008-2.72-15.904,0.128C19.008,5.057,16,10.305,16,16.001v288
+	c0,5.696,3.008,10.944,7.936,13.824c2.496,1.44,5.28,2.176,8.064,2.176c2.688,0,5.408-0.672,7.84-2.048l256-144
+	c5.024-2.848,8.16-8.16,8.16-13.952S300.864,148.897,295.84,146.049z"/>
+</svg>Локально</span></td></tr><tr class='is-manually' data-id='68848872' data-date='2024-06-18' data-time='10:30:55'><td>11</td><td><span class='xeditable-time' data-default='10:30:55'>10:30:55<span></td><td><p class='participant-id' data-participant-id='104378-'><span class='participant-role' data-id='0'></span><span class='participant-name'></span><span class='divide' style='display: none'>&nbsp;-&nbsp;</span><span class='participant-action'>Оголошення складу суду і роз’яснення права заявити відвід складу суду</span></p></td><td class='td-detail'><p></p><p></p></td><td><a target='_blank' class='record-play' href='https://vkz.court.gov.ua/conference/show-record?appointment_id=3015499&time=1718695855'><svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" class="cr-icon"
+	 viewBox="0 0 320.001 320.001" style="enable-background:new 0 0 320.001 320.001;" xml:space="preserve">
+<path d="M295.84,146.049l-256-144c-4.96-2.784-11.008-2.72-15.904,0.128C19.008,5.057,16,10.305,16,16.001v288
+	c0,5.696,3.008,10.944,7.936,13.824c2.496,1.44,5.28,2.176,8.064,2.176c2.688,0,5.408-0.672,7.84-2.048l256-144
+	c5.024-2.848,8.16-8.16,8.16-13.952S300.864,148.897,295.84,146.049z"/>
+</svg>Зі сховища</a><span target='_blank' class='record-play record-play-local' data-file-name='09338c35f44e5b9edbfef6172c314fda_04f6b8a4-22a8-464a-aab0-a166a9f76b64.mp4' data-time-start='36'><svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" class="cr-icon"
+	 viewBox="0 0 320.001 320.001" style="enable-background:new 0 0 320.001 320.001;" xml:space="preserve">
+<path d="M295.84,146.049l-256-144c-4.96-2.784-11.008-2.72-15.904,0.128C19.008,5.057,16,10.305,16,16.001v288
+	c0,5.696,3.008,10.944,7.936,13.824c2.496,1.44,5.28,2.176,8.064,2.176c2.688,0,5.408-0.672,7.84-2.048l256-144
+	c5.024-2.848,8.16-8.16,8.16-13.952S300.864,148.897,295.84,146.049z"/>
+</svg>Локально</span></td></tr><tr class='is-manually' data-id='68848887' data-date='2024-06-18' data-time='10:30:56'><td>12</td><td><span class='xeditable-time' data-default='10:30:56'>10:30:56<span></td><td><p class='participant-id' data-participant-id='104378-'><span class='participant-role' data-id='0'></span><span class='participant-name'></span><span class='divide' style='display: none'>&nbsp;-&nbsp;</span><span class='participant-action'>Відводів не заявлено</span></p></td><td class='td-detail'><p></p><p>Права зрозумілі </p></td><td><a target='_blank' class='record-play' href='https://vkz.court.gov.ua/conference/show-record?appointment_id=3015499&time=1718695856'><svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" class="cr-icon"
+	 viewBox="0 0 320.001 320.001" style="enable-background:new 0 0 320.001 320.001;" xml:space="preserve">
+<path d="M295.84,146.049l-256-144c-4.96-2.784-11.008-2.72-15.904,0.128C19.008,5.057,16,10.305,16,16.001v288
+	c0,5.696,3.008,10.944,7.936,13.824c2.496,1.44,5.28,2.176,8.064,2.176c2.688,0,5.408-0.672,7.84-2.048l256-144
+	c5.024-2.848,8.16-8.16,8.16-13.952S300.864,148.897,295.84,146.049z"/>
+</svg>Зі сховища</a><span target='_blank' class='record-play record-play-local' data-file-name='09338c35f44e5b9edbfef6172c314fda_04f6b8a4-22a8-464a-aab0-a166a9f76b64.mp4' data-time-start='37'><svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" class="cr-icon"
+	 viewBox="0 0 320.001 320.001" style="enable-background:new 0 0 320.001 320.001;" xml:space="preserve">
+<path d="M295.84,146.049l-256-144c-4.96-2.784-11.008-2.72-15.904,0.128C19.008,5.057,16,10.305,16,16.001v288
+	c0,5.696,3.008,10.944,7.936,13.824c2.496,1.44,5.28,2.176,8.064,2.176c2.688,0,5.408-0.672,7.84-2.048l256-144
+	c5.024-2.848,8.16-8.16,8.16-13.952S300.864,148.897,295.84,146.049z"/>
+</svg>Локально</span></td></tr><tr class='is-manually' data-id='68852041' data-date='2024-06-18' data-time='10:35:36'><td>13</td><td><span class='xeditable-time' data-default='10:35:36'>10:35:36<span></td><td><p class='participant-id' data-participant-id='0-Бабко Валерія Валеріївна '><span class='participant-role' data-id='361'>Головуючий суддя</span><span class='participant-name'>: Бабко Валерія Валеріївна </span><span class='divide' style='display: none'>&nbsp;-&nbsp;</span><span class='participant-action'></span></p></td><td class='td-detail'><p></p><p>На запитання суду</p></td><td><a target='_blank' class='record-play' href='https://vkz.court.gov.ua/conference/show-record?appointment_id=3015499&time=1718696136'><svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" class="cr-icon"
+	 viewBox="0 0 320.001 320.001" style="enable-background:new 0 0 320.001 320.001;" xml:space="preserve">
+<path d="M295.84,146.049l-256-144c-4.96-2.784-11.008-2.72-15.904,0.128C19.008,5.057,16,10.305,16,16.001v288
+	c0,5.696,3.008,10.944,7.936,13.824c2.496,1.44,5.28,2.176,8.064,2.176c2.688,0,5.408-0.672,7.84-2.048l256-144
+	c5.024-2.848,8.16-8.16,8.16-13.952S300.864,148.897,295.84,146.049z"/>
+</svg>Зі сховища</a><span target='_blank' class='record-play record-play-local' data-file-name='09338c35f44e5b9edbfef6172c314fda_04f6b8a4-22a8-464a-aab0-a166a9f76b64.mp4' data-time-start='317'><svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" class="cr-icon"
+	 viewBox="0 0 320.001 320.001" style="enable-background:new 0 0 320.001 320.001;" xml:space="preserve">
+<path d="M295.84,146.049l-256-144c-4.96-2.784-11.008-2.72-15.904,0.128C19.008,5.057,16,10.305,16,16.001v288
+	c0,5.696,3.008,10.944,7.936,13.824c2.496,1.44,5.28,2.176,8.064,2.176c2.688,0,5.408-0.672,7.84-2.048l256-144
+	c5.024-2.848,8.16-8.16,8.16-13.952S300.864,148.897,295.84,146.049z"/>
+</svg>Локально</span></td></tr><tr class='is-manually' data-id='68852054' data-date='2024-06-18' data-time='10:35:37'><td>14</td><td><span class='xeditable-time' data-default='10:35:37'>10:35:37<span></td><td><p class='participant-id' data-participant-id='0-Дивак В.В.'><span class='participant-role' data-id='368'>Представник позивача</span><span class='participant-name'>: Дивак В.В.</span><span class='divide' style='display: none'>&nbsp;-&nbsp;</span><span class='participant-action'></span></p></td><td class='td-detail'><p></p><p>Клопотання про долучення доказів з відеореєстратора (USB-флеш-накопичувач)</p></td><td><a target='_blank' class='record-play' href='https://vkz.court.gov.ua/conference/show-record?appointment_id=3015499&time=1718696137'><svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" class="cr-icon"
+	 viewBox="0 0 320.001 320.001" style="enable-background:new 0 0 320.001 320.001;" xml:space="preserve">
+<path d="M295.84,146.049l-256-144c-4.96-2.784-11.008-2.72-15.904,0.128C19.008,5.057,16,10.305,16,16.001v288
+	c0,5.696,3.008,10.944,7.936,13.824c2.496,1.44,5.28,2.176,8.064,2.176c2.688,0,5.408-0.672,7.84-2.048l256-144
+	c5.024-2.848,8.16-8.16,8.16-13.952S300.864,148.897,295.84,146.049z"/>
+</svg>Зі сховища</a><span target='_blank' class='record-play record-play-local' data-file-name='09338c35f44e5b9edbfef6172c314fda_04f6b8a4-22a8-464a-aab0-a166a9f76b64.mp4' data-time-start='318'><svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" class="cr-icon"
+	 viewBox="0 0 320.001 320.001" style="enable-background:new 0 0 320.001 320.001;" xml:space="preserve">
+<path d="M295.84,146.049l-256-144c-4.96-2.784-11.008-2.72-15.904,0.128C19.008,5.057,16,10.305,16,16.001v288
+	c0,5.696,3.008,10.944,7.936,13.824c2.496,1.44,5.28,2.176,8.064,2.176c2.688,0,5.408-0.672,7.84-2.048l256-144
+	c5.024-2.848,8.16-8.16,8.16-13.952S300.864,148.897,295.84,146.049z"/>
+</svg>Локально</span></td></tr><tr class='is-manually' data-id='68852823' data-date='2024-06-18' data-time='10:36:48'><td>15</td><td><span class='xeditable-time' data-default='10:36:48'>10:36:48<span></td><td><p class='participant-id' data-participant-id='0-Бабко Валерія Валеріївна '><span class='participant-role' data-id='361'>Головуючий суддя</span><span class='participant-name'>: Бабко Валерія Валеріївна </span><span class='divide' style='display: none'>&nbsp;-&nbsp;</span><span class='participant-action'></span></p></td><td class='td-detail'><p></p><p>Суд ставить на обговорення заявлене  клопотання про долучення доказів з відеореєстратора (USB-флеш-накопичувач) від представника позивача</p></td><td><a target='_blank' class='record-play' href='https://vkz.court.gov.ua/conference/show-record?appointment_id=3015499&time=1718696208'><svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" class="cr-icon"
+	 viewBox="0 0 320.001 320.001" style="enable-background:new 0 0 320.001 320.001;" xml:space="preserve">
+<path d="M295.84,146.049l-256-144c-4.96-2.784-11.008-2.72-15.904,0.128C19.008,5.057,16,10.305,16,16.001v288
+	c0,5.696,3.008,10.944,7.936,13.824c2.496,1.44,5.28,2.176,8.064,2.176c2.688,0,5.408-0.672,7.84-2.048l256-144
+	c5.024-2.848,8.16-8.16,8.16-13.952S300.864,148.897,295.84,146.049z"/>
+</svg>Зі сховища</a><span target='_blank' class='record-play record-play-local' data-file-name='09338c35f44e5b9edbfef6172c314fda_04f6b8a4-22a8-464a-aab0-a166a9f76b64.mp4' data-time-start='389'><svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" class="cr-icon"
+	 viewBox="0 0 320.001 320.001" style="enable-background:new 0 0 320.001 320.001;" xml:space="preserve">
+<path d="M295.84,146.049l-256-144c-4.96-2.784-11.008-2.72-15.904,0.128C19.008,5.057,16,10.305,16,16.001v288
+	c0,5.696,3.008,10.944,7.936,13.824c2.496,1.44,5.28,2.176,8.064,2.176c2.688,0,5.408-0.672,7.84-2.048l256-144
+	c5.024-2.848,8.16-8.16,8.16-13.952S300.864,148.897,295.84,146.049z"/>
+</svg>Локально</span></td></tr><tr class='is-manually' data-id='68852831' data-date='2024-06-18' data-time='10:36:49'><td>16</td><td><span class='xeditable-time' data-default='10:36:49'>10:36:49<span></td><td><p class='participant-id' data-participant-id='0-Сидоренко В.В.'><span class='participant-role' data-id='370'>Представник відповідача</span><span class='participant-name'>: Сидоренко В.В.</span><span class='divide' style='display: none'>&nbsp;-&nbsp;</span><span class='participant-action'></span></p></td><td class='td-detail'><p></p><p>Надає відповідь </p></td><td><a target='_blank' class='record-play' href='https://vkz.court.gov.ua/conference/show-record?appointment_id=3015499&time=1718696209'><svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" class="cr-icon"
+	 viewBox="0 0 320.001 320.001" style="enable-background:new 0 0 320.001 320.001;" xml:space="preserve">
+<path d="M295.84,146.049l-256-144c-4.96-2.784-11.008-2.72-15.904,0.128C19.008,5.057,16,10.305,16,16.001v288
+	c0,5.696,3.008,10.944,7.936,13.824c2.496,1.44,5.28,2.176,8.064,2.176c2.688,0,5.408-0.672,7.84-2.048l256-144
+	c5.024-2.848,8.16-8.16,8.16-13.952S300.864,148.897,295.84,146.049z"/>
+</svg>Зі сховища</a><span target='_blank' class='record-play record-play-local' data-file-name='09338c35f44e5b9edbfef6172c314fda_04f6b8a4-22a8-464a-aab0-a166a9f76b64.mp4' data-time-start='390'><svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" class="cr-icon"
+	 viewBox="0 0 320.001 320.001" style="enable-background:new 0 0 320.001 320.001;" xml:space="preserve">
+<path d="M295.84,146.049l-256-144c-4.96-2.784-11.008-2.72-15.904,0.128C19.008,5.057,16,10.305,16,16.001v288
+	c0,5.696,3.008,10.944,7.936,13.824c2.496,1.44,5.28,2.176,8.064,2.176c2.688,0,5.408-0.672,7.84-2.048l256-144
+	c5.024-2.848,8.16-8.16,8.16-13.952S300.864,148.897,295.84,146.049z"/>
+</svg>Локально</span></td></tr><tr class='is-manually' data-id='68853598' data-date='2024-06-18' data-time='10:37:52'><td>17</td><td><span class='xeditable-time' data-default='10:37:52'>10:37:52<span></td><td><p class='participant-id' data-participant-id='0-Бабко Валерія Валеріївна '><span class='participant-role' data-id='361'>Головуючий суддя</span><span class='participant-name'>: Бабко Валерія Валеріївна </span><span class='divide' style='display: inline-block'>&nbsp;-&nbsp;</span><span class='participant-action'>Суд на місці ухвалив</span></p></td><td class='td-detail'><p></p><p>Долучити до матеріалів справи клопотання про долучення доказів (USB-флеш-накопичувач)</p></td><td><a target='_blank' class='record-play' href='https://vkz.court.gov.ua/conference/show-record?appointment_id=3015499&time=1718696272'><svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" class="cr-icon"
+	 viewBox="0 0 320.001 320.001" style="enable-background:new 0 0 320.001 320.001;" xml:space="preserve">
+<path d="M295.84,146.049l-256-144c-4.96-2.784-11.008-2.72-15.904,0.128C19.008,5.057,16,10.305,16,16.001v288
+	c0,5.696,3.008,10.944,7.936,13.824c2.496,1.44,5.28,2.176,8.064,2.176c2.688,0,5.408-0.672,7.84-2.048l256-144
+	c5.024-2.848,8.16-8.16,8.16-13.952S300.864,148.897,295.84,146.049z"/>
+</svg>Зі сховища</a><span target='_blank' class='record-play record-play-local' data-file-name='09338c35f44e5b9edbfef6172c314fda_04f6b8a4-22a8-464a-aab0-a166a9f76b64.mp4' data-time-start='453'><svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" class="cr-icon"
+	 viewBox="0 0 320.001 320.001" style="enable-background:new 0 0 320.001 320.001;" xml:space="preserve">
+<path d="M295.84,146.049l-256-144c-4.96-2.784-11.008-2.72-15.904,0.128C19.008,5.057,16,10.305,16,16.001v288
+	c0,5.696,3.008,10.944,7.936,13.824c2.496,1.44,5.28,2.176,8.064,2.176c2.688,0,5.408-0.672,7.84-2.048l256-144
+	c5.024-2.848,8.16-8.16,8.16-13.952S300.864,148.897,295.84,146.049z"/>
+</svg>Локально</span></td></tr><tr class='is-manually' data-id='68853703' data-date='2024-06-18' data-time='10:38:01'><td>18</td><td><span class='xeditable-time' data-default='10:38:01'>10:38:01<span></td><td><p class='participant-id' data-participant-id='0-Бабко Валерія Валеріївна '><span class='participant-role' data-id='361'>Головуючий суддя</span><span class='participant-name'>: Бабко Валерія Валеріївна </span><span class='divide' style='display: none'>&nbsp;-&nbsp;</span><span class='participant-action'></span></p></td><td class='td-detail'><p></p><p>На запитання суду</p></td><td><a target='_blank' class='record-play' href='https://vkz.court.gov.ua/conference/show-record?appointment_id=3015499&time=1718696281'><svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" class="cr-icon"
+	 viewBox="0 0 320.001 320.001" style="enable-background:new 0 0 320.001 320.001;" xml:space="preserve">
+<path d="M295.84,146.049l-256-144c-4.96-2.784-11.008-2.72-15.904,0.128C19.008,5.057,16,10.305,16,16.001v288
+	c0,5.696,3.008,10.944,7.936,13.824c2.496,1.44,5.28,2.176,8.064,2.176c2.688,0,5.408-0.672,7.84-2.048l256-144
+	c5.024-2.848,8.16-8.16,8.16-13.952S300.864,148.897,295.84,146.049z"/>
+</svg>Зі сховища</a><span target='_blank' class='record-play record-play-local' data-file-name='09338c35f44e5b9edbfef6172c314fda_04f6b8a4-22a8-464a-aab0-a166a9f76b64.mp4' data-time-start='462'><svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" class="cr-icon"
+	 viewBox="0 0 320.001 320.001" style="enable-background:new 0 0 320.001 320.001;" xml:space="preserve">
+<path d="M295.84,146.049l-256-144c-4.96-2.784-11.008-2.72-15.904,0.128C19.008,5.057,16,10.305,16,16.001v288
+	c0,5.696,3.008,10.944,7.936,13.824c2.496,1.44,5.28,2.176,8.064,2.176c2.688,0,5.408-0.672,7.84-2.048l256-144
+	c5.024-2.848,8.16-8.16,8.16-13.952S300.864,148.897,295.84,146.049z"/>
+</svg>Локально</span></td></tr><tr class='is-manually' data-id='68853712' data-date='2024-06-18' data-time='10:38:02'><td>19</td><td><span class='xeditable-time' data-default='10:38:02'>10:38:02<span></td><td><p class='participant-id' data-participant-id='0-Дивак В.В.'><span class='participant-role' data-id='368'>Представник позивача</span><span class='participant-name'>: Дивак В.В.</span><span class='divide' style='display: none'>&nbsp;-&nbsp;</span><span class='participant-action'></span></p></td><td class='td-detail'><p></p><p>Надає відповідь </p></td><td><a target='_blank' class='record-play' href='https://vkz.court.gov.ua/conference/show-record?appointment_id=3015499&time=1718696282'><svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" class="cr-icon"
+	 viewBox="0 0 320.001 320.001" style="enable-background:new 0 0 320.001 320.001;" xml:space="preserve">
+<path d="M295.84,146.049l-256-144c-4.96-2.784-11.008-2.72-15.904,0.128C19.008,5.057,16,10.305,16,16.001v288
+	c0,5.696,3.008,10.944,7.936,13.824c2.496,1.44,5.28,2.176,8.064,2.176c2.688,0,5.408-0.672,7.84-2.048l256-144
+	c5.024-2.848,8.16-8.16,8.16-13.952S300.864,148.897,295.84,146.049z"/>
+</svg>Зі сховища</a><span target='_blank' class='record-play record-play-local' data-file-name='09338c35f44e5b9edbfef6172c314fda_04f6b8a4-22a8-464a-aab0-a166a9f76b64.mp4' data-time-start='463'><svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" class="cr-icon"
+	 viewBox="0 0 320.001 320.001" style="enable-background:new 0 0 320.001 320.001;" xml:space="preserve">
+<path d="M295.84,146.049l-256-144c-4.96-2.784-11.008-2.72-15.904,0.128C19.008,5.057,16,10.305,16,16.001v288
+	c0,5.696,3.008,10.944,7.936,13.824c2.496,1.44,5.28,2.176,8.064,2.176c2.688,0,5.408-0.672,7.84-2.048l256-144
+	c5.024-2.848,8.16-8.16,8.16-13.952S300.864,148.897,295.84,146.049z"/>
+</svg>Локально</span></td></tr><tr class='is-manually' data-id='68854609' data-date='2024-06-18' data-time='10:39:19'><td>20</td><td><span class='xeditable-time' data-default='10:39:19'>10:39:19<span></td><td><p class='participant-id' data-participant-id='0-Бабко Валерія Валеріївна '><span class='participant-role' data-id='361'>Головуючий суддя</span><span class='participant-name'>: Бабко Валерія Валеріївна </span><span class='divide' style='display: none'>&nbsp;-&nbsp;</span><span class='participant-action'></span></p></td><td class='td-detail'><p></p><p>На запитання суду </p></td><td><a target='_blank' class='record-play' href='https://vkz.court.gov.ua/conference/show-record?appointment_id=3015499&time=1718696359'><svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" class="cr-icon"
+	 viewBox="0 0 320.001 320.001" style="enable-background:new 0 0 320.001 320.001;" xml:space="preserve">
+<path d="M295.84,146.049l-256-144c-4.96-2.784-11.008-2.72-15.904,0.128C19.008,5.057,16,10.305,16,16.001v288
+	c0,5.696,3.008,10.944,7.936,13.824c2.496,1.44,5.28,2.176,8.064,2.176c2.688,0,5.408-0.672,7.84-2.048l256-144
+	c5.024-2.848,8.16-8.16,8.16-13.952S300.864,148.897,295.84,146.049z"/>
+</svg>Зі сховища</a><span target='_blank' class='record-play record-play-local' data-file-name='09338c35f44e5b9edbfef6172c314fda_04f6b8a4-22a8-464a-aab0-a166a9f76b64.mp4' data-time-start='540'><svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" class="cr-icon"
+	 viewBox="0 0 320.001 320.001" style="enable-background:new 0 0 320.001 320.001;" xml:space="preserve">
+<path d="M295.84,146.049l-256-144c-4.96-2.784-11.008-2.72-15.904,0.128C19.008,5.057,16,10.305,16,16.001v288
+	c0,5.696,3.008,10.944,7.936,13.824c2.496,1.44,5.28,2.176,8.064,2.176c2.688,0,5.408-0.672,7.84-2.048l256-144
+	c5.024-2.848,8.16-8.16,8.16-13.952S300.864,148.897,295.84,146.049z"/>
+</svg>Локально</span></td></tr><tr class='is-manually' data-id='68854619' data-date='2024-06-18' data-time='10:39:20'><td>21</td><td><span class='xeditable-time' data-default='10:39:20'>10:39:20<span></td><td><p class='participant-id' data-participant-id='0-Сидоренко В.В.'><span class='participant-role' data-id='370'>Представник відповідача</span><span class='participant-name'>: Сидоренко В.В.</span><span class='divide' style='display: none'>&nbsp;-&nbsp;</span><span class='participant-action'></span></p></td><td class='td-detail'><p></p><p>Клопотання про виклик свідка </p></td><td><a target='_blank' class='record-play' href='https://vkz.court.gov.ua/conference/show-record?appointment_id=3015499&time=1718696360'><svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" class="cr-icon"
+	 viewBox="0 0 320.001 320.001" style="enable-background:new 0 0 320.001 320.001;" xml:space="preserve">
+<path d="M295.84,146.049l-256-144c-4.96-2.784-11.008-2.72-15.904,0.128C19.008,5.057,16,10.305,16,16.001v288
+	c0,5.696,3.008,10.944,7.936,13.824c2.496,1.44,5.28,2.176,8.064,2.176c2.688,0,5.408-0.672,7.84-2.048l256-144
+	c5.024-2.848,8.16-8.16,8.16-13.952S300.864,148.897,295.84,146.049z"/>
+</svg>Зі сховища</a><span target='_blank' class='record-play record-play-local' data-file-name='09338c35f44e5b9edbfef6172c314fda_04f6b8a4-22a8-464a-aab0-a166a9f76b64.mp4' data-time-start='541'><svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" class="cr-icon"
+	 viewBox="0 0 320.001 320.001" style="enable-background:new 0 0 320.001 320.001;" xml:space="preserve">
+<path d="M295.84,146.049l-256-144c-4.96-2.784-11.008-2.72-15.904,0.128C19.008,5.057,16,10.305,16,16.001v288
+	c0,5.696,3.008,10.944,7.936,13.824c2.496,1.44,5.28,2.176,8.064,2.176c2.688,0,5.408-0.672,7.84-2.048l256-144
+	c5.024-2.848,8.16-8.16,8.16-13.952S300.864,148.897,295.84,146.049z"/>
+</svg>Локально</span></td></tr><tr class='is-manually' data-id='68855963' data-date='2024-06-18' data-time='10:41:09'><td>22</td><td><span class='xeditable-time' data-default='10:41:09'>10:41:09<span></td><td><p class='participant-id' data-participant-id='0-Бабко Валерія Валеріївна '><span class='participant-role' data-id='361'>Головуючий суддя</span><span class='participant-name'>: Бабко Валерія Валеріївна </span><span class='divide' style='display: none'>&nbsp;-&nbsp;</span><span class='participant-action'></span></p></td><td class='td-detail'><p></p><p>Суд ставить на обговорення заявлене клопотання про виклик свідків від представника відповідача </p></td><td><a target='_blank' class='record-play' href='https://vkz.court.gov.ua/conference/show-record?appointment_id=3015499&time=1718696469'><svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" class="cr-icon"
+	 viewBox="0 0 320.001 320.001" style="enable-background:new 0 0 320.001 320.001;" xml:space="preserve">
+<path d="M295.84,146.049l-256-144c-4.96-2.784-11.008-2.72-15.904,0.128C19.008,5.057,16,10.305,16,16.001v288
+	c0,5.696,3.008,10.944,7.936,13.824c2.496,1.44,5.28,2.176,8.064,2.176c2.688,0,5.408-0.672,7.84-2.048l256-144
+	c5.024-2.848,8.16-8.16,8.16-13.952S300.864,148.897,295.84,146.049z"/>
+</svg>Зі сховища</a><span target='_blank' class='record-play record-play-local' data-file-name='09338c35f44e5b9edbfef6172c314fda_04f6b8a4-22a8-464a-aab0-a166a9f76b64.mp4' data-time-start='650'><svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" class="cr-icon"
+	 viewBox="0 0 320.001 320.001" style="enable-background:new 0 0 320.001 320.001;" xml:space="preserve">
+<path d="M295.84,146.049l-256-144c-4.96-2.784-11.008-2.72-15.904,0.128C19.008,5.057,16,10.305,16,16.001v288
+	c0,5.696,3.008,10.944,7.936,13.824c2.496,1.44,5.28,2.176,8.064,2.176c2.688,0,5.408-0.672,7.84-2.048l256-144
+	c5.024-2.848,8.16-8.16,8.16-13.952S300.864,148.897,295.84,146.049z"/>
+</svg>Локально</span></td></tr><tr class='is-manually' data-id='68855978' data-date='2024-06-18' data-time='10:41:10'><td>23</td><td><span class='xeditable-time' data-default='10:41:10'>10:41:10<span></td><td><p class='participant-id' data-participant-id='0-Дивак В.В.'><span class='participant-role' data-id='368'>Представник позивача</span><span class='participant-name'>: Дивак В.В.</span><span class='divide' style='display: none'>&nbsp;-&nbsp;</span><span class='participant-action'></span></p></td><td class='td-detail'><p></p><p>Не заперечує </p></td><td><a target='_blank' class='record-play' href='https://vkz.court.gov.ua/conference/show-record?appointment_id=3015499&time=1718696470'><svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" class="cr-icon"
+	 viewBox="0 0 320.001 320.001" style="enable-background:new 0 0 320.001 320.001;" xml:space="preserve">
+<path d="M295.84,146.049l-256-144c-4.96-2.784-11.008-2.72-15.904,0.128C19.008,5.057,16,10.305,16,16.001v288
+	c0,5.696,3.008,10.944,7.936,13.824c2.496,1.44,5.28,2.176,8.064,2.176c2.688,0,5.408-0.672,7.84-2.048l256-144
+	c5.024-2.848,8.16-8.16,8.16-13.952S300.864,148.897,295.84,146.049z"/>
+</svg>Зі сховища</a><span target='_blank' class='record-play record-play-local' data-file-name='09338c35f44e5b9edbfef6172c314fda_04f6b8a4-22a8-464a-aab0-a166a9f76b64.mp4' data-time-start='651'><svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" class="cr-icon"
+	 viewBox="0 0 320.001 320.001" style="enable-background:new 0 0 320.001 320.001;" xml:space="preserve">
+<path d="M295.84,146.049l-256-144c-4.96-2.784-11.008-2.72-15.904,0.128C19.008,5.057,16,10.305,16,16.001v288
+	c0,5.696,3.008,10.944,7.936,13.824c2.496,1.44,5.28,2.176,8.064,2.176c2.688,0,5.408-0.672,7.84-2.048l256-144
+	c5.024-2.848,8.16-8.16,8.16-13.952S300.864,148.897,295.84,146.049z"/>
+</svg>Локально</span></td></tr><tr class='is-manually' data-id='68856160' data-date='2024-06-18' data-time='10:41:27'><td>24</td><td><span class='xeditable-time' data-default='10:41:27'>10:41:27<span></td><td><p class='participant-id' data-participant-id='0-Бабко Валерія Валеріївна '><span class='participant-role' data-id='361'>Головуючий суддя</span><span class='participant-name'>: Бабко Валерія Валеріївна </span><span class='divide' style='display: inline-block'>&nbsp;-&nbsp;</span><span class='participant-action'>Суд на місці ухвалив</span></p></td><td class='td-detail'><p></p><p>Задовольнити клопотання про виклик свідків, долучити до матеріалів справи  та викликати свідка</p></td><td><a target='_blank' class='record-play' href='https://vkz.court.gov.ua/conference/show-record?appointment_id=3015499&time=1718696487'><svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" class="cr-icon"
+	 viewBox="0 0 320.001 320.001" style="enable-background:new 0 0 320.001 320.001;" xml:space="preserve">
+<path d="M295.84,146.049l-256-144c-4.96-2.784-11.008-2.72-15.904,0.128C19.008,5.057,16,10.305,16,16.001v288
+	c0,5.696,3.008,10.944,7.936,13.824c2.496,1.44,5.28,2.176,8.064,2.176c2.688,0,5.408-0.672,7.84-2.048l256-144
+	c5.024-2.848,8.16-8.16,8.16-13.952S300.864,148.897,295.84,146.049z"/>
+</svg>Зі сховища</a><span target='_blank' class='record-play record-play-local' data-file-name='09338c35f44e5b9edbfef6172c314fda_04f6b8a4-22a8-464a-aab0-a166a9f76b64.mp4' data-time-start='668'><svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" class="cr-icon"
+	 viewBox="0 0 320.001 320.001" style="enable-background:new 0 0 320.001 320.001;" xml:space="preserve">
+<path d="M295.84,146.049l-256-144c-4.96-2.784-11.008-2.72-15.904,0.128C19.008,5.057,16,10.305,16,16.001v288
+	c0,5.696,3.008,10.944,7.936,13.824c2.496,1.44,5.28,2.176,8.064,2.176c2.688,0,5.408-0.672,7.84-2.048l256-144
+	c5.024-2.848,8.16-8.16,8.16-13.952S300.864,148.897,295.84,146.049z"/>
+</svg>Локально</span></td></tr><tr class='is-manually' data-id='68856899' data-date='2024-06-18' data-time='10:42:29'><td>25</td><td><span class='xeditable-time' data-default='10:42:29'>10:42:29<span></td><td><p class='participant-id' data-participant-id='0-Бабко Валерія Валеріївна '><span class='participant-role' data-id='361'>Головуючий суддя</span><span class='participant-name'>: Бабко Валерія Валеріївна </span><span class='divide' style='display: none'>&nbsp;-&nbsp;</span><span class='participant-action'></span></p></td><td class='td-detail'><p></p><p>На запитання суду</p></td><td><a target='_blank' class='record-play' href='https://vkz.court.gov.ua/conference/show-record?appointment_id=3015499&time=1718696549'><svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" class="cr-icon"
+	 viewBox="0 0 320.001 320.001" style="enable-background:new 0 0 320.001 320.001;" xml:space="preserve">
+<path d="M295.84,146.049l-256-144c-4.96-2.784-11.008-2.72-15.904,0.128C19.008,5.057,16,10.305,16,16.001v288
+	c0,5.696,3.008,10.944,7.936,13.824c2.496,1.44,5.28,2.176,8.064,2.176c2.688,0,5.408-0.672,7.84-2.048l256-144
+	c5.024-2.848,8.16-8.16,8.16-13.952S300.864,148.897,295.84,146.049z"/>
+</svg>Зі сховища</a><span target='_blank' class='record-play record-play-local' data-file-name='09338c35f44e5b9edbfef6172c314fda_04f6b8a4-22a8-464a-aab0-a166a9f76b64.mp4' data-time-start='730'><svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" class="cr-icon"
+	 viewBox="0 0 320.001 320.001" style="enable-background:new 0 0 320.001 320.001;" xml:space="preserve">
+<path d="M295.84,146.049l-256-144c-4.96-2.784-11.008-2.72-15.904,0.128C19.008,5.057,16,10.305,16,16.001v288
+	c0,5.696,3.008,10.944,7.936,13.824c2.496,1.44,5.28,2.176,8.064,2.176c2.688,0,5.408-0.672,7.84-2.048l256-144
+	c5.024-2.848,8.16-8.16,8.16-13.952S300.864,148.897,295.84,146.049z"/>
+</svg>Локально</span></td></tr><tr class='is-manually' data-id='68856907' data-date='2024-06-18' data-time='10:42:29'><td>26</td><td><span class='xeditable-time' data-default='10:42:29'>10:42:29<span></td><td><p class='participant-id' data-participant-id='0-Дивак В.В.'><span class='participant-role' data-id='368'>Представник позивача</span><span class='participant-name'>: Дивак В.В.</span><span class='divide' style='display: none'>&nbsp;-&nbsp;</span><span class='participant-action'></span></p></td><td class='td-detail'><p></p><p>Просить оголосити перерву в судовому засіданні </p></td><td><a target='_blank' class='record-play' href='https://vkz.court.gov.ua/conference/show-record?appointment_id=3015499&time=1718696549'><svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" class="cr-icon"
+	 viewBox="0 0 320.001 320.001" style="enable-background:new 0 0 320.001 320.001;" xml:space="preserve">
+<path d="M295.84,146.049l-256-144c-4.96-2.784-11.008-2.72-15.904,0.128C19.008,5.057,16,10.305,16,16.001v288
+	c0,5.696,3.008,10.944,7.936,13.824c2.496,1.44,5.28,2.176,8.064,2.176c2.688,0,5.408-0.672,7.84-2.048l256-144
+	c5.024-2.848,8.16-8.16,8.16-13.952S300.864,148.897,295.84,146.049z"/>
+</svg>Зі сховища</a><span target='_blank' class='record-play record-play-local' data-file-name='09338c35f44e5b9edbfef6172c314fda_04f6b8a4-22a8-464a-aab0-a166a9f76b64.mp4' data-time-start='730'><svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" class="cr-icon"
+	 viewBox="0 0 320.001 320.001" style="enable-background:new 0 0 320.001 320.001;" xml:space="preserve">
+<path d="M295.84,146.049l-256-144c-4.96-2.784-11.008-2.72-15.904,0.128C19.008,5.057,16,10.305,16,16.001v288
+	c0,5.696,3.008,10.944,7.936,13.824c2.496,1.44,5.28,2.176,8.064,2.176c2.688,0,5.408-0.672,7.84-2.048l256-144
+	c5.024-2.848,8.16-8.16,8.16-13.952S300.864,148.897,295.84,146.049z"/>
+</svg>Локально</span></td></tr><tr class='is-manually' data-id='68857049' data-date='2024-06-18' data-time='10:42:41'><td>27</td><td><span class='xeditable-time' data-default='10:42:41'>10:42:41<span></td><td><p class='participant-id' data-participant-id='0-Бабко Валерія Валеріївна '><span class='participant-role' data-id='361'>Головуючий суддя</span><span class='participant-name'>: Бабко Валерія Валеріївна </span><span class='divide' style='display: none'>&nbsp;-&nbsp;</span><span class='participant-action'></span></p></td><td class='td-detail'><p></p><p>На запитання суду</p></td><td><a target='_blank' class='record-play' href='https://vkz.court.gov.ua/conference/show-record?appointment_id=3015499&time=1718696561'><svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" class="cr-icon"
+	 viewBox="0 0 320.001 320.001" style="enable-background:new 0 0 320.001 320.001;" xml:space="preserve">
+<path d="M295.84,146.049l-256-144c-4.96-2.784-11.008-2.72-15.904,0.128C19.008,5.057,16,10.305,16,16.001v288
+	c0,5.696,3.008,10.944,7.936,13.824c2.496,1.44,5.28,2.176,8.064,2.176c2.688,0,5.408-0.672,7.84-2.048l256-144
+	c5.024-2.848,8.16-8.16,8.16-13.952S300.864,148.897,295.84,146.049z"/>
+</svg>Зі сховища</a><span target='_blank' class='record-play record-play-local' data-file-name='09338c35f44e5b9edbfef6172c314fda_04f6b8a4-22a8-464a-aab0-a166a9f76b64.mp4' data-time-start='742'><svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" class="cr-icon"
+	 viewBox="0 0 320.001 320.001" style="enable-background:new 0 0 320.001 320.001;" xml:space="preserve">
+<path d="M295.84,146.049l-256-144c-4.96-2.784-11.008-2.72-15.904,0.128C19.008,5.057,16,10.305,16,16.001v288
+	c0,5.696,3.008,10.944,7.936,13.824c2.496,1.44,5.28,2.176,8.064,2.176c2.688,0,5.408-0.672,7.84-2.048l256-144
+	c5.024-2.848,8.16-8.16,8.16-13.952S300.864,148.897,295.84,146.049z"/>
+</svg>Локально</span></td></tr><tr class='is-manually' data-id='68857060' data-date='2024-06-18' data-time='10:42:42'><td>28</td><td><span class='xeditable-time' data-default='10:42:42'>10:42:42<span></td><td><p class='participant-id' data-participant-id='0-Сидоренко В.В.'><span class='participant-role' data-id='370'>Представник відповідача</span><span class='participant-name'>: Сидоренко В.В.</span><span class='divide' style='display: none'>&nbsp;-&nbsp;</span><span class='participant-action'></span></p></td><td class='td-detail'><p></p><p>Надає відповідь </p></td><td><a target='_blank' class='record-play' href='https://vkz.court.gov.ua/conference/show-record?appointment_id=3015499&time=1718696562'><svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" class="cr-icon"
+	 viewBox="0 0 320.001 320.001" style="enable-background:new 0 0 320.001 320.001;" xml:space="preserve">
+<path d="M295.84,146.049l-256-144c-4.96-2.784-11.008-2.72-15.904,0.128C19.008,5.057,16,10.305,16,16.001v288
+	c0,5.696,3.008,10.944,7.936,13.824c2.496,1.44,5.28,2.176,8.064,2.176c2.688,0,5.408-0.672,7.84-2.048l256-144
+	c5.024-2.848,8.16-8.16,8.16-13.952S300.864,148.897,295.84,146.049z"/>
+</svg>Зі сховища</a><span target='_blank' class='record-play record-play-local' data-file-name='09338c35f44e5b9edbfef6172c314fda_04f6b8a4-22a8-464a-aab0-a166a9f76b64.mp4' data-time-start='743'><svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" class="cr-icon"
+	 viewBox="0 0 320.001 320.001" style="enable-background:new 0 0 320.001 320.001;" xml:space="preserve">
+<path d="M295.84,146.049l-256-144c-4.96-2.784-11.008-2.72-15.904,0.128C19.008,5.057,16,10.305,16,16.001v288
+	c0,5.696,3.008,10.944,7.936,13.824c2.496,1.44,5.28,2.176,8.064,2.176c2.688,0,5.408-0.672,7.84-2.048l256-144
+	c5.024-2.848,8.16-8.16,8.16-13.952S300.864,148.897,295.84,146.049z"/>
+</svg>Локально</span></td></tr><tr class='is-manually' data-id='68857468' data-date='2024-06-18' data-time='10:43:14'><td>29</td><td><span class='xeditable-time' data-default='10:43:14'>10:43:14<span></td><td><p class='participant-id' data-participant-id='0-Бабко Валерія Валеріївна '><span class='participant-role' data-id='361'>Головуючий суддя</span><span class='participant-name'>: Бабко Валерія Валеріївна </span><span class='divide' style='display: inline-block'>&nbsp;-&nbsp;</span><span class='participant-action'>Суд на місці ухвалив</span></p></td><td class='td-detail'><p></p><p>Оголосити перерву 09.09.2024 о 15:00 для надання додаткових пояснень, виклику свідка</p></td><td><a target='_blank' class='record-play' href='https://vkz.court.gov.ua/conference/show-record?appointment_id=3015499&time=1718696594'><svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" class="cr-icon"
+	 viewBox="0 0 320.001 320.001" style="enable-background:new 0 0 320.001 320.001;" xml:space="preserve">
+<path d="M295.84,146.049l-256-144c-4.96-2.784-11.008-2.72-15.904,0.128C19.008,5.057,16,10.305,16,16.001v288
+	c0,5.696,3.008,10.944,7.936,13.824c2.496,1.44,5.28,2.176,8.064,2.176c2.688,0,5.408-0.672,7.84-2.048l256-144
+	c5.024-2.848,8.16-8.16,8.16-13.952S300.864,148.897,295.84,146.049z"/>
+</svg>Зі сховища</a><span target='_blank' class='record-play record-play-local' data-file-name='09338c35f44e5b9edbfef6172c314fda_04f6b8a4-22a8-464a-aab0-a166a9f76b64.mp4' data-time-start='775'><svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" class="cr-icon"
+	 viewBox="0 0 320.001 320.001" style="enable-background:new 0 0 320.001 320.001;" xml:space="preserve">
+<path d="M295.84,146.049l-256-144c-4.96-2.784-11.008-2.72-15.904,0.128C19.008,5.057,16,10.305,16,16.001v288
+	c0,5.696,3.008,10.944,7.936,13.824c2.496,1.44,5.28,2.176,8.064,2.176c2.688,0,5.408-0.672,7.84-2.048l256-144
+	c5.024-2.848,8.16-8.16,8.16-13.952S300.864,148.897,295.84,146.049z"/>
+</svg>Локально</span></td></tr><tr class='highlight ' data-id='68860007' data-date='2024-06-18' data-time='10:47:20'><td>30</td><td><span  data-default='10:47:20'>10:47:20<span></td><td><p class='participant-id' data-participant-id='104378-Негірьова Олександра Денисівна'><span class='participant-role' data-id='364'>Секретар судового засідання</span><span class='participant-name'>: Негірьова Олександра Денисівна</span><span class='divide' style='display: inline-block'>&nbsp;-&nbsp;</span><span class='participant-action'>Мікрофон вимкнено</span></p></td><td class='td-detail'><p></p></td><td><a target='_blank' class='record-play' href='https://vkz.court.gov.ua/conference/show-record?appointment_id=3015499&time=1718696840'><svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" class="cr-icon"
+	 viewBox="0 0 320.001 320.001" style="enable-background:new 0 0 320.001 320.001;" xml:space="preserve">
+<path d="M295.84,146.049l-256-144c-4.96-2.784-11.008-2.72-15.904,0.128C19.008,5.057,16,10.305,16,16.001v288
+	c0,5.696,3.008,10.944,7.936,13.824c2.496,1.44,5.28,2.176,8.064,2.176c2.688,0,5.408-0.672,7.84-2.048l256-144
+	c5.024-2.848,8.16-8.16,8.16-13.952S300.864,148.897,295.84,146.049z"/>
+</svg>Зі сховища</a><span target='_blank' class='record-play record-play-local' data-file-name='09338c35f44e5b9edbfef6172c314fda_04f6b8a4-22a8-464a-aab0-a166a9f76b64.mp4' data-time-start='1021'><svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" class="cr-icon"
+	 viewBox="0 0 320.001 320.001" style="enable-background:new 0 0 320.001 320.001;" xml:space="preserve">
+<path d="M295.84,146.049l-256-144c-4.96-2.784-11.008-2.72-15.904,0.128C19.008,5.057,16,10.305,16,16.001v288
+	c0,5.696,3.008,10.944,7.936,13.824c2.496,1.44,5.28,2.176,8.064,2.176c2.688,0,5.408-0.672,7.84-2.048l256-144
+	c5.024-2.848,8.16-8.16,8.16-13.952S300.864,148.897,295.84,146.049z"/>
+</svg>Локально</span></td></tr><tr class='highlight ' data-id='68860037' data-date='2024-06-18' data-time='10:47:23'><td>31</td><td><span  data-default='10:47:23'>10:47:23<span></td><td><p class='participant-id' data-participant-id='104378-'><span class='participant-role' data-id='0'></span><span class='participant-name'></span><span class='divide' style='display: none'>&nbsp;-&nbsp;</span><span class='participant-action'>Засідання завершено</span></p></td><td class='td-detail'><p></p></td><td><a target='_blank' class='record-play' href='https://vkz.court.gov.ua/conference/show-record?appointment_id=3015499&time=1718696843'><svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" class="cr-icon"
+	 viewBox="0 0 320.001 320.001" style="enable-background:new 0 0 320.001 320.001;" xml:space="preserve">
+<path d="M295.84,146.049l-256-144c-4.96-2.784-11.008-2.72-15.904,0.128C19.008,5.057,16,10.305,16,16.001v288
+	c0,5.696,3.008,10.944,7.936,13.824c2.496,1.44,5.28,2.176,8.064,2.176c2.688,0,5.408-0.672,7.84-2.048l256-144
+	c5.024-2.848,8.16-8.16,8.16-13.952S300.864,148.897,295.84,146.049z"/>
+</svg>Зі сховища</a><span target='_blank' class='record-play record-play-local' data-file-name='09338c35f44e5b9edbfef6172c314fda_04f6b8a4-22a8-464a-aab0-a166a9f76b64.mp4' data-time-start='1024'><svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" class="cr-icon"
+	 viewBox="0 0 320.001 320.001" style="enable-background:new 0 0 320.001 320.001;" xml:space="preserve">
+<path d="M295.84,146.049l-256-144c-4.96-2.784-11.008-2.72-15.904,0.128C19.008,5.057,16,10.305,16,16.001v288
+	c0,5.696,3.008,10.944,7.936,13.824c2.496,1.44,5.28,2.176,8.064,2.176c2.688,0,5.408-0.672,7.84-2.048l256-144
+	c5.024-2.848,8.16-8.16,8.16-13.952S300.864,148.897,295.84,146.049z"/>
+</svg>Локально</span></td></tr>                </tbody>
+            </table>
+        </div>
+
+
+                <div class="col-md-12 table-records-wrap">
+            <br>
+            <h2>Посилання на файли технічної фіксації:</h2>
+            <table class="table table-bordered table-records">
+                <thead>
+                <tr>
+                    <th>№</th>
+                    <th>Централізоване файлове сховище</th>
+                    <th>Назва файлу (для локального перегляду)</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr><td>1</td><td><a target='_blank' href='https://vkz.court.gov.ua/conference/get-record?f=09338c35f44e5b9edbfef6172c314fda_04f6b8a4-22a8-464a-aab0-a166a9f76b64.mp4&a=view'>https://vkz.court.gov.ua/conference/get-record?f=09338c35f44e5b9edbfef6172c314fda_04f6b8a4-22a8-464a-aab0-a166a9f76b64.mp4&a=view</a></td><td><a target='_blank' href='09338c35f44e5b9edbfef6172c314fda_04f6b8a4-22a8-464a-aab0-a166a9f76b64.mp4'>09338c35f44e5b9edbfef6172c314fda_ 04f6b8a4-22a8-464a-aab0-a166a9f76b64.mp4</a></td></tr>                </tbody>
+            </table>
+        </div>
+        
+
+        
+
+        <div class="col-md-12">
+                        <br><br>
+            Секретар судового засідання            <strong style="float: right">Негірьова Олександра Денисівна</strong>
+        </div>
+    </div>
+
+
+
+    
+
+
+    </div></body>
+</html>

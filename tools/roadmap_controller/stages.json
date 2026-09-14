@@ -193,7 +193,7 @@
       "dependencies": [
         "R05"
       ],
-      "prompt": "Початкові напрацювання C11 видалено за рішенням користувача 2026-09-09. Збережи серію та канонічний task; почни з contract review після R05 TECH PASS і GITHUB SYNCED. Продовжи C11 у наявному постійному task тільки після R05 TECH PASS і GITHUB SYNCED. Використовуй EvidenceMapSourceQueryService як єдине типізоване джерело; заборонені direct SQL, Any, optional query callbacks і silent empty fallback. Заверши schema 1.1.0 projection, integrity/source-basis validation, deterministic ordering/timestamps, canonical SHA-256, export audit, golden/restart/UI-caller/export-caller gates. Відсутній компонент у межах C11 реалізуй, а не оголошуй блокером. HTML UI, C12/C14/Pxx та реальні case data у Git не змінюй."
+      "prompt": "Початкові напрацювання C11 видалено за рішенням користувача 2026-09-09. Збережи серію та канонічний task; почни з contract review після R05 TECH PASS і GITHUB SYNCED. Продовжи C11 у наявному постійному task тільки після R05 TECH PASS і GITHUB SYNCED. Використовуй EvidenceMapSourceQueryService як єдине типізоване джерело; заборонені direct SQL, Any, optional query callbacks і silent empty fallback. Заверши schema 1.2.0 projection (окрема versioned схема, legacy 1.1.0 незмінна), findings/reviews, nullable proceeding number, typed persisted profile ID, integrity/source-basis validation, deterministic ordering/timestamps, canonical SHA-256, export audit, golden/restart/UI-caller/export-caller gates. Відсутній компонент у межах C11 реалізуй, а не оголошуй блокером. HTML UI, C12/C14/Pxx та реальні case data у Git не змінюй."
     },
     {
       "id": "C12",

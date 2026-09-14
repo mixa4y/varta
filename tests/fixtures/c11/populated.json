@@ -1,0 +1,509 @@
+{
+  "actors": [
+    {
+      "actorType": "organization",
+      "contacts": [],
+      "displayName": "Synthetic actor A",
+      "id": "actor-a",
+      "identifiers": [],
+      "normalizedName": "synthetic actor a",
+      "notes": null,
+      "reviewStatus": "unreviewed",
+      "roles": [
+        {
+          "caseIds": [
+            "case-synthetic-r02"
+          ],
+          "proceedingIds": [],
+          "reviewStatus": "unreviewed",
+          "role": "evidence",
+          "sourceReferenceIds": []
+        }
+      ],
+      "sourceReferenceIds": [],
+      "version": 1
+    },
+    {
+      "actorType": "person",
+      "contacts": [],
+      "displayName": "Synthetic actor B",
+      "id": "actor-b",
+      "identifiers": [],
+      "normalizedName": "synthetic actor b",
+      "notes": null,
+      "reviewStatus": "unreviewed",
+      "roles": [
+        {
+          "caseIds": [
+            "case-synthetic-r02"
+          ],
+          "proceedingIds": [],
+          "reviewStatus": "unreviewed",
+          "role": "evidence",
+          "sourceReferenceIds": []
+        }
+      ],
+      "sourceReferenceIds": [],
+      "version": 1
+    }
+  ],
+  "case": {
+    "actorIds": [
+      "actor-a",
+      "actor-b"
+    ],
+    "aliases": [],
+    "caseType": null,
+    "claimIds": [
+      "claim-a"
+    ],
+    "dates": [],
+    "folderKey": "synthetic-r02",
+    "id": "case-synthetic-r02",
+    "jurisdiction": null,
+    "number": null,
+    "numberStatus": "unknown",
+    "primaryCourtActorId": null,
+    "proceedingIds": [
+      "proceeding-a",
+      "proceeding-b"
+    ],
+    "reviewStatus": "unreviewed",
+    "sourceReferenceIds": [
+      "source-a"
+    ],
+    "status": "active",
+    "title": "Synthetic R02 case"
+  },
+  "claims": [
+    {
+      "assertedByActorIds": [
+        "actor-a"
+      ],
+      "basisDocumentIds": [
+        "document-a"
+      ],
+      "classification": "confirmed_fact",
+      "id": "claim-a",
+      "legalCitationIds": [],
+      "memberships": [
+        {
+          "contextId": "case-synthetic-r02",
+          "contextType": "case",
+          "id": "membership-6",
+          "isPrimary": true,
+          "note": null,
+          "reviewStatus": "unreviewed",
+          "role": "evidence",
+          "sourceReferenceIds": []
+        }
+      ],
+      "processConsequence": null,
+      "reviewDecisionIds": [
+        "review-claim-a"
+      ],
+      "reviewStatus": "confirmed",
+      "sourceReferenceIds": [
+        "source-a"
+      ],
+      "subject": {
+        "id": "event-a",
+        "type": "event"
+      },
+      "text": "Synthetic R02 claim",
+      "uncertaintyNote": null,
+      "version": 2
+    }
+  ],
+  "documents": [
+    {
+      "actorIds": [],
+      "amounts": [],
+      "attachmentDocumentIds": [],
+      "caseIds": [
+        "case-synthetic-r02"
+      ],
+      "claimIds": [
+        "claim-a"
+      ],
+      "classification": "unverified",
+      "date": null,
+      "dates": [],
+      "documentType": "synthetic",
+      "eventIds": [
+        "event-a"
+      ],
+      "fileIds": [
+        "file-a"
+      ],
+      "id": "document-a",
+      "isKey": true,
+      "label": "Document A",
+      "memberships": [
+        {
+          "contextId": "case-synthetic-r02",
+          "contextType": "case",
+          "id": "membership-3",
+          "isPrimary": true,
+          "note": null,
+          "reviewStatus": "unreviewed",
+          "role": "evidence",
+          "sourceReferenceIds": []
+        }
+      ],
+      "processRole": null,
+      "relationIds": [
+        "relation-a"
+      ],
+      "reviewStatus": "unreviewed",
+      "sourceReferenceIds": [
+        "source-a"
+      ],
+      "subtitle": null,
+      "summary": null,
+      "title": "Synthetic document A",
+      "version": 1
+    },
+    {
+      "actorIds": [],
+      "amounts": [],
+      "attachmentDocumentIds": [],
+      "caseIds": [
+        "case-synthetic-r02"
+      ],
+      "claimIds": [],
+      "classification": "unverified",
+      "date": null,
+      "dates": [],
+      "documentType": "synthetic",
+      "eventIds": [],
+      "fileIds": [
+        "file-b"
+      ],
+      "id": "document-b",
+      "isKey": false,
+      "label": "Document B",
+      "memberships": [
+        {
+          "contextId": "case-synthetic-r02",
+          "contextType": "case",
+          "id": "membership-4",
+          "isPrimary": true,
+          "note": null,
+          "reviewStatus": "unreviewed",
+          "role": "evidence",
+          "sourceReferenceIds": []
+        }
+      ],
+      "processRole": null,
+      "relationIds": [],
+      "reviewStatus": "unreviewed",
+      "sourceReferenceIds": [],
+      "subtitle": null,
+      "summary": null,
+      "title": "Synthetic document B",
+      "version": 1
+    }
+  ],
+  "events": [
+    {
+      "actorIds": [
+        "actor-a"
+      ],
+      "caseIds": [
+        "case-synthetic-r02"
+      ],
+      "claimIds": [
+        "claim-a"
+      ],
+      "classification": "unverified",
+      "date": "2026-01-02T00:00:00+00:00",
+      "dates": [],
+      "deadline": null,
+      "description": null,
+      "documentIds": [
+        "document-a"
+      ],
+      "eventType": "synthetic",
+      "id": "event-a",
+      "label": "Synthetic event",
+      "memberships": [
+        {
+          "contextId": "case-synthetic-r02",
+          "contextType": "case",
+          "id": "membership-5",
+          "isPrimary": true,
+          "note": null,
+          "reviewStatus": "unreviewed",
+          "role": "evidence",
+          "sourceReferenceIds": []
+        }
+      ],
+      "nextAction": null,
+      "processConsequence": null,
+      "relationIds": [
+        "relation-a"
+      ],
+      "reviewStatus": "unreviewed",
+      "sourceReferenceIds": [],
+      "status": "open",
+      "subtitle": null,
+      "title": "Synthetic event",
+      "version": 1
+    }
+  ],
+  "exclusions": [],
+  "export": {
+    "caseProfileId": "profile-r02-v1",
+    "dataCutoff": "2026-01-05T00:00:00+00:00",
+    "exportId": "synthetic-export",
+    "generatedAt": "2026-01-05T00:00:00+00:00",
+    "knownLimitations": [
+      "File associations absent from the typed source are not inferred.",
+      "Projection only: original bytes/signatures and sealed packaging are not verified."
+    ],
+    "language": "uk",
+    "productVersion": "0.1.0",
+    "profile": "full_local",
+    "profileVersion": "v1",
+    "redactionPolicyId": null,
+    "sealed": false,
+    "sourceRevision": "35ed7250e05aa89a98ee6d20c77da40108bd4cad5438a71dec3731fc8592c821",
+    "sourceSnapshotSha256": "ce5e10d29c8a9733cc570e0dd44d0ba388a7baecd38908d4b19a38048ce7e618"
+  },
+  "files": [
+    {
+      "derivedFileIds": [],
+      "documentId": "document-a",
+      "extension": ".txt",
+      "id": "file-a",
+      "integrityStatus": "verified",
+      "kind": "content",
+      "managedName": null,
+      "manualReviewReason": null,
+      "mediaType": null,
+      "originalName": "file-a.txt",
+      "processingRunIds": [],
+      "reviewStatus": "unreviewed",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "signatureFileIds": [],
+      "sizeBytes": 10,
+      "sourceReferenceIds": [
+        "source-a"
+      ],
+      "sourceRelativePath": "synthetic/file-a.txt",
+      "storageReference": "objects/synthetic-r02/file-a"
+    },
+    {
+      "derivedFileIds": [],
+      "documentId": "document-b",
+      "extension": ".txt",
+      "id": "file-b",
+      "integrityStatus": "verified",
+      "kind": "content",
+      "managedName": null,
+      "manualReviewReason": null,
+      "mediaType": null,
+      "originalName": "file-b.txt",
+      "processingRunIds": [],
+      "reviewStatus": "unreviewed",
+      "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "signatureFileIds": [],
+      "sizeBytes": 10,
+      "sourceReferenceIds": [],
+      "sourceRelativePath": "synthetic/file-b.txt",
+      "storageReference": "objects/synthetic-r02/file-b"
+    }
+  ],
+  "findings": [
+    {
+      "automaticStatus": "detected",
+      "automaticVersion": 1,
+      "confidence": 1.0,
+      "description": "Synthetic R02 finding",
+      "detector": {
+        "name": "synthetic-r02-detector",
+        "version": "1.0"
+      },
+      "findingType": "synthetic_check",
+      "fingerprint": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "firstObservedAt": "2026-01-03T00:00:00+00:00",
+      "id": "finding-a",
+      "lastObservedAt": "2026-01-03T00:00:00+00:00",
+      "processingRunId": null,
+      "reviewDecisionIds": [
+        "review-finding-a"
+      ],
+      "reviewStatus": "resolved",
+      "reviewVersion": 1,
+      "severity": "info",
+      "sourceReferenceIds": [
+        "source-a"
+      ],
+      "subjects": [
+        {
+          "id": "claim-a",
+          "type": "claim"
+        }
+      ],
+      "title": "Synthetic finding"
+    }
+  ],
+  "inventory": {
+    "actorCount": 2,
+    "claimCount": 1,
+    "duplicateSignalCount": 0,
+    "eventCount": 1,
+    "findingCount": 1,
+    "logicalDocumentCount": 2,
+    "manualReviewRequiredCount": 0,
+    "missingSourceCount": 0,
+    "physicalFileCount": 2,
+    "proceedingCount": 2,
+    "relationCount": 1,
+    "reviewDecisionCount": 2,
+    "sourceReferenceCount": 1,
+    "uniqueSha256Count": 2,
+    "unregisteredFileCount": 0
+  },
+  "proceedings": [
+    {
+      "aliases": [],
+      "applicantActorIds": [],
+      "caseId": "case-synthetic-r02",
+      "claimIds": [],
+      "courtActorIds": [],
+      "dates": [],
+      "documentIds": [],
+      "eventIds": [],
+      "folderKey": "proceeding-a",
+      "id": "proceeding-a",
+      "instance": null,
+      "judgeActorIds": [],
+      "kind": null,
+      "label": "Synthetic proceeding A",
+      "number": null,
+      "originDocumentIds": [],
+      "originEventIds": [],
+      "participantActorIds": [],
+      "relatedProceedingIds": [],
+      "result": null,
+      "reviewStatus": "unreviewed",
+      "sourceReferenceIds": [],
+      "status": "active",
+      "subtitle": null,
+      "summary": null,
+      "title": "Synthetic proceeding A"
+    },
+    {
+      "aliases": [],
+      "applicantActorIds": [],
+      "caseId": "case-synthetic-r02",
+      "claimIds": [],
+      "courtActorIds": [],
+      "dates": [],
+      "documentIds": [],
+      "eventIds": [],
+      "folderKey": "proceeding-b",
+      "id": "proceeding-b",
+      "instance": null,
+      "judgeActorIds": [],
+      "kind": null,
+      "label": "Synthetic proceeding B",
+      "number": null,
+      "originDocumentIds": [],
+      "originEventIds": [],
+      "participantActorIds": [],
+      "relatedProceedingIds": [],
+      "result": null,
+      "reviewStatus": "unreviewed",
+      "sourceReferenceIds": [],
+      "status": "active",
+      "subtitle": null,
+      "summary": null,
+      "title": "Synthetic proceeding B"
+    }
+  ],
+  "relations": [
+    {
+      "basisDocumentIds": [
+        "document-a"
+      ],
+      "classification": "confirmed_fact",
+      "fromId": "event-a",
+      "fromType": "event",
+      "id": "relation-a",
+      "label": null,
+      "relationType": "supports",
+      "reviewDecisionIds": [],
+      "reviewStatus": "unreviewed",
+      "sourceReferenceIds": [
+        "source-a"
+      ],
+      "toId": "claim-a",
+      "toType": "claim",
+      "uncertaintyNote": null,
+      "validFrom": null,
+      "validTo": null,
+      "version": 1
+    }
+  ],
+  "reviewDecisions": [
+    {
+      "actorId": "user:synthetic-r02-reviewer",
+      "basisSourceReferenceIds": [
+        "source-a"
+      ],
+      "decidedAt": "2026-01-04T00:00:00+00:00",
+      "decision": "confirm",
+      "id": "review-claim-a",
+      "newStatus": "confirmed",
+      "note": "Synthetic claim review",
+      "origin": "user",
+      "previousStatus": "unreviewed",
+      "subject": {
+        "id": "claim-a",
+        "type": "claim"
+      },
+      "subjectVersion": 2
+    },
+    {
+      "actorId": "user:synthetic-r02-reviewer",
+      "basisSourceReferenceIds": [
+        "source-a"
+      ],
+      "decidedAt": "2026-01-05T00:00:00+00:00",
+      "decision": "resolve",
+      "id": "review-finding-a",
+      "newStatus": "resolved",
+      "note": "Synthetic finding review",
+      "origin": "user",
+      "previousStatus": "unreviewed",
+      "subject": {
+        "id": "finding-a",
+        "type": "finding"
+      },
+      "subjectVersion": 1
+    }
+  ],
+  "schemaVersion": "1.2.0",
+  "sourceReferences": [
+    {
+      "createdAt": "2026-01-02T00:00:00+00:00",
+      "createdBy": "user:synthetic-r02-reviewer",
+      "excerpt": null,
+      "id": "source-a",
+      "location": null,
+      "locationType": "document",
+      "note": null,
+      "reviewStatus": "unreviewed",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "sourceEntity": {
+        "id": "document-a",
+        "type": "document"
+      },
+      "sourceFileId": "file-a",
+      "version": 1
+    }
+  ]
+}
